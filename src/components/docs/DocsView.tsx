@@ -8,12 +8,16 @@ import {
   Clock,
   Sparkles,
   Plus,
-  Github
+  Github,
+  Zap
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { RepositoryConnector } from '../repository/RepositoryConnector';
+import { DocGenerator } from './DocGenerator';
 import { useAppStore } from '../../stores/useAppStore';
+import { GeneratedDocumentation } from '../../services/docGenerator';
+import { RepositoryAnalysis } from '../../types/github';
 
 const mockDocs = [
   {
@@ -54,12 +58,61 @@ export const DocsView: React.FC = () => {
   const { repositories, currentRepository } = useAppStore();
   const [generating, setGenerating] = useState(false);
   const [showConnector, setShowConnector] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+  const [generatedDocs, setGeneratedDocs] = useState<Map<string, GeneratedDocumentation>>(new Map());
 
   const handleGenerateDocs = async () => {
     setGenerating(true);
     // Simulate AI documentation generation
     await new Promise(resolve => setTimeout(resolve, 3000));
     setGenerating(false);
+  };
+
+  const handleDocumentationGenerated = (repoId: string, documentation: GeneratedDocumentation) => {
+    setGeneratedDocs(prev => new Map(prev.set(repoId, documentation)));
+  };
+
+  const getRepositoryAnalysis = (repoId: string): RepositoryAnalysis | null => {
+    // In a real implementation, this would fetch the analysis from the store or API
+    // For now, we'll create a mock analysis
+    const repo = repositories.find(r => r.id === repoId);
+    if (!repo) return null;
+
+    return {
+      repository: {
+        id: parseInt(repo.id),
+        name: repo.name,
+        full_name: repo.name,
+        description: repo.description,
+        html_url: repo.url,
+        clone_url: repo.url,
+        language: repo.language,
+        stargazers_count: repo.stars,
+        forks_count: 0,
+        open_issues_count: 0,
+        default_branch: 'main',
+        created_at: new Date().toISOString(),
+        updated_at: repo.lastUpdated.toISOString(),
+        pushed_at: repo.lastUpdated.toISOString(),
+        size: 1000,
+        owner: {
+          login: 'owner',
+          avatar_url: '',
+          html_url: '',
+        },
+      },
+      structure: [],
+      contributors: [],
+      languages: { [repo.language]: 1000 },
+      recentCommits: [],
+      summary: {
+        totalFiles: 50,
+        totalLines: 5000,
+        primaryLanguage: repo.language,
+        lastActivity: repo.lastUpdated.toISOString(),
+        commitFrequency: 10,
+      },
+    };
   };
 
   return (
@@ -103,39 +156,57 @@ export const DocsView: React.FC = () => {
         <CardContent>
           {repositories.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {repositories.map((repo) => (
-                <div
-                  key={repo.id}
-                  className="p-4 border border-dark-600 rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-start space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                      <Github size={16} className="text-primary-400" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-white mb-1">{repo.name}</h4>
-                      <p className="text-sm text-dark-400 mb-2">{repo.description}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-dark-500">{repo.language}</span>
-                      <span className="text-dark-500">⭐ {repo.stars}</span>
-                    </div>
-                    <span className="text-primary-400">Analyze</span>
-                  </div>
-
-                  {repo.structure && (
-                    <div className="mt-3 pt-3 border-t border-dark-700">
-                      <div className="flex items-center justify-between text-xs text-dark-500">
-                        <span>{repo.structure.modules.length} modules</span>
-                        <span>{repo.structure.services.length} services</span>
+              {repositories.map((repo) => {
+                const hasGeneratedDocs = generatedDocs.has(repo.id);
+                const isSelected = selectedRepo === repo.id;
+                
+                return (
+                  <div
+                    key={repo.id}
+                    className={`p-4 border rounded-lg transition-colors cursor-pointer ${
+                      isSelected 
+                        ? 'border-primary-500 bg-primary-900/20' 
+                        : 'border-dark-600 hover:border-primary-500'
+                    }`}
+                    onClick={() => setSelectedRepo(isSelected ? null : repo.id)}
+                  >
+                    <div className="flex items-start space-x-3 mb-3">
+                      <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                        <Github size={16} className="text-primary-400" />
                       </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-white mb-1">{repo.name}</h4>
+                        <p className="text-sm text-dark-400 mb-2">{repo.description}</p>
+                      </div>
+                      {hasGeneratedDocs && (
+                        <div className="w-3 h-3 bg-success-400 rounded-full" title="Documentation generated" />
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+                    
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-dark-500">{repo.language}</span>
+                        <span className="text-dark-500">⭐ {repo.stars}</span>
+                      </div>
+                      {isSelected && (
+                        <div className="flex items-center space-x-1 text-primary-400">
+                          <Zap size={12} />
+                          <span>Selected</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {repo.structure && (
+                      <div className="mt-3 pt-3 border-t border-dark-700">
+                        <div className="flex items-center justify-between text-xs text-dark-500">
+                          <span>{repo.structure.modules.length} modules</span>
+                          <span>{repo.structure.services.length} services</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8">
@@ -155,8 +226,28 @@ export const DocsView: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Documentation Grid */}
-      {repositories.length > 0 && (
+      {/* AI Documentation Generator */}
+      {selectedRepo && (
+        <div className="space-y-6">
+          {(() => {
+            const repo = repositories.find(r => r.id === selectedRepo);
+            const analysis = getRepositoryAnalysis(selectedRepo);
+            
+            if (!repo || !analysis) return null;
+            
+            return (
+              <DocGenerator
+                repository={repo}
+                analysis={analysis}
+                onDocumentationGenerated={(doc) => handleDocumentationGenerated(repo.id, doc)}
+              />
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Existing Documentation Grid */}
+      {repositories.length > 0 && !selectedRepo && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {mockDocs.map((doc) => (
             <Card key={doc.id} hover>

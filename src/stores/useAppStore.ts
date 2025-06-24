@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Repository, Developer, Task, Sprint, BusinessSpec } from '../types';
+import { GeneratedDocumentation } from '../services/docGenerator';
 
 interface AppState {
   // Repository state
@@ -19,6 +20,9 @@ interface AppState {
   // Business specs
   businessSpecs: BusinessSpec[];
   
+  // Documentation state
+  generatedDocs: Map<string, GeneratedDocumentation>;
+  
   // UI state
   sidebarOpen: boolean;
   overlayOpen: boolean;
@@ -36,6 +40,9 @@ interface AppState {
   updateTask: (id: string, updates: Partial<Task>) => void;
   addBusinessSpec: (spec: BusinessSpec) => void;
   updateBusinessSpec: (id: string, updates: Partial<BusinessSpec>) => void;
+  addGeneratedDoc: (repoId: string, doc: GeneratedDocumentation) => void;
+  updateGeneratedDoc: (repoId: string, doc: GeneratedDocumentation) => void;
+  getGeneratedDoc: (repoId: string) => GeneratedDocumentation | null;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -174,6 +181,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
   ],
   
+  generatedDocs: new Map(),
+  
   sidebarOpen: true,
   overlayOpen: false,
   currentView: 'dashboard',
@@ -215,4 +224,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       spec.id === id ? { ...spec, ...updates } : spec
     )
   })),
+  
+  addGeneratedDoc: (repoId, doc) => set((state) => ({
+    generatedDocs: new Map(state.generatedDocs.set(repoId, doc))
+  })),
+  
+  updateGeneratedDoc: (repoId, doc) => set((state) => ({
+    generatedDocs: new Map(state.generatedDocs.set(repoId, doc))
+  })),
+  
+  getGeneratedDoc: (repoId) => {
+    return get().generatedDocs.get(repoId) || null;
+  },
 }));
