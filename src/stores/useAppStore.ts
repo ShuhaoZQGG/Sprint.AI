@@ -26,6 +26,9 @@ interface AppState {
   
   // Actions
   setCurrentRepository: (repo: Repository | null) => void;
+  addRepository: (repo: Repository) => void;
+  updateRepository: (id: string, updates: Partial<Repository>) => void;
+  removeRepository: (id: string) => void;
   setSidebarOpen: (open: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
   setCurrentView: (view: AppState['currentView']) => void;
@@ -177,6 +180,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   // Actions
   setCurrentRepository: (repo) => set({ currentRepository: repo }),
+  
+  addRepository: (repo) => set((state) => ({ 
+    repositories: [...state.repositories, repo] 
+  })),
+  
+  updateRepository: (id, updates) => set((state) => ({
+    repositories: state.repositories.map(repo => 
+      repo.id === id ? { ...repo, ...updates } : repo
+    )
+  })),
+  
+  removeRepository: (id) => set((state) => ({
+    repositories: state.repositories.filter(repo => repo.id !== id),
+    currentRepository: state.currentRepository?.id === id ? null : state.currentRepository,
+  })),
+  
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setOverlayOpen: (open) => set({ overlayOpen: open }),
   setCurrentView: (view) => set({ currentView: view }),

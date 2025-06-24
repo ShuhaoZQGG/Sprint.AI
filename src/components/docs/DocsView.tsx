@@ -6,10 +6,13 @@ import {
   Download,
   GitBranch,
   Clock,
-  Sparkles
+  Sparkles,
+  Plus,
+  Github
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { RepositoryConnector } from '../repository/RepositoryConnector';
 import { useAppStore } from '../../stores/useAppStore';
 
 const mockDocs = [
@@ -50,6 +53,7 @@ const mockDocs = [
 export const DocsView: React.FC = () => {
   const { repositories, currentRepository } = useAppStore();
   const [generating, setGenerating] = useState(false);
+  const [showConnector, setShowConnector] = useState(false);
 
   const handleGenerateDocs = async () => {
     setGenerating(true);
@@ -67,6 +71,10 @@ export const DocsView: React.FC = () => {
           <p className="text-dark-400">AI-generated and maintained codebase documentation</p>
         </div>
         <div className="flex items-center space-x-3">
+          <Button variant="ghost" onClick={() => setShowConnector(true)}>
+            <Plus size={16} className="mr-2" />
+            Connect Repository
+          </Button>
           <Button variant="ghost">
             <Download size={16} className="mr-2" />
             Export
@@ -85,7 +93,7 @@ export const DocsView: React.FC = () => {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Repository Analysis</h3>
+            <h3 className="text-lg font-semibold text-white">Connected Repositories</h3>
             <div className="flex items-center space-x-2">
               <GitBranch size={16} className="text-dark-400" />
               <span className="text-sm text-dark-400">main branch</span>
@@ -93,77 +101,115 @@ export const DocsView: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {repositories.map((repo) => (
-              <div
-                key={repo.id}
-                className="p-4 border border-dark-600 rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
-              >
-                <h4 className="font-medium text-white mb-2">{repo.name}</h4>
-                <p className="text-sm text-dark-400 mb-3">{repo.description}</p>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-dark-500">{repo.language}</span>
-                  <span className="text-primary-400">Analyze</span>
+          {repositories.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {repositories.map((repo) => (
+                <div
+                  key={repo.id}
+                  className="p-4 border border-dark-600 rounded-lg hover:border-primary-500 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                      <Github size={16} className="text-primary-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-white mb-1">{repo.name}</h4>
+                      <p className="text-sm text-dark-400 mb-2">{repo.description}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-dark-500">{repo.language}</span>
+                      <span className="text-dark-500">⭐ {repo.stars}</span>
+                    </div>
+                    <span className="text-primary-400">Analyze</span>
+                  </div>
+
+                  {repo.structure && (
+                    <div className="mt-3 pt-3 border-t border-dark-700">
+                      <div className="flex items-center justify-between text-xs text-dark-500">
+                        <span>{repo.structure.modules.length} modules</span>
+                        <span>{repo.structure.services.length} services</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-dark-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Github className="w-8 h-8 text-dark-400" />
               </div>
-            ))}
-          </div>
+              <h4 className="text-lg font-medium text-white mb-2">No Repositories Connected</h4>
+              <p className="text-dark-400 mb-4">
+                Connect your GitHub repositories to start generating documentation
+              </p>
+              <Button onClick={() => setShowConnector(true)}>
+                <Plus size={16} className="mr-2" />
+                Connect Repository
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Documentation Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {mockDocs.map((doc) => (
-          <Card key={doc.id} hover>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 bg-dark-700 rounded-lg flex items-center justify-center">
-                    <FileText size={20} className="text-primary-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">{doc.title}</h3>
-                    <p className="text-sm text-dark-400 mt-1">{doc.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {doc.autoGenerated && (
-                    <div className="flex items-center space-x-1 text-xs text-secondary-400 bg-secondary-900/20 px-2 py-1 rounded">
-                      <Sparkles size={12} />
-                      <span>AI</span>
+      {repositories.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {mockDocs.map((doc) => (
+            <Card key={doc.id} hover>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-dark-700 rounded-lg flex items-center justify-center">
+                      <FileText size={20} className="text-primary-400" />
                     </div>
-                  )}
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      doc.status === 'current' ? 'bg-success-400' : 'bg-warning-400'
-                    }`}
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4 text-sm text-dark-400">
-                  <div className="flex items-center space-x-1">
-                    <Clock size={14} />
-                    <span>Updated {doc.lastUpdated.toLocaleDateString()}</span>
+                    <div>
+                      <h3 className="font-semibold text-white">{doc.title}</h3>
+                      <p className="text-sm text-dark-400 mt-1">{doc.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {doc.autoGenerated && (
+                      <div className="flex items-center space-x-1 text-xs text-secondary-400 bg-secondary-900/20 px-2 py-1 rounded">
+                        <Sparkles size={12} />
+                        <span>AI</span>
+                      </div>
+                    )}
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        doc.status === 'current' ? 'bg-success-400' : 'bg-warning-400'
+                      }`}
+                    />
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm">
-                    <Edit size={14} className="mr-1" />
-                    Edit
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <RefreshCw size={14} className="mr-1" />
-                    Refresh
-                  </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4 text-sm text-dark-400">
+                    <div className="flex items-center space-x-1">
+                      <Clock size={14} />
+                      <span>Updated {doc.lastUpdated.toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button variant="ghost" size="sm">
+                      <Edit size={14} className="mr-1" />
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm">
+                      <RefreshCw size={14} className="mr-1" />
+                      Refresh
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* AI Generation Status */}
       {generating && (
@@ -181,6 +227,12 @@ export const DocsView: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Repository Connector Modal */}
+      <RepositoryConnector
+        isOpen={showConnector}
+        onClose={() => setShowConnector(false)}
+      />
     </div>
   );
 };
