@@ -73,7 +73,7 @@ class GroqService {
   /**
    * Make a completion request to Groq
    */
-  private async makeCompletion(prompt: string, maxTokens?: number): Promise<string> {
+  async makeCompletion(prompt: string, maxTokens?: number): Promise<string> {
     if (!this.isAvailable()) {
       throw new Error('Groq API is not available. Please check your API key configuration.');
     }
