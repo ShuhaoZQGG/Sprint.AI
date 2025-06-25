@@ -95,13 +95,6 @@ export const createOrJoinTeam = async (teamName: string, isCreating: boolean = t
   }
 };
 
-// Connection status monitoring
-export const monitorConnection = () => {
-  return supabase.realtime.onConnect(() => {
-    console.log('Connected to Supabase Realtime');
-  });
-};
-
 // Error handling helper
 export const handleSupabaseError = (error: any) => {
   console.error('Supabase error:', error);

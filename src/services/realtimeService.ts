@@ -32,27 +32,49 @@ class RealtimeService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
+  private connectionMonitorChannel: RealtimeChannel | null = null;
 
   constructor() {
     this.setupConnectionMonitoring();
   }
 
   /**
-   * Set up connection monitoring and auto-reconnection
+   * Set up connection monitoring using a dedicated channel
    */
   private setupConnectionMonitoring() {
-    supabase.realtime.onConnect(() => {
-      console.log('Realtime connected');
-      this.connectionStatus = 'connected';
-      this.reconnectAttempts = 0;
-      this.notifyConnectionChange('connected');
+    // Create a dedicated channel for monitoring connection status
+    this.connectionMonitorChannel = supabase.channel('connection_monitor', {
+      config: {
+        presence: { key: 'connection_monitor' }
+      }
     });
 
-    supabase.realtime.onDisconnect(() => {
-      console.log('Realtime disconnected');
-      this.connectionStatus = 'disconnected';
-      this.notifyConnectionChange('disconnected');
-      this.handleReconnection();
+    this.connectionMonitorChannel.subscribe((status) => {
+      switch (status) {
+        case 'SUBSCRIBED':
+          console.log('Realtime connected');
+          this.connectionStatus = 'connected';
+          this.reconnectAttempts = 0;
+          this.notifyConnectionChange('connected');
+          break;
+        case 'CHANNEL_ERROR':
+          console.log('Realtime connection error');
+          this.connectionStatus = 'disconnected';
+          this.notifyConnectionChange('disconnected');
+          this.handleReconnection();
+          break;
+        case 'TIMED_OUT':
+          console.log('Realtime connection timed out');
+          this.connectionStatus = 'disconnected';
+          this.notifyConnectionChange('disconnected');
+          this.handleReconnection();
+          break;
+        case 'CLOSED':
+          console.log('Realtime connection closed');
+          this.connectionStatus = 'disconnected';
+          this.notifyConnectionChange('disconnected');
+          break;
+      }
     });
   }
 
@@ -67,19 +89,24 @@ class RealtimeService {
 
     this.connectionStatus = 'connecting';
     this.reconnectAttempts++;
+    this.notifyConnectionChange('connecting');
     
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
     
     setTimeout(() => {
       console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      // Supabase handles reconnection automatically, we just need to wait
+      // Create a new connection monitor channel
+      if (this.connectionMonitorChannel) {
+        supabase.removeChannel(this.connectionMonitorChannel);
+      }
+      this.setupConnectionMonitoring();
     }, delay);
   }
 
   /**
    * Notify connection status changes
    */
-  private notifyConnectionChange(status: 'connected' | 'disconnected') {
+  private notifyConnectionChange(status: 'connected' | 'disconnected' | 'connecting') {
     // Emit custom event for components to listen to
     window.dispatchEvent(new CustomEvent('realtime-connection-change', {
       detail: { status }
@@ -255,7 +282,10 @@ class RealtimeService {
    */
   reconnect() {
     this.reconnectAttempts = 0;
-    // Supabase will handle the actual reconnection
+    if (this.connectionMonitorChannel) {
+      supabase.removeChannel(this.connectionMonitorChannel);
+    }
+    this.setupConnectionMonitoring();
     console.log('Manual reconnection triggered');
   }
 
@@ -275,6 +305,12 @@ class RealtimeService {
       supabase.removeChannel(channel);
     });
     this.presenceChannels.clear();
+
+    // Clean up connection monitor channel
+    if (this.connectionMonitorChannel) {
+      supabase.removeChannel(this.connectionMonitorChannel);
+      this.connectionMonitorChannel = null;
+    }
 
     console.log('Realtime service cleaned up');
   }
