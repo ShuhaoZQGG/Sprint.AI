@@ -1,6 +1,7 @@
 import { groqService, DocumentationSection } from './groq';
 import { RepositoryAnalysis } from '../types/github';
 import { Repository } from '../types';
+import { documentationService } from './documentationService';
 import toast from 'react-hot-toast';
 
 export interface GeneratedDocumentation {
@@ -94,7 +95,15 @@ class DocumentationGenerator {
         status: 'completed',
       };
 
-      toast.success(`Documentation generated successfully for ${repository.name}!`);
+      // Store documentation in database
+      try {
+        await documentationService.storeDocumentation(repository.id, documentation);
+        toast.success(`Documentation generated and saved for ${repository.name}!`);
+      } catch (storeError) {
+        console.warn('Failed to store documentation in database:', storeError);
+        toast.success(`Documentation generated successfully for ${repository.name}!`);
+      }
+
       return documentation;
 
     } catch (error) {
@@ -159,7 +168,15 @@ class DocumentationGenerator {
         error: undefined,
       };
 
-      toast.success('Documentation updated successfully!');
+      // Update in database
+      try {
+        await documentationService.updateDocumentation(existingDoc.id, updatedDoc);
+        toast.success('Documentation updated and saved successfully!');
+      } catch (updateError) {
+        console.warn('Failed to update documentation in database:', updateError);
+        toast.success('Documentation updated successfully!');
+      }
+
       return updatedDoc;
 
     } catch (error) {
