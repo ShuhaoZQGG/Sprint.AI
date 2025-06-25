@@ -8,13 +8,18 @@ import {
   AlertCircle,
   CheckCircle2,
   Circle,
-  PlayCircle
+  PlayCircle,
+  GitBranch,
+  MoreHorizontal
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { PRPreview } from './PRPreview';
 import { useAppStore } from '../../stores/useAppStore';
-import { Task, TaskStatus } from '../../types';
+import { prGenerator } from '../../services/prGenerator';
+import { Task, TaskStatus, PRTemplate } from '../../types';
+import toast from 'react-hot-toast';
 
 const statusConfig = {
   backlog: { icon: Circle, color: 'text-dark-400', bg: 'bg-dark-700' },
@@ -32,9 +37,13 @@ const priorityColors = {
 };
 
 export const TasksView: React.FC = () => {
-  const { tasks, developers } = useAppStore();
+  const { tasks, developers, repositories, currentRepository } = useAppStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
+  const [showPRPreview, setShowPRPreview] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [generatedPR, setGeneratedPR] = useState<PRTemplate | null>(null);
+  const [generatingPR, setGeneratingPR] = useState<string | null>(null);
 
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -47,6 +56,33 @@ export const TasksView: React.FC = () => {
     if (!task.assignee) return 'Unassigned';
     const developer = developers.find(dev => dev.id === task.assignee?.id);
     return developer?.name || 'Unknown';
+  };
+
+  const handleGeneratePR = async (task: Task) => {
+    if (!currentRepository) {
+      toast.error('Please select a repository first');
+      return;
+    }
+
+    setGeneratingPR(task.id);
+
+    try {
+      const prResponse = await prGenerator.generatePRTemplate({
+        task,
+        repository: currentRepository,
+        includeScaffolds: true,
+      });
+
+      setSelectedTask(task);
+      setGeneratedPR(prResponse.template);
+      setShowPRPreview(true);
+      toast.success('PR template generated successfully!');
+    } catch (error) {
+      console.error('PR generation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate PR template');
+    } finally {
+      setGeneratingPR(null);
+    }
   };
 
   const tasksByStatus = Object.keys(statusConfig).reduce((acc, status) => {
@@ -67,6 +103,28 @@ export const TasksView: React.FC = () => {
           New Task
         </Button>
       </div>
+
+      {/* Repository Info */}
+      {currentRepository && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                  <GitBranch size={16} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-white">{currentRepository.name}</h3>
+                  <p className="text-sm text-dark-400">Connected repository for PR generation</p>
+                </div>
+              </div>
+              <div className="text-sm text-dark-400">
+                {currentRepository.language} • {currentRepository.stars} stars
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <div className="flex items-center space-x-4">
@@ -118,18 +176,32 @@ export const TasksView: React.FC = () => {
 
               <div className="space-y-3">
                 {statusTasks.map((task) => (
-                  <Card key={task.id} hover className="cursor-pointer">
+                  <Card key={task.id} hover className="cursor-pointer group">
                     <CardContent className="p-4">
                       <div className="space-y-3">
                         <div className="flex items-start justify-between">
                           <h4 className="font-medium text-white text-sm leading-5">
                             {task.title}
                           </h4>
-                          <span
-                            className={`text-xs font-medium px-2 py-1 rounded ${priorityColors[task.priority]} bg-current bg-opacity-10`}
-                          >
-                            {task.priority}
-                          </span>
+                          <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleGeneratePR(task)}
+                              disabled={!currentRepository || generatingPR === task.id}
+                              className="p-1"
+                              title="Generate PR Template"
+                            >
+                              {generatingPR === task.id ? (
+                                <div className="w-3 h-3 border border-primary-400 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <GitBranch size={12} />
+                              )}
+                            </Button>
+                            <Button variant="ghost" size="sm" className="p-1">
+                              <MoreHorizontal size={12} />
+                            </Button>
+                          </div>
                         </div>
 
                         <p className="text-xs text-dark-400 line-clamp-2">
@@ -161,9 +233,16 @@ export const TasksView: React.FC = () => {
                           >
                             {task.type}
                           </span>
-                          <span className="text-xs text-dark-500">
-                            {new Date(task.updatedAt).toLocaleDateString()}
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span
+                              className={`text-xs font-medium ${priorityColors[task.priority]}`}
+                            >
+                              {task.priority}
+                            </span>
+                            <span className="text-xs text-dark-500">
+                              {new Date(task.updatedAt).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
@@ -180,6 +259,21 @@ export const TasksView: React.FC = () => {
           );
         })}
       </div>
+
+      {/* PR Preview Modal */}
+      {showPRPreview && selectedTask && generatedPR && currentRepository && (
+        <PRPreview
+          isOpen={showPRPreview}
+          onClose={() => {
+            setShowPRPreview(false);
+            setSelectedTask(null);
+            setGeneratedPR(null);
+          }}
+          template={generatedPR}
+          task={selectedTask}
+          repository={currentRepository}
+        />
+      )}
     </div>
   );
 };
