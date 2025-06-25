@@ -113,4 +113,14 @@ export interface BusinessSpec {
   technicalRequirements?: string[];
   generatedTasks?: Task[];
   lastUpdated: Date;
+  status?: 'draft' | 'review' | 'approved' | 'implemented';
+  priority?: Priority;
+  estimatedEffort?: number;
+  tags?: string[];
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  createdAt?: Date;
 }

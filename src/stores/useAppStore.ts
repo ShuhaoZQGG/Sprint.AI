@@ -16,9 +16,6 @@ interface AppState {
   sprints: Sprint[];
   currentSprint: Sprint | null;
   
-  // Business specs (keeping mock data for now)
-  businessSpecs: BusinessSpec[];
-  
   // Documentation state
   generatedDocs: Map<string, GeneratedDocumentation>;
   
@@ -34,8 +31,6 @@ interface AppState {
   setCurrentView: (view: AppState['currentView']) => void;
   addTask: (task: Task) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
-  addBusinessSpec: (spec: BusinessSpec) => void;
-  updateBusinessSpec: (id: string, updates: Partial<BusinessSpec>) => void;
   addGeneratedDoc: (repoId: string, doc: GeneratedDocumentation) => void;
   updateGeneratedDoc: (repoId: string, doc: GeneratedDocumentation) => void;
   getGeneratedDoc: (repoId: string) => GeneratedDocumentation | null;
@@ -142,21 +137,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   ],
   currentSprint: null,
   
-  businessSpecs: [
-    {
-      id: '1',
-      title: 'AI-Powered Code Documentation',
-      description: 'Automatically generate and maintain living documentation from codebase analysis',
-      acceptanceCriteria: [
-        'Parse GitHub repository structure',
-        'Generate comprehensive documentation using AI',
-        'Auto-update docs on PR merges',
-        'Support multiple programming languages',
-      ],
-      lastUpdated: new Date(),
-    },
-  ],
-  
   generatedDocs: new Map(),
   
   sidebarOpen: true,
@@ -174,16 +154,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   updateTask: (id, updates) => set((state) => ({
     tasks: state.tasks.map(task => task.id === id ? { ...task, ...updates } : task)
-  })),
-  
-  addBusinessSpec: (spec) => set((state) => ({ 
-    businessSpecs: [...state.businessSpecs, spec] 
-  })),
-  
-  updateBusinessSpec: (id, updates) => set((state) => ({
-    businessSpecs: state.businessSpecs.map(spec => 
-      spec.id === id ? { ...spec, ...updates } : spec
-    )
   })),
   
   addGeneratedDoc: (repoId, doc) => set((state) => ({

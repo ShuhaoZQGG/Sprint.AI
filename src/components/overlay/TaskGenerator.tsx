@@ -10,7 +10,9 @@ import {
   Trash2,
   Edit3,
   Save,
-  X
+  X,
+  Star,
+  Calendar
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -18,6 +20,8 @@ import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
 import { groqService } from '../../services/groq';
 import { useAppStore } from '../../stores/useAppStore';
+import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
+import { useTasks } from '../../hooks/useTasks';
 import { BusinessSpec, Task, TaskType, Priority } from '../../types';
 import toast from 'react-hot-toast';
 
@@ -43,12 +47,15 @@ export const TaskGenerator: React.FC<TaskGeneratorProps> = ({
   initialSpec,
 }) => {
   const { 
-    businessSpecs, 
-    addBusinessSpec, 
-    updateBusinessSpec, 
-    addTask, 
+    businessSpecs,
+    createBusinessSpec, 
+    updateBusinessSpec,
+  } = useBusinessSpecs();
+  
+  const { createTask } = useTasks();
+  
+  const { 
     developers,
-    repositories,
     currentRepository 
   } = useAppStore();
 
@@ -130,16 +137,16 @@ export const TaskGenerator: React.FC<TaskGeneratorProps> = ({
       // Save or update the business spec first
       const specToSave = {
         ...currentSpec,
-        id: currentSpec.id || `spec-${Date.now()}`,
         acceptanceCriteria: currentSpec.acceptanceCriteria?.filter(c => c.trim()) || [],
         technicalRequirements: currentSpec.technicalRequirements?.filter(r => r.trim()) || [],
       };
 
+      let savedSpec: BusinessSpec;
       if (currentSpec.id) {
-        updateBusinessSpec(currentSpec.id, specToSave);
+        savedSpec = await updateBusinessSpec(currentSpec.id, specToSave);
       } else {
-        addBusinessSpec(specToSave);
-        setCurrentSpec(specToSave);
+        savedSpec = await createBusinessSpec(specToSave);
+        setCurrentSpec(savedSpec);
       }
 
       // Prepare context for task generation
@@ -154,7 +161,7 @@ export const TaskGenerator: React.FC<TaskGeneratorProps> = ({
 
       // Generate tasks using AI
       const taskResponse = await groqService.generateTasks({
-        businessSpec: specToSave,
+        businessSpec: savedSpec,
         codebaseContext,
         teamSkills,
       });
@@ -181,24 +188,30 @@ export const TaskGenerator: React.FC<TaskGeneratorProps> = ({
     setGeneratedTasks(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleCreateTasks = () => {
-    generatedTasks.forEach(generatedTask => {
-      const task: Task = {
-        id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        title: generatedTask.title,
-        description: generatedTask.description,
-        type: generatedTask.type,
-        priority: generatedTask.priority,
-        status: 'backlog',
-        estimatedEffort: generatedTask.estimatedEffort,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      addTask(task);
-    });
+  const handleCreateTasks = async () => {
+    try {
+      const createdTasks = [];
+      
+      for (const generatedTask of generatedTasks) {
+        const task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
+          title: generatedTask.title,
+          description: generatedTask.description,
+          type: generatedTask.type,
+          priority: generatedTask.priority,
+          status: 'backlog',
+          estimatedEffort: generatedTask.estimatedEffort,
+        };
+        
+        const createdTask = await createTask(task);
+        createdTasks.push(createdTask);
+      }
 
-    toast.success(`Created ${generatedTasks.length} tasks successfully!`);
-    handleClose();
+      toast.success(`Created ${createdTasks.length} tasks successfully!`);
+      handleClose();
+    } catch (error) {
+      console.error('Error creating tasks:', error);
+      toast.error('Failed to create some tasks');
+    }
   };
 
   const handleClose = () => {
@@ -249,6 +262,47 @@ export const TaskGenerator: React.FC<TaskGeneratorProps> = ({
           Define your feature requirements and acceptance criteria
         </p>
       </div>
+
+      {/* Existing Specs Selector */}
+      {businessSpecs.length > 0 && !initialSpec && (
+        <Card>
+          <CardHeader>
+            <h4 className="font-medium text-white">Use Existing Specification</h4>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {businessSpecs.slice(0, 5).map((spec) => (
+                <button
+                  key={spec.id}
+                  onClick={() => setCurrentSpec(spec)}
+                  className="w-full text-left p-3 bg-dark-700 hover:bg-dark-600 rounded-lg border border-dark-600 hover:border-primary-500 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h5 className="text-sm font-medium text-white">{spec.title}</h5>
+                      <p className="text-xs text-dark-400 mt-1">{spec.description.substring(0, 100)}...</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {spec.status && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          spec.status === 'approved' ? 'bg-success-900/20 text-success-400' :
+                          spec.status === 'review' ? 'bg-warning-900/20 text-warning-400' :
+                          'bg-dark-600 text-dark-300'
+                        }`}>
+                          {spec.status}
+                        </span>
+                      )}
+                      {spec.priority && (
+                        <Star size={12} className={getPriorityColor(spec.priority)} />
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-4">
         <Input
@@ -340,6 +394,42 @@ export const TaskGenerator: React.FC<TaskGeneratorProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Spec Metadata */}
+        {currentSpec.id && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-4">
+                  {currentSpec.status && (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-dark-400">Status:</span>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        currentSpec.status === 'approved' ? 'bg-success-900/20 text-success-400' :
+                        currentSpec.status === 'review' ? 'bg-warning-900/20 text-warning-400' :
+                        'bg-dark-600 text-dark-300'
+                      }`}>
+                        {currentSpec.status}
+                      </span>
+                    </div>
+                  )}
+                  {currentSpec.createdAt && (
+                    <div className="flex items-center space-x-1 text-dark-400">
+                      <Calendar size={12} />
+                      <span>Created {currentSpec.createdAt.toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+                {currentSpec.createdBy && (
+                  <div className="flex items-center space-x-1 text-dark-400">
+                    <User size={12} />
+                    <span>{currentSpec.createdBy.name}</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="flex space-x-3">

@@ -15,6 +15,9 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
+import { useRepositories } from '../../hooks/useRepositories';
+import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
+import { useTasks } from '../../hooks/useTasks';
 import { Button } from '../ui/Button';
 import { TaskGenerator } from './TaskGenerator';
 import { nlpProcessor, ProcessedQuery } from '../../services/nlpProcessor';
@@ -67,13 +70,14 @@ export const AIOverlay: React.FC = () => {
   const { 
     overlayOpen, 
     setOverlayOpen, 
-    repositories, 
     developers, 
-    tasks, 
-    businessSpecs,
     currentRepository,
     setCurrentView
   } = useAppStore();
+  
+  const { repositories } = useRepositories();
+  const { businessSpecs } = useBusinessSpecs();
+  const { tasks } = useTasks();
   
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
