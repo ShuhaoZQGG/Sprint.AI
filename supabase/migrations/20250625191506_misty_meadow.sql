@@ -29,7 +29,7 @@ ALTER TABLE task_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE performance_metrics ENABLE ROW LEVEL SECURITY;
 
 -- Helper function to get current user's team ID
-CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+CREATE OR REPLACE FUNCTION public.uid() RETURNS uuid
     LANGUAGE sql STABLE
     AS $$
   select 
@@ -41,30 +41,30 @@ $$;
 
 -- Profiles policies
 CREATE POLICY "Users can read own profile" ON profiles
-  FOR SELECT USING (auth.uid() = id);
+  FOR SELECT USING (public.uid() = id);
 
 CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (auth.uid() = id);
+  FOR UPDATE USING (public.uid() = id);
 
 CREATE POLICY "Users can insert own profile" ON profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+  FOR INSERT WITH CHECK (public.uid() = id);
 
 -- Teams policies
 CREATE POLICY "Team members can read their team" ON teams
   FOR SELECT USING (
     id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Authenticated users can create teams" ON teams
-  FOR INSERT WITH CHECK (created_by = auth.uid());
+  FOR INSERT WITH CHECK (created_by = public.uid());
 
 CREATE POLICY "Team admins can update their team" ON teams
   FOR UPDATE USING (
     id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
@@ -72,21 +72,21 @@ CREATE POLICY "Team admins can update their team" ON teams
 CREATE POLICY "Team members can read team repositories" ON repositories
   FOR SELECT USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Team members can insert repositories" ON repositories
   FOR INSERT WITH CHECK (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Team members can update team repositories" ON repositories
   FOR UPDATE USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
@@ -94,7 +94,7 @@ CREATE POLICY "Team admins can delete repositories" ON repositories
   FOR DELETE USING (
     team_id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
@@ -102,21 +102,21 @@ CREATE POLICY "Team admins can delete repositories" ON repositories
 CREATE POLICY "Team members can read team developers" ON developers
   FOR SELECT USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Users can read own developer profile" ON developers
-  FOR SELECT USING (profile_id = auth.uid());
+  FOR SELECT USING (profile_id = public.uid());
 
 CREATE POLICY "Users can update own developer profile" ON developers
-  FOR UPDATE USING (profile_id = auth.uid());
+  FOR UPDATE USING (profile_id = public.uid());
 
 CREATE POLICY "Team admins can manage developers" ON developers
   FOR ALL USING (
     team_id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
@@ -124,32 +124,32 @@ CREATE POLICY "Team admins can manage developers" ON developers
 CREATE POLICY "Team members can read team business specs" ON business_specs
   FOR SELECT USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Team members can create business specs" ON business_specs
   FOR INSERT WITH CHECK (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
-    ) AND created_by = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
+    ) AND created_by = public.uid()
   );
 
 CREATE POLICY "Creators and admins can update business specs" ON business_specs
   FOR UPDATE USING (
-    created_by = auth.uid() OR 
+    created_by = public.uid() OR 
     team_id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
 CREATE POLICY "Creators and admins can delete business specs" ON business_specs
   FOR DELETE USING (
-    created_by = auth.uid() OR 
+    created_by = public.uid() OR 
     team_id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
@@ -157,30 +157,30 @@ CREATE POLICY "Creators and admins can delete business specs" ON business_specs
 CREATE POLICY "Team members can read team tasks" ON tasks
   FOR SELECT USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Team members can create tasks" ON tasks
   FOR INSERT WITH CHECK (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
-    ) AND created_by = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
+    ) AND created_by = public.uid()
   );
 
 CREATE POLICY "Team members can update tasks" ON tasks
   FOR UPDATE USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Creators and admins can delete tasks" ON tasks
   FOR DELETE USING (
-    created_by = auth.uid() OR 
+    created_by = public.uid() OR 
     team_id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
@@ -188,30 +188,30 @@ CREATE POLICY "Creators and admins can delete tasks" ON tasks
 CREATE POLICY "Team members can read team sprints" ON sprints
   FOR SELECT USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Team members can create sprints" ON sprints
   FOR INSERT WITH CHECK (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
-    ) AND created_by = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
+    ) AND created_by = public.uid()
   );
 
 CREATE POLICY "Team members can update sprints" ON sprints
   FOR UPDATE USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Creators and admins can delete sprints" ON sprints
   FOR DELETE USING (
-    created_by = auth.uid() OR 
+    created_by = public.uid() OR 
     team_id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
@@ -221,7 +221,7 @@ CREATE POLICY "Team members can read sprint tasks" ON sprint_tasks
     sprint_id IN (
       SELECT id FROM sprints 
       WHERE team_id IN (
-        SELECT team_id FROM profiles WHERE id = auth.uid()
+        SELECT team_id FROM profiles WHERE id = public.uid()
       )
     )
   );
@@ -231,7 +231,7 @@ CREATE POLICY "Team members can manage sprint tasks" ON sprint_tasks
     sprint_id IN (
       SELECT id FROM sprints 
       WHERE team_id IN (
-        SELECT team_id FROM profiles WHERE id = auth.uid()
+        SELECT team_id FROM profiles WHERE id = public.uid()
       )
     )
   );
@@ -240,30 +240,30 @@ CREATE POLICY "Team members can manage sprint tasks" ON sprint_tasks
 CREATE POLICY "Team members can read team docs" ON generated_docs
   FOR SELECT USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Team members can create docs" ON generated_docs
   FOR INSERT WITH CHECK (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
-    ) AND created_by = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
+    ) AND created_by = public.uid()
   );
 
 CREATE POLICY "Team members can update docs" ON generated_docs
   FOR UPDATE USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Creators and admins can delete docs" ON generated_docs
   FOR DELETE USING (
-    created_by = auth.uid() OR 
+    created_by = public.uid() OR 
     team_id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
@@ -271,30 +271,30 @@ CREATE POLICY "Creators and admins can delete docs" ON generated_docs
 CREATE POLICY "Team members can read team PR templates" ON pr_templates
   FOR SELECT USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Team members can create PR templates" ON pr_templates
   FOR INSERT WITH CHECK (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
-    ) AND created_by = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
+    ) AND created_by = public.uid()
   );
 
 CREATE POLICY "Team members can update PR templates" ON pr_templates
   FOR UPDATE USING (
     team_id IN (
-      SELECT team_id FROM profiles WHERE id = auth.uid()
+      SELECT team_id FROM profiles WHERE id = public.uid()
     )
   );
 
 CREATE POLICY "Creators and admins can delete PR templates" ON pr_templates
   FOR DELETE USING (
-    created_by = auth.uid() OR 
+    created_by = public.uid() OR 
     team_id IN (
       SELECT team_id FROM profiles 
-      WHERE id = auth.uid() AND role IN ('admin', 'manager')
+      WHERE id = public.uid() AND role IN ('admin', 'manager')
     )
   );
 
@@ -304,7 +304,7 @@ CREATE POLICY "Team members can read task assignments" ON task_assignments
     task_id IN (
       SELECT id FROM tasks 
       WHERE team_id IN (
-        SELECT team_id FROM profiles WHERE id = auth.uid()
+        SELECT team_id FROM profiles WHERE id = public.uid()
       )
     )
   );
@@ -314,9 +314,9 @@ CREATE POLICY "Team members can create task assignments" ON task_assignments
     task_id IN (
       SELECT id FROM tasks 
       WHERE team_id IN (
-        SELECT team_id FROM profiles WHERE id = auth.uid()
+        SELECT team_id FROM profiles WHERE id = public.uid()
       )
-    ) AND assigned_by = auth.uid()
+    ) AND assigned_by = public.uid()
   );
 
 -- Performance metrics policies
@@ -325,7 +325,7 @@ CREATE POLICY "Team members can read team performance metrics" ON performance_me
     developer_id IN (
       SELECT id FROM developers 
       WHERE team_id IN (
-        SELECT team_id FROM profiles WHERE id = auth.uid()
+        SELECT team_id FROM profiles WHERE id = public.uid()
       )
     )
   );
@@ -335,7 +335,7 @@ CREATE POLICY "System can insert performance metrics" ON performance_metrics
     developer_id IN (
       SELECT id FROM developers 
       WHERE team_id IN (
-        SELECT team_id FROM profiles WHERE id = auth.uid()
+        SELECT team_id FROM profiles WHERE id = public.uid()
       )
     )
   );

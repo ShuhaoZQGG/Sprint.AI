@@ -19,6 +19,13 @@
 -- First, we need to create auth users (this would normally be done through Supabase Auth)
 -- For development, we'll create placeholder profiles that can be linked to real auth users later
 
+-- Insert sample users (for development/testing only)
+INSERT INTO auth.users (id, email, encrypted_password, instance_id, aud, role, email_confirmed_at, is_sso_user, raw_app_meta_data, raw_user_meta_data, created_at, updated_at) VALUES
+  ('550e8400-e29b-41d4-a716-446655440010', 'alex@company.com', '', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', now(), false, '{}', '{}', now(), now()),
+  ('550e8400-e29b-41d4-a716-446655440011', 'sarah@company.com', '', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', now(), false, '{}', '{}', now(), now()),
+  ('550e8400-e29b-41d4-a716-446655440012', 'mike@company.com', '', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', now(), false, '{}', '{}', now(), now())
+ON CONFLICT (id) DO NOTHING;
+
 -- Insert sample team first
 INSERT INTO teams (id, name, description, created_by) VALUES 
   ('550e8400-e29b-41d4-a716-446655440000', 'Sprint.AI Development Team', 'Core development team for Sprint.AI platform', null)
@@ -105,7 +112,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Insert sample PR template
 INSERT INTO pr_templates (id, team_id, task_id, repository_id, created_by, branch_name, title, description, commit_message, file_scaffolds, status) VALUES 
-  ('550e8400-e29b-41d4-a716-446655440070', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440040', '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440020', 'feature/ai-overlay-command-palette', 'feat: implement AI overlay command palette', '## Summary\nImplements the Ctrl+. overlay for contextual AI assistance\n\n## Changes\n- Added AIOverlay component with keyboard shortcuts\n- Implemented natural language processing\n- Added contextual action suggestions\n\n## Testing\n- [ ] Manual testing completed\n- [ ] Unit tests added\n- [ ] Integration tests passing', 'feat: implement AI overlay command palette with contextual assistance', 
+  ('550e8400-e29b-41d4-a716-446655440070', '550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440040', '550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440010', 'feature/ai-overlay-command-palette', 'feat: implement AI overlay command palette', '## Summary\nImplements the Ctrl+. overlay for contextual AI assistance\n\n## Changes\n- Added AIOverlay component with keyboard shortcuts\n- Implemented natural language processing\n- Added contextual action suggestions\n\n## Testing\n- [ ] Manual testing completed\n- [ ] Unit tests added\n- [ ] Integration tests passing', 'feat: implement AI overlay command palette with contextual assistance', 
    '[
      {
        "path": "src/components/overlay/AIOverlay.tsx",
