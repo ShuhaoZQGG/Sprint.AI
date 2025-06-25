@@ -67,8 +67,11 @@ src/
 │   ├── nlpProcessor.ts   # Natural language processing
 │   ├── codebaseAnalyzer.ts # Repository structure analysis
 │   ├── prGenerator.ts    # PR template and code scaffold generation
+│   ├── repositoryService.ts # Repository data management with Supabase
 │   └── supabase.ts       # Supabase database client and utilities
 ├── hooks/                 # Custom React hooks including Supabase hooks
+│   ├── useSupabase.ts    # Authentication and real-time data hooks
+│   └── useRepositories.ts # Repository management hooks
 ├── stores/                # Zustand state management (transitioning to database)
 ├── types/                 # TypeScript type definitions including database types
 ├── config/                # Configuration files
@@ -79,9 +82,9 @@ src/
 ```
 supabase/
 ├── migrations/
-│   ├── create_initial_schema.sql    # Complete database schema
-│   └── setup_rls_policies.sql       # Row Level Security policies
-└── seed.sql                         # Development seed data
+│   ├── 20250625191426_sunny_river.sql    # Complete database schema
+│   ├── 20250625191506_misty_meadow.sql   # Row Level Security policies
+│   └── 20250625191535_fancy_shrine.sql   # Development seed data
 ```
 
 ### Technology Stack
@@ -185,7 +188,15 @@ supabase/
 - **Authentication System**: User profiles, teams, and role-based access control
 - **Migration Scripts**: Complete database setup with development seed data
 
-### 🚧 Current Status: Database Integration Ready
+#### Repository Data Management
+- **Repository Service**: Complete CRUD operations with real-time updates
+- **Analysis Storage**: Store GitHub analysis results and codebase structure
+- **Repository Hooks**: React hooks for repository data management
+- **UI Integration**: Connected repository UI to real database operations
+- **Caching Strategy**: Efficient data caching and incremental updates
+- **Loading States**: Proper loading and error states throughout the UI
+
+### 🚧 Current Status: Task & Sprint Management
 
 #### Infrastructure Completed
 - **Database Schema**: ✅ Complete with all entities and relationships
@@ -193,20 +204,22 @@ supabase/
 - **Client Setup**: ✅ Typed Supabase client with authentication
 - **Real-time Hooks**: ✅ Custom hooks for live data subscriptions
 - **Migration Scripts**: ✅ Database setup and seed data ready
+- **Repository Service**: ✅ Complete repository data management
 
 #### Next Implementation Phase
-- **Data Service Layer**: Replace mock data with database operations
-- **Real-time Updates**: Implement live collaboration features
+- **Task Data Service**: Replace mock task data with database operations
+- **Sprint Management Service**: Complete sprint planning with capacity tracking
+- **Business Spec Service**: Store and version business specifications
+- **Real-time Task Updates**: Implement live collaboration features
 - **User Authentication**: Multi-user support with team management
-- **Data Migration**: Smooth transition from in-memory to persistent storage
 
 ### 🎯 Next Implementation Priorities
 
-1. **Repository Data Service**: Persist repository analysis and documentation
-2. **Task Management Service**: Real-time task updates and assignment tracking
-3. **Business Spec Service**: Store and version business specifications
-4. **Sprint Management Service**: Complete sprint planning with capacity tracking
-5. **Developer Profile Service**: Performance analytics and skill tracking
+1. **Task Data Service**: Persist task data with real-time updates and assignment tracking
+2. **Sprint Management Service**: Complete sprint planning with capacity tracking and burndown data
+3. **Business Spec Service**: Store and version business specifications with approval workflows
+4. **Developer Profile Service**: Performance analytics and skill tracking
+5. **Documentation Service**: Persist generated documentation with versioning
 6. **Authentication Integration**: Multi-user support with team management
 
 ## 🚀 Getting Started
@@ -259,9 +272,9 @@ VITE_APP_URL=http://localhost:5173
 2. **Run Migrations**: Execute the migration files in your Supabase SQL editor:
    ```sql
    -- Run these files in order:
-   -- 1. supabase/migrations/create_initial_schema.sql
-   -- 2. supabase/migrations/setup_rls_policies.sql
-   -- 3. supabase/seed.sql (for development data)
+   -- 1. supabase/migrations/20250625191426_sunny_river.sql
+   -- 2. supabase/migrations/20250625191506_misty_meadow.sql
+   -- 3. supabase/migrations/20250625191535_fancy_shrine.sql (for development data)
    ```
 
 3. **Configure Environment**: Add your Supabase URL and anon key to `.env`
@@ -279,7 +292,7 @@ VITE_APP_URL=http://localhost:5173
 8. **Sprint Planning**: Plan and track sprints in the Sprints view
 9. **Team Analytics**: View developer profiles and team metrics in the Team Profile view
 
-**Note**: Database integration is complete! All data will be persisted in Supabase with real-time updates.
+**Note**: Repository data is now fully persisted in Supabase with real-time updates! Task and sprint data will be migrated to the database in the next implementation phase.
 
 ## 🎯 Success Metrics
 
@@ -293,6 +306,7 @@ VITE_APP_URL=http://localhost:5173
 - 🎯 **Task Generation**: AI-powered task creation with effort estimation and prioritization
 - 🔀 **PR Automation**: Complete PR template generation with code scaffolds
 - 🗄️ **Database Foundation**: Complete Supabase integration with real-time capabilities
+- 📦 **Repository Data Management**: Full CRUD operations with real-time updates
 
 ### 📊 Performance Metrics
 - **Documentation Generation**: ~5-8 seconds for comprehensive multi-section docs
@@ -314,6 +328,7 @@ VITE_APP_URL=http://localhost:5173
 - **Task Review Workflow**: Edit and customize generated tasks before creation
 - **PR Preview Interface**: Professional preview with comprehensive functionality
 - **Real-time Collaboration**: Live updates and multi-user support ready
+- **Repository Management**: Seamless GitHub integration with real-time data persistence
 
 ## 🔧 Technical Highlights
 
@@ -365,25 +380,35 @@ VITE_APP_URL=http://localhost:5173
 - **TypeScript Integration**: Fully typed database operations
 - **Performance Optimization**: Indexed queries and efficient data access
 
+### Repository Data Management
+- **Service Layer**: Complete CRUD operations with proper error handling
+- **Real-time Updates**: Supabase subscriptions for live repository data
+- **Caching Strategy**: Efficient data caching and incremental updates
+- **Analysis Storage**: Store and retrieve GitHub analysis results
+- **UI Integration**: Connected repository management to database operations
+- **Loading States**: Proper loading and error states throughout the UI
+
 ### Current Architecture Status
 - **Database Schema**: ✅ Complete with all entities and relationships
 - **Security Layer**: ✅ Row Level Security policies implemented
 - **Real-time Infrastructure**: ✅ Live updates and collaboration ready
 - **Authentication System**: ✅ User management with profile and team support
-- **Data Services**: 🚧 Ready for implementation (next phase)
+- **Repository Service**: ✅ Complete data management with real-time updates
+- **Task Services**: 🚧 Ready for implementation (next phase)
 - **Migration Tools**: ✅ Smooth transition from mock to persistent data
 
 ## 🤝 Contributing
 
 This project is in active development. Key areas for contribution:
 
-1. **Data Service Implementation**: Help implement the service layer for database operations
-2. **Real-time Features**: Enhance live collaboration and updates
-3. **AI Model Fine-tuning**: Improve intent recognition and response quality
-4. **GitHub Integration**: Enhanced repository analysis and PR automation
-5. **UI/UX Improvements**: Advanced animations and mobile optimization
-6. **Testing**: Comprehensive test coverage for all components
-7. **Documentation**: User guides and API documentation
+1. **Task Data Service Implementation**: Help implement the task service layer for database operations
+2. **Sprint Management Service**: Complete sprint planning with capacity tracking and burndown data
+3. **Real-time Features**: Enhance live collaboration and updates
+4. **AI Model Fine-tuning**: Improve intent recognition and response quality
+5. **GitHub Integration**: Enhanced repository analysis and PR automation
+6. **UI/UX Improvements**: Advanced animations and mobile optimization
+7. **Testing**: Comprehensive test coverage for all components
+8. **Documentation**: User guides and API documentation
 
 ## 📄 License
 
@@ -393,4 +418,4 @@ MIT License - see LICENSE file for details
 
 **Sprint.AI** - Transforming development workflows with AI-native intelligence. Built for the future of software development.
 
-**Current Status**: Complete feature set with database foundation ready. Next phase: Data service implementation for full persistence and multi-user collaboration.
+**Current Status**: Repository data management complete with real-time updates. Next phase: Task & Sprint Management services for complete workflow automation.

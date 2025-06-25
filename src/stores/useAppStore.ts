@@ -4,20 +4,19 @@ import { GeneratedDocumentation } from '../services/docGenerator';
 
 interface AppState {
   // Repository state
-  repositories: Repository[];
   currentRepository: Repository | null;
   
-  // Developer state
+  // Developer state (keeping mock data for now)
   developers: Developer[];
   
-  // Task state
+  // Task state (keeping mock data for now)
   tasks: Task[];
   
-  // Sprint state
+  // Sprint state (keeping mock data for now)
   sprints: Sprint[];
   currentSprint: Sprint | null;
   
-  // Business specs
+  // Business specs (keeping mock data for now)
   businessSpecs: BusinessSpec[];
   
   // Documentation state
@@ -30,9 +29,6 @@ interface AppState {
   
   // Actions
   setCurrentRepository: (repo: Repository | null) => void;
-  addRepository: (repo: Repository) => void;
-  updateRepository: (id: string, updates: Partial<Repository>) => void;
-  removeRepository: (id: string) => void;
   setSidebarOpen: (open: boolean) => void;
   setOverlayOpen: (open: boolean) => void;
   setCurrentView: (view: AppState['currentView']) => void;
@@ -47,26 +43,6 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set, get) => ({
   // Initial state
-  repositories: [
-    {
-      id: '1',
-      name: 'sprint-ai',
-      url: 'https://github.com/example/sprint-ai',
-      description: 'AI-native development platform',
-      language: 'TypeScript',
-      stars: 128,
-      lastUpdated: new Date(),
-    },
-    {
-      id: '2',
-      name: 'api-gateway',
-      url: 'https://github.com/example/api-gateway',
-      description: 'Microservices API gateway',
-      language: 'Python',
-      stars: 45,
-      lastUpdated: new Date(),
-    }
-  ],
   currentRepository: null,
   
   developers: [
@@ -189,21 +165,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   // Actions
   setCurrentRepository: (repo) => set({ currentRepository: repo }),
-  
-  addRepository: (repo) => set((state) => ({ 
-    repositories: [...state.repositories, repo] 
-  })),
-  
-  updateRepository: (id, updates) => set((state) => ({
-    repositories: state.repositories.map(repo => 
-      repo.id === id ? { ...repo, ...updates } : repo
-    )
-  })),
-  
-  removeRepository: (id) => set((state) => ({
-    repositories: state.repositories.filter(repo => repo.id !== id),
-    currentRepository: state.currentRepository?.id === id ? null : state.currentRepository,
-  })),
   
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setOverlayOpen: (open) => set({ overlayOpen: open }),

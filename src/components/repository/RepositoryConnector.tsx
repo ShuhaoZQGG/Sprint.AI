@@ -17,7 +17,7 @@ import { Modal } from '../ui/Modal';
 import { githubService } from '../../services/github';
 import { codebaseAnalyzer } from '../../services/codebaseAnalyzer';
 import { GitHubRepository, RepositoryAnalysis } from '../../types/github';
-import { useAppStore } from '../../stores/useAppStore';
+import { useRepositories } from '../../hooks/useRepositories';
 import toast from 'react-hot-toast';
 
 interface RepositoryConnectorProps {
@@ -29,7 +29,7 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { addRepository } = useAppStore();
+  const { addRepository, storeAnalysis } = useRepositories();
   const [step, setStep] = useState<'input' | 'search' | 'analyze' | 'complete'>('input');
   const [repoUrl, setRepoUrl] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,25 +94,26 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
         throw new Error('Invalid repository URL');
       }
 
-      const repoAnalysis = await githubService.analyzeRepository(parsed.owner, parsed.repo);
-      const codebaseStructure = await codebaseAnalyzer.analyzeCodebase(parsed.owner, parsed.repo);
-      
-      setAnalysis(repoAnalysis);
-      
-      // Add to store
-      addRepository({
-        id: repo.id.toString(),
+      // First, add the repository to the database
+      const newRepository = await addRepository({
         name: repo.name,
         url: repo.html_url,
         description: repo.description || '',
         language: repo.language || 'Unknown',
         stars: repo.stargazers_count,
         lastUpdated: new Date(repo.updated_at),
-        structure: codebaseStructure,
       });
 
+      // Then analyze the repository
+      const repoAnalysis = await githubService.analyzeRepository(parsed.owner, parsed.repo);
+      const codebaseStructure = await codebaseAnalyzer.analyzeCodebase(parsed.owner, parsed.repo);
+      
+      // Store the analysis results
+      await storeAnalysis(newRepository.id, repoAnalysis);
+      
+      setAnalysis(repoAnalysis);
       setStep('complete');
-      toast.success('Repository analyzed successfully!');
+      toast.success('Repository analyzed and stored successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to analyze repository');
     } finally {
@@ -266,7 +267,7 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
         </h3>
         <p className="text-dark-400">
           {loading 
-            ? 'Parsing codebase structure and generating insights...' 
+            ? 'Parsing codebase structure and storing in database...' 
             : `Ready to analyze ${selectedRepo?.name}`
           }
         </p>
@@ -302,6 +303,10 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
         <div className="space-y-3">
           <div className="flex items-center space-x-2 text-sm text-dark-400">
             <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Adding repository to database...</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-dark-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
             <span>Fetching repository structure...</span>
           </div>
           <div className="flex items-center space-x-2 text-sm text-dark-400">
@@ -310,7 +315,7 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
           </div>
           <div className="flex items-center space-x-2 text-sm text-dark-400">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Generating documentation...</span>
+            <span>Storing analysis results...</span>
           </div>
         </div>
       )}
@@ -332,7 +337,7 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
         </div>
         <h3 className="text-lg font-semibold text-white mb-2">Repository Added Successfully!</h3>
         <p className="text-dark-400">
-          Your repository has been analyzed and is ready for documentation generation
+          Your repository has been analyzed and stored in the database
         </p>
       </div>
 

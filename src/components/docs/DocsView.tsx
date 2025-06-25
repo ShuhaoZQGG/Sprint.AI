@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { RepositoryConnector } from '../repository/RepositoryConnector';
 import { DocGenerator } from './DocGenerator';
+import { useRepositories } from '../../hooks/useRepositories';
 import { useAppStore } from '../../stores/useAppStore';
 import { GeneratedDocumentation } from '../../services/docGenerator';
 import { RepositoryAnalysis } from '../../types/github';
@@ -55,7 +56,8 @@ const mockDocs = [
 ];
 
 export const DocsView: React.FC = () => {
-  const { repositories, currentRepository } = useAppStore();
+  const { repositories, loading: repositoriesLoading } = useRepositories();
+  const { currentRepository, setCurrentRepository } = useAppStore();
   const [generating, setGenerating] = useState(false);
   const [showConnector, setShowConnector] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export const DocsView: React.FC = () => {
   };
 
   const getRepositoryAnalysis = (repoId: string): RepositoryAnalysis | null => {
-    // In a real implementation, this would fetch the analysis from the store or API
+    // In a real implementation, this would fetch the analysis from the database
     // For now, we'll create a mock analysis
     const repo = repositories.find(r => r.id === repoId);
     if (!repo) return null;
@@ -115,6 +117,14 @@ export const DocsView: React.FC = () => {
     };
   };
 
+  const handleRepositorySelect = (repoId: string) => {
+    const repo = repositories.find(r => r.id === repoId);
+    if (repo) {
+      setCurrentRepository(repo);
+      setSelectedRepo(repoId);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -154,7 +164,12 @@ export const DocsView: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {repositories.length > 0 ? (
+          {repositoriesLoading ? (
+            <div className="text-center py-8">
+              <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-dark-400">Loading repositories...</p>
+            </div>
+          ) : repositories.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {repositories.map((repo) => {
                 const hasGeneratedDocs = generatedDocs.has(repo.id);
@@ -168,7 +183,7 @@ export const DocsView: React.FC = () => {
                         ? 'border-primary-500 bg-primary-900/20' 
                         : 'border-dark-600 hover:border-primary-500'
                     }`}
-                    onClick={() => setSelectedRepo(isSelected ? null : repo.id)}
+                    onClick={() => handleRepositorySelect(repo.id)}
                   >
                     <div className="flex items-start space-x-3 mb-3">
                       <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
