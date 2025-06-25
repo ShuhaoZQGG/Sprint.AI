@@ -10,7 +10,8 @@ import {
   Edit,
   BarChart3,
   Clock,
-  Users
+  Users,
+  Settings
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -18,7 +19,9 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { DeveloperForm } from './DeveloperForm';
 import { PerformanceChart } from './PerformanceChart';
+import { TeamManagement } from '../team/TeamManagement';
 import { useDevelopers } from '../../hooks/useDevelopers';
+import { useAuth } from '../auth/AuthProvider';
 import { Developer } from '../../types';
 
 export const ProfileView: React.FC = () => {
@@ -32,10 +35,12 @@ export const ProfileView: React.FC = () => {
     getTeamCapacity 
   } = useDevelopers();
   
+  const { user } = useAuth();
   const [showDeveloperForm, setShowDeveloperForm] = useState(false);
   const [editingDeveloper, setEditingDeveloper] = useState<Developer | null>(null);
   const [selectedDeveloper, setSelectedDeveloper] = useState<Developer | null>(null);
   const [showPerformanceChart, setShowPerformanceChart] = useState(false);
+  const [showTeamManagement, setShowTeamManagement] = useState(false);
   const [teamCapacity, setTeamCapacity] = useState<number>(0);
 
   React.useEffect(() => {
@@ -103,6 +108,8 @@ export const ProfileView: React.FC = () => {
     return colors[skill as keyof typeof colors] || 'bg-dark-500';
   };
 
+  const isTeamAdmin = user?.profile?.role === 'admin' || user?.profile?.role === 'manager';
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -119,10 +126,23 @@ export const ProfileView: React.FC = () => {
           <h1 className="text-2xl font-bold text-white mb-2">Team Profile</h1>
           <p className="text-dark-400">Developer velocity, strengths, and intelligent task assignment</p>
         </div>
-        <Button onClick={() => setShowDeveloperForm(true)}>
-          <Plus size={16} className="mr-2" />
-          Add Developer
-        </Button>
+        <div className="flex items-center space-x-3">
+          {isTeamAdmin && (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setShowTeamManagement(true)}
+              >
+                <Settings size={16} className="mr-2" />
+                Team Settings
+              </Button>
+              <Button onClick={() => setShowDeveloperForm(true)}>
+                <Plus size={16} className="mr-2" />
+                Add Developer
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Team Overview */}
@@ -175,6 +195,52 @@ export const ProfileView: React.FC = () => {
         </Card>
       </div>
 
+      {/* Team Information */}
+      {user?.team && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Team Information</h3>
+              {isTeamAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowTeamManagement(true)}
+                >
+                  <Settings size={14} className="mr-1" />
+                  Manage
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-medium text-white mb-2">{user.team.name}</h4>
+                <p className="text-dark-400 text-sm mb-4">
+                  {user.team.description || 'No description provided'}
+                </p>
+                <div className="flex items-center space-x-4 text-sm text-dark-500">
+                  <span>Created {new Date(user.team.created_at).toLocaleDateString()}</span>
+                  <span>•</span>
+                  <span>{developers.length} members</span>
+                </div>
+              </div>
+              <div>
+                <h5 className="text-sm font-medium text-dark-300 mb-2">Your Role</h5>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    user.profile?.role === 'admin' ? 'bg-warning-400' :
+                    user.profile?.role === 'manager' ? 'bg-primary-400' : 'bg-success-400'
+                  }`}></div>
+                  <span className="text-white capitalize">{user.profile?.role || 'developer'}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Developer Profiles */}
       <div className="space-y-4">
         {developers.length === 0 ? (
@@ -187,10 +253,12 @@ export const ProfileView: React.FC = () => {
               <p className="text-dark-400 mb-4">
                 Add team members to start tracking performance and managing capacity
               </p>
-              <Button onClick={() => setShowDeveloperForm(true)}>
-                <Plus size={16} className="mr-2" />
-                Add First Developer
-              </Button>
+              {isTeamAdmin && (
+                <Button onClick={() => setShowDeveloperForm(true)}>
+                  <Plus size={16} className="mr-2" />
+                  Add First Developer
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -256,14 +324,16 @@ export const ProfileView: React.FC = () => {
                       <BarChart3 size={14} className="mr-1" />
                       Performance
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditDeveloper(developer)}
-                    >
-                      <Edit size={14} className="mr-1" />
-                      Edit
-                    </Button>
+                    {isTeamAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditDeveloper(developer)}
+                      >
+                        <Edit size={14} className="mr-1" />
+                        Edit
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -356,6 +426,12 @@ export const ProfileView: React.FC = () => {
           developer={selectedDeveloper}
         />
       )}
+
+      {/* Team Management Modal */}
+      <TeamManagement
+        isOpen={showTeamManagement}
+        onClose={() => setShowTeamManagement(false)}
+      />
     </div>
   );
 };
