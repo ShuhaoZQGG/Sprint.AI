@@ -33,26 +33,27 @@
   - ✅ Add document locking and conflict resolution
 
 ### 12. Authentication & User Management
-**Status**: Not Started  
+**Status**: 🚧 **In Progress**  
 **Priority**: Medium  
 **Description**: Implement proper user authentication and management
 
 #### Subtasks:
-- [ ] **Supabase Auth Integration**
-  - *Files to create*: `src/services/authService.ts`, `src/components/auth/AuthProvider.tsx`
-  - *Files to modify*: `src/App.tsx`, `src/stores/useAppStore.ts`
-  - Set up Supabase authentication
-  - Implement email/password and OAuth login
-  - Add user session management
-  - Handle authentication state across app
+- [~] **Supabase Auth Integration**
+  - *Files created*: `src/services/authService.ts`, `src/components/auth/AuthProvider.tsx`, `src/components/auth/AuthModal.tsx`
+  - ✅ Set up Supabase authentication (see `authService.ts`)
+  - ✅ Implement email/password and OAuth login (see `AuthModal.tsx`, `AuthProvider.tsx`)
+  - ✅ Add user session management (see `AuthProvider.tsx`)
+  - ✅ Handle authentication state across app (see `AuthProvider.tsx`)
+  - *Files to  modify*: `src/App.tsx`, `src/stores/useAppStore.ts`
 
-- [ ] **User Profile Management**
-  - *Files to create*: `src/components/auth/ProfileSettings.tsx`
+
+- [~] **User Profile Management**
+  - *Files created*: `src/components/auth/ProfileSettings.tsx`
   - *Files to modify*: `src/components/layout/Header.tsx`
-  - User profile creation and editing
-  - Avatar upload and management
-  - Notification preferences
-  - Account settings and preferences
+  - ✅ User profile creation and editing (see `ProfileSettings.tsx`)
+  - ⏳ Avatar upload and management (UI present, upload logic pending)
+  - ⏳ Account settings and preferences (basic profile and password management in `ProfileSettings.tsx`)
+  - Notification preferences (not started)
 
 - [ ] **Team Management**
   - *Files to create*: `src/components/team/TeamManagement.tsx`
