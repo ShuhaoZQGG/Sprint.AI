@@ -10,12 +10,18 @@ import {
   Circle,
   PlayCircle,
   GitBranch,
-  MoreHorizontal
+  MoreHorizontal,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { Modal } from '../ui/Modal';
 import { PRPreview } from './PRPreview';
+import { TaskForm } from './TaskForm';
+import { useTasks } from '../../hooks/useTasks';
+import { useRepositories } from '../../hooks/useRepositories';
 import { useAppStore } from '../../stores/useAppStore';
 import { prGenerator } from '../../services/prGenerator';
 import { Task, TaskStatus, PRTemplate } from '../../types';
@@ -37,10 +43,15 @@ const priorityColors = {
 };
 
 export const TasksView: React.FC = () => {
-  const { tasks, developers, repositories, currentRepository } = useAppStore();
+  const { tasks, loading, createTask, updateTask, deleteTask, updateTaskStatus } = useTasks();
+  const { repositories } = useRepositories();
+  const { currentRepository, developers } = useAppStore();
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [showPRPreview, setShowPRPreview] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [generatedPR, setGeneratedPR] = useState<PRTemplate | null>(null);
   const [generatingPR, setGeneratingPR] = useState<string | null>(null);
@@ -54,8 +65,7 @@ export const TasksView: React.FC = () => {
 
   const getAssigneeName = (task: Task) => {
     if (!task.assignee) return 'Unassigned';
-    const developer = developers.find(dev => dev.id === task.assignee?.id);
-    return developer?.name || 'Unknown';
+    return task.assignee.name || 'Unknown';
   };
 
   const handleGeneratePR = async (task: Task) => {
@@ -85,10 +95,55 @@ export const TasksView: React.FC = () => {
     }
   };
 
+  const handleTaskStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      await updateTaskStatus(taskId, newStatus);
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+    }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setShowTaskForm(true);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (window.confirm('Are you sure you want to delete this task?')) {
+      try {
+        await deleteTask(taskId);
+      } catch (error) {
+        console.error('Failed to delete task:', error);
+      }
+    }
+  };
+
+  const handleTaskFormSubmit = async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingTask) {
+        await updateTask(editingTask.id, taskData);
+      } else {
+        await createTask(taskData);
+      }
+      setShowTaskForm(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('Failed to save task:', error);
+    }
+  };
+
   const tasksByStatus = Object.keys(statusConfig).reduce((acc, status) => {
     acc[status as TaskStatus] = filteredTasks.filter(task => task.status === status);
     return acc;
   }, {} as Record<TaskStatus, Task[]>);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -98,7 +153,7 @@ export const TasksView: React.FC = () => {
           <h1 className="text-2xl font-bold text-white mb-2">Tasks</h1>
           <p className="text-dark-400">Manage and track development tasks</p>
         </div>
-        <Button>
+        <Button onClick={() => setShowTaskForm(true)}>
           <Plus size={16} className="mr-2" />
           New Task
         </Button>
@@ -198,8 +253,23 @@ export const TasksView: React.FC = () => {
                                 <GitBranch size={12} />
                               )}
                             </Button>
-                            <Button variant="ghost" size="sm" className="p-1">
-                              <MoreHorizontal size={12} />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditTask(task)}
+                              className="p-1"
+                              title="Edit Task"
+                            >
+                              <Edit size={12} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteTask(task.id)}
+                              className="p-1 text-error-400 hover:text-error-300"
+                              title="Delete Task"
+                            >
+                              <Trash2 size={12} />
                             </Button>
                           </div>
                         </div>
@@ -244,6 +314,24 @@ export const TasksView: React.FC = () => {
                             </span>
                           </div>
                         </div>
+
+                        {/* Status Change Buttons */}
+                        <div className="flex items-center space-x-1">
+                          {Object.keys(statusConfig).map((newStatus) => {
+                            if (newStatus === status) return null;
+                            return (
+                              <Button
+                                key={newStatus}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleTaskStatusChange(task.id, newStatus as TaskStatus)}
+                                className="text-xs px-2 py-1 h-6"
+                              >
+                                → {newStatus.replace('-', ' ')}
+                              </Button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -259,6 +347,18 @@ export const TasksView: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Task Form Modal */}
+      <TaskForm
+        isOpen={showTaskForm}
+        onClose={() => {
+          setShowTaskForm(false);
+          setEditingTask(null);
+        }}
+        onSubmit={handleTaskFormSubmit}
+        task={editingTask}
+        developers={developers}
+      />
 
       {/* PR Preview Modal */}
       {showPRPreview && selectedTask && generatedPR && currentRepository && (

@@ -68,10 +68,14 @@ src/
 │   ├── codebaseAnalyzer.ts # Repository structure analysis
 │   ├── prGenerator.ts    # PR template and code scaffold generation
 │   ├── repositoryService.ts # Repository data management with Supabase
+│   ├── taskService.ts    # Task data management with real-time updates
+│   ├── sprintService.ts  # Sprint data management with capacity planning
 │   └── supabase.ts       # Supabase database client and utilities
 ├── hooks/                 # Custom React hooks including Supabase hooks
 │   ├── useSupabase.ts    # Authentication and real-time data hooks
-│   └── useRepositories.ts # Repository management hooks
+│   ├── useRepositories.ts # Repository management hooks
+│   ├── useTasks.ts       # Task management hooks with real-time updates
+│   └── useSprints.ts     # Sprint management hooks with capacity tracking
 ├── stores/                # Zustand state management (transitioning to database)
 ├── types/                 # TypeScript type definitions including database types
 ├── config/                # Configuration files
@@ -148,8 +152,11 @@ supabase/
 - **Kanban Board**: Full task board with status columns (Backlog → Done)
 - **Task Filtering**: Search and status-based filtering with real-time updates
 - **Task Details**: Priority, type, effort estimation, and assignment
-- **Status Management**: Drag-and-drop ready task status updates
+- **Status Management**: Real-time task status updates with optimistic UI
 - **PR Generation**: Generate PR templates directly from task cards
+- **Task CRUD Operations**: Complete create, read, update, delete functionality
+- **Real-time Updates**: Live task updates across all users
+- **Task Assignment**: Developer assignment with tracking and history
 
 #### Developer Profiles & Analytics
 - **Comprehensive Profiles**: Velocity, skills, collaboration metrics with visual charts
@@ -162,6 +169,9 @@ supabase/
 - **Progress Visualization**: Burndown charts and completion metrics
 - **Team Assignment**: Developer assignment with avatar display
 - **Capacity Planning**: Story points and team velocity matching
+- **Sprint CRUD Operations**: Complete create, read, update, delete functionality
+- **Real-time Updates**: Live sprint updates across all users
+- **Sprint-Task Relationships**: Proper many-to-many task assignment to sprints
 
 #### Business Specification & Task Generation
 - **Rich Spec Editor**: Complete business specification editor with validation
@@ -196,7 +206,17 @@ supabase/
 - **Caching Strategy**: Efficient data caching and incremental updates
 - **Loading States**: Proper loading and error states throughout the UI
 
-### 🚧 Current Status: Task & Sprint Management
+#### Task & Sprint Data Management
+- **Task Service**: Complete task CRUD operations with real-time updates and assignment tracking
+- **Sprint Service**: Complete sprint CRUD operations with capacity planning and task relationships
+- **Task Management Hooks**: React hooks for task data management with real-time subscriptions
+- **Sprint Management Hooks**: React hooks for sprint data management with real-time updates
+- **Task UI Integration**: Full task management interface with forms, status changes, and real-time updates
+- **Sprint UI Integration**: Complete sprint management interface with progress tracking and team management
+- **Real-time Collaboration**: Live task and sprint updates across all users
+- **Task Assignment System**: Complete task assignment with developer tracking and history
+
+### 🚧 Current Status: Business Specification Service
 
 #### Infrastructure Completed
 - **Database Schema**: ✅ Complete with all entities and relationships
@@ -205,22 +225,23 @@ supabase/
 - **Real-time Hooks**: ✅ Custom hooks for live data subscriptions
 - **Migration Scripts**: ✅ Database setup and seed data ready
 - **Repository Service**: ✅ Complete repository data management
+- **Task Service**: ✅ Complete task management with real-time updates
+- **Sprint Service**: ✅ Complete sprint management with capacity planning
 
 #### Next Implementation Phase
-- **Task Data Service**: Replace mock task data with database operations
-- **Sprint Management Service**: Complete sprint planning with capacity tracking
-- **Business Spec Service**: Store and version business specifications
-- **Real-time Task Updates**: Implement live collaboration features
-- **User Authentication**: Multi-user support with team management
+- **Business Spec Service**: Store and manage business specifications with version history
+- **Developer Service**: Profile management and performance tracking
+- **Documentation Service**: Persist generated documentation with versioning
+- **Authentication Integration**: Multi-user support with team management
 
 ### 🎯 Next Implementation Priorities
 
-1. **Task Data Service**: Persist task data with real-time updates and assignment tracking
-2. **Sprint Management Service**: Complete sprint planning with capacity tracking and burndown data
-3. **Business Spec Service**: Store and version business specifications with approval workflows
-4. **Developer Profile Service**: Performance analytics and skill tracking
-5. **Documentation Service**: Persist generated documentation with versioning
-6. **Authentication Integration**: Multi-user support with team management
+1. **Business Spec Service**: Store and manage business specifications with version history and approval workflows
+2. **Developer Profile Service**: Performance analytics and skill tracking
+3. **Documentation Service**: Persist generated documentation with versioning
+4. **Authentication Integration**: Multi-user support with team management
+5. **Real-time Collaboration**: Enhanced live collaboration features
+6. **Advanced Sprint Planning**: AI-powered capacity planning and burndown tracking
 
 ## 🚀 Getting Started
 
@@ -287,12 +308,12 @@ VITE_APP_URL=http://localhost:5173
 3. **AI Assistant**: Press `Ctrl + .` to open the AI command palette for natural language assistance
 4. **Create Business Specs**: Use the AI assistant to create business specifications
 5. **Generate Tasks**: Convert business specs into actionable technical tasks
-6. **Generate PR Templates**: Click the branch icon on any task to generate PR templates
-7. **Task Management**: Create, filter, and manage tasks in the Tasks view
-8. **Sprint Planning**: Plan and track sprints in the Sprints view
+6. **Manage Tasks**: Create, edit, and track tasks in the Tasks view with real-time updates
+7. **Sprint Planning**: Plan and track sprints in the Sprints view with capacity management
+8. **Generate PR Templates**: Click the branch icon on any task to generate PR templates
 9. **Team Analytics**: View developer profiles and team metrics in the Team Profile view
 
-**Note**: Repository data is now fully persisted in Supabase with real-time updates! Task and sprint data will be migrated to the database in the next implementation phase.
+**Note**: Task and sprint data is now fully persisted in Supabase with real-time updates! Business specifications will be migrated to the database in the next implementation phase.
 
 ## 🎯 Success Metrics
 
@@ -307,6 +328,8 @@ VITE_APP_URL=http://localhost:5173
 - 🔀 **PR Automation**: Complete PR template generation with code scaffolds
 - 🗄️ **Database Foundation**: Complete Supabase integration with real-time capabilities
 - 📦 **Repository Data Management**: Full CRUD operations with real-time updates
+- 📋 **Task Management**: Complete task lifecycle management with real-time collaboration
+- 🏃 **Sprint Management**: Full sprint planning and tracking with capacity management
 
 ### 📊 Performance Metrics
 - **Documentation Generation**: ~5-8 seconds for comprehensive multi-section docs
@@ -328,7 +351,8 @@ VITE_APP_URL=http://localhost:5173
 - **Task Review Workflow**: Edit and customize generated tasks before creation
 - **PR Preview Interface**: Professional preview with comprehensive functionality
 - **Real-time Collaboration**: Live updates and multi-user support ready
-- **Repository Management**: Seamless GitHub integration with real-time data persistence
+- **Task Management**: Complete Kanban-style interface with real-time updates
+- **Sprint Planning**: Full sprint management with progress tracking and capacity planning
 
 ## 🔧 Technical Highlights
 
@@ -388,27 +412,39 @@ VITE_APP_URL=http://localhost:5173
 - **UI Integration**: Connected repository management to database operations
 - **Loading States**: Proper loading and error states throughout the UI
 
+### Task & Sprint Management
+- **Task Service Layer**: Complete CRUD operations with real-time updates and assignment tracking
+- **Sprint Service Layer**: Complete sprint CRUD operations with capacity planning and task relationships
+- **Real-time Collaboration**: Live task and sprint updates across all users
+- **Task Assignment System**: Complete task assignment with developer tracking and history
+- **Sprint-Task Relationships**: Proper many-to-many relationships between sprints and tasks
+- **Capacity Planning**: Sprint capacity management with team velocity tracking
+- **Status Management**: Real-time task status updates with optimistic UI
+- **Progress Tracking**: Live sprint progress monitoring with team management
+
 ### Current Architecture Status
 - **Database Schema**: ✅ Complete with all entities and relationships
 - **Security Layer**: ✅ Row Level Security policies implemented
 - **Real-time Infrastructure**: ✅ Live updates and collaboration ready
 - **Authentication System**: ✅ User management with profile and team support
 - **Repository Service**: ✅ Complete data management with real-time updates
-- **Task Services**: 🚧 Ready for implementation (next phase)
+- **Task Service**: ✅ Complete task management with real-time updates and assignment tracking
+- **Sprint Service**: ✅ Complete sprint management with capacity planning and task relationships
 - **Migration Tools**: ✅ Smooth transition from mock to persistent data
 
 ## 🤝 Contributing
 
 This project is in active development. Key areas for contribution:
 
-1. **Task Data Service Implementation**: Help implement the task service layer for database operations
-2. **Sprint Management Service**: Complete sprint planning with capacity tracking and burndown data
-3. **Real-time Features**: Enhance live collaboration and updates
-4. **AI Model Fine-tuning**: Improve intent recognition and response quality
-5. **GitHub Integration**: Enhanced repository analysis and PR automation
-6. **UI/UX Improvements**: Advanced animations and mobile optimization
-7. **Testing**: Comprehensive test coverage for all components
-8. **Documentation**: User guides and API documentation
+1. **Business Spec Service Implementation**: Help implement the business specification service layer for database operations
+2. **Developer Profile Service**: Complete developer performance analytics and skill tracking
+3. **Documentation Service**: Persist generated documentation with versioning
+4. **Real-time Features**: Enhance live collaboration and updates
+5. **AI Model Fine-tuning**: Improve intent recognition and response quality
+6. **GitHub Integration**: Enhanced repository analysis and PR automation
+7. **UI/UX Improvements**: Advanced animations and mobile optimization
+8. **Testing**: Comprehensive test coverage for all components
+9. **Documentation**: User guides and API documentation
 
 ## 📄 License
 
@@ -418,4 +454,4 @@ MIT License - see LICENSE file for details
 
 **Sprint.AI** - Transforming development workflows with AI-native intelligence. Built for the future of software development.
 
-**Current Status**: Repository data management complete with real-time updates. Next phase: Task & Sprint Management services for complete workflow automation.
+**Current Status**: Task & Sprint Management complete with real-time collaboration. Next phase: Business Specification Service for complete requirement management workflow.
