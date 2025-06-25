@@ -11,6 +11,8 @@ import {
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { useAppStore } from '../../stores/useAppStore';
 import { useRepositories } from '../../hooks/useRepositories';
+import { useDevelopers } from '../../hooks/useDevelopers';
+import { useTasks } from '../../hooks/useTasks';
 
 const stats = [
   {
@@ -44,12 +46,14 @@ const stats = [
 ];
 
 export const DashboardView: React.FC = () => {
-  const { developers, tasks } = useAppStore();
   const { repositories } = useRepositories();
+  const { developers } = useDevelopers();
+  const { tasks } = useTasks();
 
   const completedTasks = tasks.filter(task => task.status === 'done').length;
   const inProgressTasks = tasks.filter(task => task.status === 'in-progress').length;
   const totalTasks = tasks.length;
+  const totalVelocity = developers.reduce((acc, dev) => acc + dev.profile.velocity, 0);
 
   return (
     <div className="space-y-6">
@@ -70,44 +74,79 @@ export const DashboardView: React.FC = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={stat.title} hover>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-dark-400 mb-1">
-                      {stat.title}
-                    </p>
-                    <p className="text-2xl font-bold text-white">
-                      {stat.value}
-                    </p>
-                    <div className="flex items-center mt-2">
-                      <span
-                        className={`text-sm ${
-                          stat.changeType === 'positive'
-                            ? 'text-success-400'
-                            : stat.changeType === 'negative'
-                            ? 'text-error-400'
-                            : 'text-dark-400'
-                        }`}
-                      >
-                        {stat.change}
-                      </span>
-                      {stat.changeType === 'positive' && (
-                        <ArrowUpRight size={14} className="ml-1 text-success-400" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="w-12 h-12 bg-dark-700 rounded-lg flex items-center justify-center">
-                    <Icon size={20} className="text-primary-400" />
-                  </div>
+        <Card hover>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-dark-400 mb-1">Active Tasks</p>
+                <p className="text-2xl font-bold text-white">{totalTasks}</p>
+                <div className="flex items-center mt-2">
+                  <span className="text-sm text-success-400">
+                    {inProgressTasks} in progress
+                  </span>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+              </div>
+              <div className="w-12 h-12 bg-dark-700 rounded-lg flex items-center justify-center">
+                <CheckSquare size={20} className="text-primary-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card hover>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-dark-400 mb-1">Team Velocity</p>
+                <p className="text-2xl font-bold text-white">{totalVelocity}pts</p>
+                <div className="flex items-center mt-2">
+                  <span className="text-sm text-success-400">
+                    {developers.length} developers
+                  </span>
+                </div>
+              </div>
+              <div className="w-12 h-12 bg-dark-700 rounded-lg flex items-center justify-center">
+                <TrendingUp size={20} className="text-primary-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card hover>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-dark-400 mb-1">Sprint Progress</p>
+                <p className="text-2xl font-bold text-white">
+                  {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}%
+                </p>
+                <div className="flex items-center mt-2">
+                  <span className="text-sm text-success-400">On track</span>
+                </div>
+              </div>
+              <div className="w-12 h-12 bg-dark-700 rounded-lg flex items-center justify-center">
+                <Clock size={20} className="text-primary-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card hover>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-dark-400 mb-1">Repositories</p>
+                <p className="text-2xl font-bold text-white">{repositories.length}</p>
+                <div className="flex items-center mt-2">
+                  <span className="text-sm text-success-400">Connected</span>
+                </div>
+              </div>
+              <div className="w-12 h-12 bg-dark-700 rounded-lg flex items-center justify-center">
+                <GitBranch size={20} className="text-primary-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -131,6 +170,11 @@ export const DashboardView: React.FC = () => {
                   <div className="w-3 h-3 bg-success-400 rounded-full"></div>
                 </div>
               ))}
+              {repositories.length === 0 && (
+                <div className="text-center py-4">
+                  <p className="text-dark-400">No repositories connected yet</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -145,7 +189,7 @@ export const DashboardView: React.FC = () => {
               {developers.slice(0, 3).map((dev) => (
                 <div key={dev.id} className="flex items-center space-x-3">
                   <img
-                    src={dev.avatar}
+                    src={dev.avatar || `https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?w=150`}
                     alt={dev.name}
                     className="w-10 h-10 rounded-full object-cover"
                   />
@@ -157,13 +201,18 @@ export const DashboardView: React.FC = () => {
                       </span>
                       <span className="text-sm text-dark-500">•</span>
                       <span className="text-sm text-primary-400">
-                        {dev.profile.strengths[0]}
+                        {dev.profile.strengths[0] || 'Developer'}
                       </span>
                     </div>
                   </div>
                   <div className="w-3 h-3 bg-success-400 rounded-full"></div>
                 </div>
               ))}
+              {developers.length === 0 && (
+                <div className="text-center py-4">
+                  <p className="text-dark-400">No team members added yet</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -200,13 +249,13 @@ export const DashboardView: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-dark-400">Overall Progress</span>
               <span className="text-sm text-white">
-                {Math.round((completedTasks / totalTasks) * 100)}%
+                {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}%
               </span>
             </div>
             <div className="w-full bg-dark-700 rounded-full h-2">
               <div
                 className="bg-gradient-to-r from-primary-500 to-secondary-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(completedTasks / totalTasks) * 100}%` }}
+                style={{ width: `${totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0}%` }}
               />
             </div>
           </div>
