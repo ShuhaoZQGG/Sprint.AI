@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { useAppStore } from '../../stores/useAppStore';
+import { useRepositories } from '../../hooks/useRepositories';
 
 const stats = [
   {
@@ -43,7 +44,8 @@ const stats = [
 ];
 
 export const DashboardView: React.FC = () => {
-  const { repositories, developers, tasks } = useAppStore();
+  const { developers, tasks } = useAppStore();
+  const { repositories } = useRepositories();
 
   const completedTasks = tasks.filter(task => task.status === 'done').length;
   const inProgressTasks = tasks.filter(task => task.status === 'in-progress').length;
