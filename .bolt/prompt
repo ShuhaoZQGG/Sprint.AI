@@ -4,4 +4,8 @@ By default, this template supports JSX syntax with Tailwind CSS classes, React h
 
 Use icons from lucide-react for logos.
 
-Always update TODO.md and README.md after complete the feature.
+TODO.md layouts all the tasks todo. Each subtask marks the existing files to change and new files to create to achieve the goals, they can be used as index.
+
+README.md is a high level overview of the current state of the code and the vision.
+
+Always update TODO.md after complete the feature.
