@@ -123,9 +123,197 @@
   - ✅ Link PRs to tasks and sprints
   - ✅ GitHub URL generation for easy access
 
+## 🗄️ Database Integration & Data Persistence
+
+### 5. Supabase Database Setup
+**Status**: 🚧 **IN PROGRESS**  
+**Priority**: Critical  
+**Description**: Replace mock data with Supabase database integration
+
+#### Subtasks:
+- [ ] **Database Schema Design**
+  - *Files to create*: `supabase/migrations/create_initial_schema.sql`
+  - *Files to modify*: `src/types/database.ts` (new file)
+  - Design comprehensive database schema for all entities
+  - Create tables for repositories, developers, tasks, sprints, business specs
+  - Set up proper relationships and foreign keys
+  - Add indexes for performance optimization
+
+- [ ] **Row Level Security (RLS) Setup**
+  - *Files to create*: `supabase/migrations/setup_rls_policies.sql`
+  - Enable RLS on all tables
+  - Create policies for user data access
+  - Set up authentication-based data isolation
+  - Test security policies thoroughly
+
+- [ ] **Supabase Client Integration**
+  - *Files to create*: `src/services/supabase.ts`, `src/hooks/useSupabase.ts`
+  - *Files to modify*: `src/stores/useAppStore.ts`, `package.json`
+  - Set up Supabase client with proper configuration
+  - Create typed database client with generated types
+  - Add connection status monitoring
+  - Implement error handling and retry logic
+
+- [ ] **Data Migration from Mock Data**
+  - *Files to create*: `src/utils/dataMigration.ts`, `supabase/seed.sql`
+  - *Files to modify*: `src/stores/useAppStore.ts`
+  - Create migration utilities for existing mock data
+  - Set up database seeding for development
+  - Implement data validation and sanitization
+  - Add rollback capabilities for failed migrations
+
+### 6. Repository Data Management
+**Status**: Not Started  
+**Priority**: High  
+**Description**: Persist repository analysis and documentation data
+
+#### Subtasks:
+- [ ] **Repository Storage**
+  - *Files to create*: `src/services/repositoryService.ts`
+  - *Files to modify*: `src/components/repository/RepositoryConnector.tsx`, `src/stores/useAppStore.ts`
+  - Store repository metadata and analysis results
+  - Cache codebase structure and dependencies
+  - Track repository update timestamps
+  - Implement incremental updates for changed repositories
+
+- [ ] **Documentation Persistence**
+  - *Files to create*: `src/services/documentationService.ts`
+  - *Files to modify*: `src/services/docGenerator.ts`, `src/components/docs/DocsView.tsx`
+  - Store generated documentation with versioning
+  - Track documentation generation history
+  - Implement documentation search and indexing
+  - Add collaborative editing support
+
+- [ ] **Codebase Analysis Caching**
+  - *Files to create*: `src/services/analysisCache.ts`
+  - *Files to modify*: `src/services/codebaseAnalyzer.ts`
+  - Cache expensive analysis operations
+  - Implement smart cache invalidation
+  - Store module and service mappings
+  - Add performance monitoring for analysis operations
+
+### 7. Task & Sprint Management
+**Status**: Not Started  
+**Priority**: High  
+**Description**: Persist task and sprint data with real-time updates
+
+#### Subtasks:
+- [ ] **Task Data Management**
+  - *Files to create*: `src/services/taskService.ts`
+  - *Files to modify*: `src/components/tasks/TasksView.tsx`, `src/stores/useAppStore.ts`
+  - Store tasks with full metadata and relationships
+  - Implement task status tracking and history
+  - Add task assignment and reassignment logic
+  - Track time estimates vs actual effort
+
+- [ ] **Sprint Data Management**
+  - *Files to create*: `src/services/sprintService.ts`
+  - *Files to modify*: `src/components/sprints/SprintsView.tsx`
+  - Store sprint data with capacity planning
+  - Track burndown data and velocity metrics
+  - Implement sprint retrospective data collection
+  - Add sprint template and automation features
+
+- [ ] **Business Specification Storage**
+  - *Files to create*: `src/services/businessSpecService.ts`
+  - *Files to modify*: `src/components/overlay/TaskGenerator.tsx`
+  - Store business specs with version history
+  - Track spec-to-task generation relationships
+  - Implement spec approval and review workflows
+  - Add collaborative editing for specifications
+
+### 8. Developer Profile Management
+**Status**: Not Started  
+**Priority**: Medium  
+**Description**: Store and analyze developer data and performance metrics
+
+#### Subtasks:
+- [ ] **Developer Data Storage**
+  - *Files to create*: `src/services/developerService.ts`
+  - *Files to modify*: `src/components/profile/ProfileView.tsx`
+  - Store developer profiles and skill assessments
+  - Track velocity and performance metrics over time
+  - Implement skill progression tracking
+  - Add team composition analysis
+
+- [ ] **Performance Analytics**
+  - *Files to create*: `src/services/analyticsService.ts`, `src/utils/performanceCalculator.ts`
+  - *Files to modify*: `src/components/profile/ProfileView.tsx`
+  - Calculate and store performance metrics
+  - Track code quality and collaboration scores
+  - Implement trend analysis and predictions
+  - Add comparative team analytics
+
+- [ ] **GitHub Integration for Profiles**
+  - *Files to modify*: `src/services/github.ts`, `src/services/developerService.ts`
+  - Sync developer data from GitHub profiles
+  - Analyze commit patterns and code contributions
+  - Extract skill insights from code changes
+  - Track collaboration patterns and code reviews
+
+## 🔧 Real-time Features & Collaboration
+
+### 9. Real-time Updates
+**Status**: Not Started  
+**Priority**: Medium  
+**Description**: Implement real-time collaboration and live updates
+
+#### Subtasks:
+- [ ] **Supabase Realtime Integration**
+  - *Files to create*: `src/hooks/useRealtime.ts`, `src/services/realtimeService.ts`
+  - *Files to modify*: `src/stores/useAppStore.ts`
+  - Set up Supabase realtime subscriptions
+  - Implement live updates for tasks and sprints
+  - Add real-time collaboration for documentation
+  - Handle connection state and reconnection logic
+
+- [ ] **Live Task Board Updates**
+  - *Files to modify*: `src/components/tasks/TasksView.tsx`
+  - Real-time task status updates across users
+  - Live assignment and reassignment notifications
+  - Implement optimistic updates with conflict resolution
+  - Add presence indicators for active users
+
+- [ ] **Collaborative Documentation**
+  - *Files to modify*: `src/components/docs/DocsView.tsx`
+  - Real-time collaborative editing for documentation
+  - Track document changes and author attribution
+  - Implement comment and suggestion system
+  - Add document locking and conflict resolution
+
+### 10. Authentication & User Management
+**Status**: Not Started  
+**Priority**: Medium  
+**Description**: Implement proper user authentication and management
+
+#### Subtasks:
+- [ ] **Supabase Auth Integration**
+  - *Files to create*: `src/services/authService.ts`, `src/hooks/useAuth.ts`
+  - *Files to modify*: `src/App.tsx`, `src/stores/useAppStore.ts`
+  - Set up Supabase authentication
+  - Implement email/password and OAuth login
+  - Add user session management
+  - Handle authentication state across app
+
+- [ ] **User Profile Management**
+  - *Files to create*: `src/components/auth/ProfileSettings.tsx`
+  - *Files to modify*: `src/components/layout/Header.tsx`
+  - User profile creation and editing
+  - Avatar upload and management
+  - Notification preferences
+  - Account settings and preferences
+
+- [ ] **Team Management**
+  - *Files to create*: `src/components/team/TeamManagement.tsx`
+  - *Files to modify*: `src/components/profile/ProfileView.tsx`
+  - Team creation and invitation system
+  - Role-based access control
+  - Team settings and permissions
+  - Member onboarding workflow
+
 ## 🔧 Medium Priority Features
 
-### 5. Advanced Sprint Planning
+### 11. Advanced Sprint Planning
 **Status**: Basic Implementation  
 **Priority**: Medium  
 **Description**: Enhance sprint planning with AI-powered automation
@@ -152,7 +340,7 @@
   - Sprint retrospective data collection
   - Performance analytics and insights
 
-### 6. Developer Analytics Enhancement
+### 12. Developer Analytics Enhancement
 **Status**: Basic Implementation  
 **Priority**: Medium  
 **Description**: Advanced developer profiling and analytics
@@ -179,7 +367,7 @@
   - Skill gap identification
   - Collaboration improvement suggestions
 
-### 7. Advanced Documentation Features
+### 13. Advanced Documentation Features
 **Status**: ✅ **COMPLETED** (Core functionality)  
 **Priority**: Medium  
 **Description**: Enhanced documentation generation and management
@@ -208,7 +396,7 @@
 
 ## 🎨 UI/UX Improvements
 
-### 8. Enhanced User Experience
+### 14. Enhanced User Experience
 **Status**: Ongoing  
 **Priority**: Medium  
 **Description**: Improve overall user experience and interface
@@ -233,35 +421,9 @@
   - Touch-friendly interactions
   - Progressive web app features
 
-### 9. Data Persistence & Backend
-**Status**: Not Started  
-**Priority**: Medium  
-**Description**: Implement proper data storage and backend services
-
-#### Subtasks:
-- [ ] **Database Integration**
-  - *Files to create*: `src/services/database.ts`, `src/models/*.ts`
-  - *Files to modify*: `package.json` (add database dependencies)
-  - SQLite integration for local storage
-  - Data migration and seeding
-  - Backup and restore functionality
-
-- [ ] **API Layer**
-  - *Files to create*: `src/api/*.ts`, `src/middleware/*.ts`
-  - Create RESTful API endpoints
-  - Authentication and authorization
-  - Rate limiting and security
-
-- [ ] **Real-time Updates**
-  - *Files to create*: `src/services/websocket.ts`, `src/hooks/useRealtime.ts`
-  - *Files to modify*: `src/stores/useAppStore.ts`
-  - WebSocket integration for live updates
-  - Real-time collaboration features
-  - Offline support and sync
-
 ## 🔍 Testing & Quality Assurance
 
-### 10. Testing Infrastructure
+### 15. Testing Infrastructure
 **Status**: Not Started  
 **Priority**: Medium  
 **Description**: Comprehensive testing setup
@@ -288,7 +450,7 @@
 
 ## 🚀 Deployment & DevOps
 
-### 11. Production Readiness
+### 16. Production Readiness
 **Status**: Not Started  
 **Priority**: Low  
 **Description**: Prepare for production deployment
@@ -314,7 +476,7 @@
 
 ## 📋 Technical Debt & Refactoring
 
-### 12. Code Quality Improvements
+### 17. Code Quality Improvements
 **Status**: Ongoing  
 **Priority**: Low  
 **Description**: Maintain and improve code quality
@@ -347,14 +509,18 @@
 3. ✅ **Enhanced AI Command Palette** - Key user experience *(COMPLETED)*
 4. ✅ **Task Generation UI** - Business spec to task conversion *(COMPLETED)*
 5. ✅ **PR Simulation Engine** - Automation value *(COMPLETED)*
-6. **Advanced Sprint Planning** - Team productivity
-7. **Developer Analytics** - Intelligence features
-8. **Documentation Features** - Content management *(Core completed)*
-9. **UI/UX Improvements** - User satisfaction
-10. **Backend & Persistence** - Scalability
-11. **Testing & Quality** - Reliability
-12. **Production Readiness** - Launch preparation
-13. **Technical Debt** - Maintenance
+6. 🚧 **Supabase Database Setup** - Replace mock data with real persistence *(IN PROGRESS)*
+7. **Repository Data Management** - Persist analysis and documentation
+8. **Task & Sprint Management** - Real data persistence
+9. **Real-time Updates** - Live collaboration features
+10. **Authentication & User Management** - Multi-user support
+11. **Advanced Sprint Planning** - Team productivity
+12. **Developer Analytics** - Intelligence features
+13. **Advanced Documentation Features** - Enhanced content management
+14. **UI/UX Improvements** - User satisfaction
+15. **Testing & Quality** - Reliability
+16. **Production Readiness** - Launch preparation
+17. **Technical Debt** - Maintenance
 
 ## 📊 Current Progress Summary
 
@@ -378,17 +544,21 @@
 - **PR Preview Interface**: Professional preview with tabs, copy functionality, and workflow guidance
 - **GitHub Integration**: Branch naming, commit messages, and PR URL generation
 
-### 🚧 Recently Completed
-- **PR Simulation Engine**: Complete implementation with template generation and code scaffolding
-- **Task Integration**: PR generation directly from task cards in the Kanban board
-- **AI-Powered Content**: Intelligent PR titles, descriptions, and commit messages
-- **File Scaffolds**: Language-specific code templates with TODO comments
-- **Professional UI**: Beautiful PR preview interface with comprehensive functionality
+### 🚧 Currently Using Mock Data
+- **Repositories**: Static mock repository data in `useAppStore`
+- **Developers**: Hardcoded developer profiles with sample metrics
+- **Tasks**: Sample tasks with mock assignments and status
+- **Sprints**: Basic sprint data without real persistence
+- **Business Specs**: In-memory storage only
+- **Documentation**: Generated docs not persisted between sessions
 
-### 🎯 Immediate Next Steps
-1. **Advanced Sprint Planning**: Capacity planning and burndown charts
-2. **Developer Analytics Enhancement**: Commit analysis and performance tracking
-3. **Advanced Documentation Features**: Versioning and collaborative editing
+### 🎯 Immediate Next Steps (Database Integration)
+1. **Design Database Schema**: Create comprehensive schema for all entities
+2. **Set up Supabase Client**: Configure typed client with proper error handling
+3. **Implement Data Services**: Create service layer for each entity type
+4. **Migrate Mock Data**: Replace in-memory storage with database persistence
+5. **Add Real-time Features**: Implement live updates and collaboration
+6. **Set up Authentication**: Multi-user support with proper access control
 
 ### 📈 Success Metrics Achieved
 - ⏱️ **Sub-10 second repo → doc generation**: ✅ Achieved with Groq API
@@ -407,12 +577,12 @@
 - **Groq API Integration**: Rate limiting, error handling, prompt templates
 - **Documentation Pipeline**: Generation, processing, export, and preview
 - **Repository Analysis**: Structure parsing, dependency extraction, service identification
-- **State Management**: Zustand store with proper type safety
+- **State Management**: Zustand store with proper type safety (currently using mock data)
 - **UI Components**: Reusable, accessible components with consistent design
 - **NLP Engine**: Intent recognition, entity extraction, context awareness
 - **Conversation Management**: Message history, typing indicators, suggested actions
 - **Task Generation Pipeline**: Business spec validation, AI generation, task creation
-- **Business Spec Management**: CRUD operations with proper validation
+- **Business Spec Management**: CRUD operations with proper validation (in-memory only)
 - **PR Generation Engine**: Template generation, code scaffolding, GitHub integration
 - **File Scaffolding**: Language-specific templates with intelligent TODO generation
 
@@ -433,11 +603,21 @@
 - **Complete Development Workflow**: From business idea → specification → tasks → PR templates
 - **AI-Powered Documentation**: Automated generation and maintenance
 - **Repository Intelligence**: Deep codebase analysis and insights
-- **Team Management**: Developer profiling and capacity planning
-- **Sprint Planning**: Basic sprint management with progress tracking
+- **Team Management**: Developer profiling and capacity planning (mock data)
+- **Sprint Planning**: Basic sprint management with progress tracking (mock data)
 - **Professional UI**: Production-worthy interface with excellent UX
 - **GitHub Integration**: Seamless repository connection and PR automation
 - **Task Management**: Complete Kanban-style task tracking with PR generation
 - **Business Specification Management**: Rich editor with validation and AI integration
+
+### 🗄️ Database Integration Priority
+The next critical step is replacing all mock data with proper Supabase integration:
+
+1. **Schema Design**: Comprehensive database schema for all entities
+2. **Data Services**: Service layer for CRUD operations with proper typing
+3. **Real-time Features**: Live updates and collaboration using Supabase realtime
+4. **Authentication**: Multi-user support with proper access control
+5. **Data Migration**: Smooth transition from mock data to persistent storage
+6. **Performance**: Optimized queries and caching strategies
 
 Each feature should be implemented incrementally with proper testing and user feedback integration.

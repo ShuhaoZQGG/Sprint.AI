@@ -78,6 +78,7 @@ src/
 - **Frontend**: React 18 + TypeScript + Vite
 - **Styling**: Tailwind CSS with custom design system
 - **State Management**: Zustand for global state
+- **Database**: Supabase (PostgreSQL with real-time features)
 - **AI Integration**: Groq API for fast LLM responses
 - **GitHub Integration**: Octokit REST API
 - **Icons**: Lucide React
@@ -166,25 +167,29 @@ src/
 - **Professional Preview**: Comprehensive PR preview with tabs and copy functionality
 - **Workflow Guidance**: Step-by-step implementation workflow
 
-### 🚧 In Progress Features
+### 🚧 Current Limitations (Mock Data)
 
-#### Advanced Sprint Planning
-- **Capacity Algorithms**: AI-powered capacity planning and optimization
-- **Burndown Charts**: Real-time progress visualization
-- **Sprint Automation**: Automated sprint creation and task distribution
+#### Data Persistence
+- **In-Memory Storage**: All data currently stored in Zustand state (lost on refresh)
+- **No User Accounts**: Single-user experience without authentication
+- **No Real-time Collaboration**: Changes not synced across users or sessions
+- **No Data History**: No versioning or audit trails for changes
 
-#### Developer Analytics Enhancement
-- **Commit Analysis**: Advanced commit pattern analysis and insights
-- **Performance Tracking**: Individual and team performance metrics
-- **Skill Progression**: Track developer growth and learning
+#### Missing Database Features
+- **Repository Persistence**: Repository analysis not saved between sessions
+- **Documentation Storage**: Generated docs not persisted or versioned
+- **Task History**: No task change tracking or assignment history
+- **Sprint Analytics**: No historical sprint data or velocity calculations
+- **Team Management**: No real team creation or member management
 
 ### 🎯 Next Implementation Priorities
 
-1. **Advanced Sprint Planning**: AI-powered capacity planning and task distribution
-2. **Developer Analytics Enhancement**: Commit analysis and performance tracking
-3. **Advanced Documentation Features**: Versioning and collaborative editing
-4. **Real-time Collaboration**: WebSocket integration for live updates
-5. **Mobile Optimization**: Enhanced mobile experience and PWA features
+1. **Supabase Database Integration**: Replace mock data with persistent storage
+2. **User Authentication**: Multi-user support with proper access control
+3. **Real-time Collaboration**: Live updates and collaborative editing
+4. **Data Migration**: Smooth transition from mock to persistent data
+5. **Advanced Sprint Planning**: AI-powered capacity planning and task distribution
+6. **Developer Analytics Enhancement**: Commit analysis and performance tracking
 
 ## 🚀 Getting Started
 
@@ -193,6 +198,7 @@ src/
 - npm or yarn
 - Groq API key (for AI features)
 - GitHub Personal Access Token (for repository integration)
+- Supabase project (for data persistence)
 
 ### Installation
 ```bash
@@ -220,6 +226,10 @@ VITE_GITHUB_CLIENT_ID=your_github_oauth_client_id_here
 # AI Integration (Groq)
 VITE_GROQ_API_KEY=your_groq_api_key_here
 
+# Supabase Integration
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
 # Application Settings
 VITE_APP_URL=http://localhost:5173
 ```
@@ -234,6 +244,8 @@ VITE_APP_URL=http://localhost:5173
 7. **Task Management**: Create, filter, and manage tasks in the Tasks view
 8. **Sprint Planning**: Plan and track sprints in the Sprints view
 9. **Team Analytics**: View developer profiles and team metrics in the Team Profile view
+
+**Note**: Currently using mock data - all changes are lost on page refresh. Database integration coming soon!
 
 ## 🎯 Success Metrics
 
@@ -307,15 +319,30 @@ VITE_APP_URL=http://localhost:5173
 - **Workflow Automation**: Complete development workflow from task to PR
 - **Preview System**: Comprehensive preview with copy functionality and workflow guidance
 
+### Current Architecture Limitations
+- **Mock Data Storage**: All data stored in memory (Zustand state)
+- **No Persistence**: Data lost on page refresh or browser close
+- **Single User**: No multi-user support or authentication
+- **No Real-time**: No live collaboration or updates
+- **No History**: No audit trails or version tracking
+
+### Planned Database Architecture
+- **Supabase Integration**: PostgreSQL with real-time subscriptions
+- **Row Level Security**: Proper data isolation and access control
+- **Real-time Updates**: Live collaboration and instant synchronization
+- **Audit Trails**: Complete change tracking and version history
+- **Multi-tenant**: Support for teams and organizations
+
 ## 🤝 Contributing
 
 This project is in active development. Key areas for contribution:
 
-1. **AI Model Fine-tuning**: Improve intent recognition and response quality
-2. **GitHub Integration**: Enhanced repository analysis and PR automation
-3. **UI/UX Improvements**: Advanced animations and mobile optimization
-4. **Testing**: Comprehensive test coverage for all components
-5. **Documentation**: User guides and API documentation
+1. **Database Integration**: Help implement Supabase integration and data persistence
+2. **AI Model Fine-tuning**: Improve intent recognition and response quality
+3. **GitHub Integration**: Enhanced repository analysis and PR automation
+4. **UI/UX Improvements**: Advanced animations and mobile optimization
+5. **Testing**: Comprehensive test coverage for all components
+6. **Documentation**: User guides and API documentation
 
 ## 📄 License
 
@@ -324,3 +351,5 @@ MIT License - see LICENSE file for details
 ---
 
 **Sprint.AI** - Transforming development workflows with AI-native intelligence. Built for the future of software development.
+
+**Current Status**: Feature-complete with mock data. Database integration in progress for production deployment.
