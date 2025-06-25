@@ -10,10 +10,14 @@ import {
   X,
   Zap,
   MessageSquare,
-  Lightbulb
+  Lightbulb,
+  ArrowRight,
+  HelpCircle
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { Button } from '../ui/Button';
+import { nlpProcessor, ProcessedQuery } from '../../services/nlpProcessor';
+import toast from 'react-hot-toast';
 
 const aiSuggestions = [
   {
@@ -55,10 +59,20 @@ interface Message {
   content: string;
   type: 'user' | 'assistant';
   timestamp: Date;
+  processedQuery?: ProcessedQuery;
 }
 
 export const AIOverlay: React.FC = () => {
-  const { overlayOpen, setOverlayOpen } = useAppStore();
+  const { 
+    overlayOpen, 
+    setOverlayOpen, 
+    repositories, 
+    developers, 
+    tasks, 
+    businessSpecs,
+    currentRepository 
+  } = useAppStore();
+  
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -97,6 +111,14 @@ export const AIOverlay: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const getQueryContext = () => ({
+    repositories,
+    developers,
+    tasks,
+    businessSpecs,
+    currentRepository: currentRepository || undefined,
+  });
+
   const handleSendMessage = async () => {
     if (!query.trim() || loading) return;
 
@@ -108,21 +130,50 @@ export const AIOverlay: React.FC = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentQuery = query;
     setQuery('');
     setLoading(true);
 
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Process query with NLP
+      const processedQuery = await nlpProcessor.processQuery(currentQuery, getQueryContext());
+      
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: processedQuery.response,
+        type: 'assistant',
+        timestamp: new Date(),
+        processedQuery,
+      };
 
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content: `I understand you want to "${query}". Let me help you with that. Based on your request, I can generate specific tasks, update documentation, or create PR templates. Would you like me to proceed with any of these actions?`,
-      type: 'assistant',
-      timestamp: new Date(),
-    };
+      setMessages(prev => [...prev, assistantMessage]);
 
-    setMessages(prev => [...prev, assistantMessage]);
-    setLoading(false);
+      // Show follow-up questions if needed
+      if (processedQuery.needsMoreInfo && processedQuery.followUpQuestions.length > 0) {
+        setTimeout(() => {
+          const followUpMessage: Message = {
+            id: (Date.now() + 2).toString(),
+            content: `To help you better, could you clarify:\n\n${processedQuery.followUpQuestions.map(q => `• ${q}`).join('\n')}`,
+            type: 'assistant',
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, followUpMessage]);
+        }, 1000);
+      }
+
+    } catch (error) {
+      console.error('Query processing error:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'I apologize, but I encountered an error processing your request. Please try again or use one of the quick actions below.',
+        type: 'assistant',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      toast.error('Failed to process your request');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSuggestionClick = async (action: string, title: string) => {
@@ -136,36 +187,42 @@ export const AIOverlay: React.FC = () => {
     setMessages(prev => [...prev, userMessage]);
     setLoading(true);
 
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Process the action as a query
+      const processedQuery = await nlpProcessor.processQuery(title, getQueryContext());
+      
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: processedQuery.response,
+        type: 'assistant',
+        timestamp: new Date(),
+        processedQuery,
+      };
 
-    let responseContent = '';
-    switch (action) {
-      case 'generate-tasks':
-        responseContent = 'I\'ll help you generate technical tasks from your business requirements. Please provide the business specification or feature description, and I\'ll break it down into actionable development tasks with effort estimates.';
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Action processing error:', error);
+      toast.error('Failed to process action');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleActionClick = (actionId: string, parameters?: Record<string, any>) => {
+    // Handle specific actions based on actionId
+    switch (actionId) {
+      case 'generate-tasks-from-specs':
+        toast.success('Opening task generator...');
         break;
-      case 'update-docs':
-        responseContent = 'I\'ll analyze your connected repositories and update the documentation. This includes refreshing API docs, component documentation, and architecture overviews based on recent code changes.';
+      case 'generate-documentation':
+        toast.success('Starting documentation generation...');
         break;
-      case 'assign-team':
-        responseContent = 'I\'ll analyze your team\'s capacity, skills, and current workload to suggest optimal task assignments. This ensures balanced distribution and matches tasks with developer strengths.';
-        break;
-      case 'generate-pr':
-        responseContent = 'I\'ll create a complete PR template including branch name, commit messages, and file scaffolds. Just tell me about the feature or task you want to implement.';
+      case 'auto-assign-tasks':
+        toast.success('Auto-assigning tasks...');
         break;
       default:
-        responseContent = 'I\'m ready to help! What specific action would you like me to take?';
+        toast.info(`Action: ${actionId}`);
     }
-
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content: responseContent,
-      type: 'assistant',
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, assistantMessage]);
-    setLoading(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -208,29 +265,66 @@ export const AIOverlay: React.FC = () => {
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {messages.map((message) => (
-              <div
-                key={message.id}
-                className={clsx(
-                  'flex',
-                  message.type === 'user' ? 'justify-end' : 'justify-start'
-                )}
-              >
+              <div key={message.id} className="space-y-3">
                 <div
                   className={clsx(
-                    'max-w-[80%] rounded-lg px-4 py-3',
-                    message.type === 'user'
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-dark-700 text-dark-100 border border-dark-600'
+                    'flex',
+                    message.type === 'user' ? 'justify-end' : 'justify-start'
                   )}
                 >
-                  <p className="text-sm leading-relaxed">{message.content}</p>
-                  <p className={clsx(
-                    'text-xs mt-2',
-                    message.type === 'user' ? 'text-primary-200' : 'text-dark-500'
-                  )}>
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
+                  <div
+                    className={clsx(
+                      'max-w-[80%] rounded-lg px-4 py-3',
+                      message.type === 'user'
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-dark-700 text-dark-100 border border-dark-600'
+                    )}
+                  >
+                    <p className="text-sm leading-relaxed whitespace-pre-line">{message.content}</p>
+                    <p className={clsx(
+                      'text-xs mt-2',
+                      message.type === 'user' ? 'text-primary-200' : 'text-dark-500'
+                    )}>
+                      {message.timestamp.toLocaleTimeString()}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Suggested Actions */}
+                {message.processedQuery?.suggestedActions && message.processedQuery.suggestedActions.length > 0 && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] space-y-2">
+                      <p className="text-xs text-dark-400 px-2">Suggested actions:</p>
+                      <div className="space-y-2">
+                        {message.processedQuery.suggestedActions.map((action) => (
+                          <button
+                            key={action.id}
+                            onClick={() => handleActionClick(action.action, action.parameters)}
+                            className="w-full flex items-center justify-between p-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 hover:border-primary-500 rounded-lg transition-all duration-200 text-left group"
+                          >
+                            <div>
+                              <h5 className="text-sm font-medium text-white">{action.title}</h5>
+                              <p className="text-xs text-dark-400">{action.description}</p>
+                            </div>
+                            <ArrowRight size={14} className="text-dark-500 group-hover:text-primary-400" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Intent Information (Debug) */}
+                {message.processedQuery && process.env.NODE_ENV === 'development' && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] p-2 bg-dark-800 border border-dark-600 rounded text-xs text-dark-400">
+                      Intent: {message.processedQuery.intent.type} ({(message.processedQuery.intent.confidence * 100).toFixed(0)}%)
+                      {message.processedQuery.intent.entities.length > 0 && (
+                        <span> | Entities: {message.processedQuery.intent.entities.map(e => `${e.type}:${e.value}`).join(', ')}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
