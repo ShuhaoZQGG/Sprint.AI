@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   RefreshCw, 
@@ -12,17 +12,22 @@ import {
   Zap,
   History,
   Search,
-  Eye
+  Eye,
+  Users
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { PresenceIndicator } from '../ui/PresenceIndicator';
+import { RealtimeIndicator } from '../ui/RealtimeIndicator';
 import { RepositoryConnector } from '../repository/RepositoryConnector';
 import { DocGenerator } from './DocGenerator';
 import { VersionHistory } from './VersionHistory';
 import { useRepositories } from '../../hooks/useRepositories';
 import { useDocumentation } from '../../hooks/useDocumentation';
 import { useAppStore } from '../../stores/useAppStore';
+import { useRealtimeTable, usePresence } from '../../hooks/useRealtime';
+import { useAuth } from '../../hooks/useSupabase';
 import { GeneratedDocumentation } from '../../services/docGenerator';
 import { RepositoryAnalysis } from '../../types/github';
 import { DocumentationSearchResult } from '../../services/documentationService';
@@ -38,6 +43,7 @@ export const DocsView: React.FC = () => {
     getLatestDocumentation 
   } = useDocumentation();
   const { currentRepository, setCurrentRepository } = useAppStore();
+  const { user } = useAuth();
   
   const [generating, setGenerating] = useState(false);
   const [showConnector, setShowConnector] = useState(false);
@@ -46,18 +52,103 @@ export const DocsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<DocumentationSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [collaborativeEditing, setCollaborativeEditing] = useState<string | null>(null);
+
+  // Real-time presence for collaboration
+  const { users: onlineUsers, broadcast, onBroadcast } = usePresence(
+    'docs-collaboration',
+    {
+      id: user?.id || 'anonymous',
+      name: user?.user_metadata?.full_name || user?.email || 'Anonymous',
+      avatar: user?.user_metadata?.avatar_url,
+    },
+    { enabled: !!user }
+  );
+
+  // Real-time documentation updates
+  useRealtimeTable(
+    'generated_docs',
+    (payload) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      
+      switch (eventType) {
+        case 'INSERT':
+          if (newRecord && newRecord.created_by !== user?.id) {
+            toast.success(`New documentation created: ${newRecord.title}`);
+          }
+          break;
+          
+        case 'UPDATE':
+          if (newRecord && newRecord.created_by !== user?.id) {
+            toast.info(`Documentation updated: ${newRecord.title}`);
+          }
+          break;
+          
+        case 'DELETE':
+          if (oldRecord) {
+            toast.info(`Documentation deleted: ${oldRecord.title}`);
+          }
+          break;
+      }
+    },
+    { enabled: !docsLoading }
+  );
+
+  // Listen for collaborative editing events
+  useEffect(() => {
+    onBroadcast('doc-editing-started', (payload) => {
+      if (payload.userId !== user?.id) {
+        toast.info(`${payload.userName} started editing documentation`);
+      }
+    });
+
+    onBroadcast('doc-editing-stopped', (payload) => {
+      if (payload.userId !== user?.id) {
+        toast.info(`${payload.userName} stopped editing documentation`);
+      }
+    });
+
+    onBroadcast('doc-section-updated', (payload) => {
+      if (payload.userId !== user?.id) {
+        toast.success(`${payload.userName} updated a documentation section`);
+      }
+    });
+  }, [onBroadcast, user?.id]);
 
   const handleGenerateDocs = async () => {
     setGenerating(true);
+    
+    // Broadcast that user started generating docs
+    broadcast('doc-generation-started', {
+      userId: user?.id,
+      userName: user?.user_metadata?.full_name || user?.email,
+      repositoryId: selectedRepo,
+    });
+
     // Simulate AI documentation generation
     await new Promise(resolve => setTimeout(resolve, 3000));
     setGenerating(false);
+
+    // Broadcast completion
+    broadcast('doc-generation-completed', {
+      userId: user?.id,
+      userName: user?.user_metadata?.full_name || user?.email,
+      repositoryId: selectedRepo,
+    });
   };
 
   const handleDocumentationGenerated = async (repoId: string, documentation: GeneratedDocumentation) => {
     try {
       await storeDocumentation(repoId, documentation);
       toast.success('Documentation saved to database!');
+      
+      // Broadcast the new documentation
+      broadcast('doc-created', {
+        userId: user?.id,
+        userName: user?.user_metadata?.full_name || user?.email,
+        repositoryId: repoId,
+        documentationId: documentation.id,
+      });
     } catch (error) {
       console.error('Failed to store documentation:', error);
     }
@@ -84,13 +175,43 @@ export const DocsView: React.FC = () => {
     try {
       const latestDoc = await getLatestDocumentation(repositoryId);
       if (latestDoc) {
-        // Here you could open a documentation viewer modal
+        // Broadcast that user is viewing documentation
+        broadcast('doc-viewing', {
+          userId: user?.id,
+          userName: user?.user_metadata?.full_name || user?.email,
+          repositoryId,
+          documentationId: latestDoc.id,
+        });
+        
         toast.success('Opening documentation...');
       } else {
         toast.info('No documentation found for this repository');
       }
     } catch (error) {
       console.error('Failed to fetch documentation:', error);
+    }
+  };
+
+  const handleStartCollaborativeEditing = (docId: string) => {
+    setCollaborativeEditing(docId);
+    
+    // Broadcast that user started editing
+    broadcast('doc-editing-started', {
+      userId: user?.id,
+      userName: user?.user_metadata?.full_name || user?.email,
+      documentationId: docId,
+    });
+  };
+
+  const handleStopCollaborativeEditing = () => {
+    if (collaborativeEditing) {
+      broadcast('doc-editing-stopped', {
+        userId: user?.id,
+        userName: user?.user_metadata?.full_name || user?.email,
+        documentationId: collaborativeEditing,
+      });
+      
+      setCollaborativeEditing(null);
     }
   };
 
@@ -142,6 +263,14 @@ export const DocsView: React.FC = () => {
     if (repo) {
       setCurrentRepository(repo);
       setSelectedRepo(repoId);
+      
+      // Broadcast repository selection
+      broadcast('repo-selected', {
+        userId: user?.id,
+        userName: user?.user_metadata?.full_name || user?.email,
+        repositoryId: repoId,
+        repositoryName: repo.name,
+      });
     }
   };
 
@@ -158,6 +287,8 @@ export const DocsView: React.FC = () => {
           <p className="text-dark-400">AI-generated and maintained codebase documentation</p>
         </div>
         <div className="flex items-center space-x-3">
+          <PresenceIndicator users={onlineUsers} showNames />
+          <RealtimeIndicator />
           <Button variant="ghost" onClick={() => setShowConnector(true)}>
             <Plus size={16} className="mr-2" />
             Connect Repository
@@ -228,9 +359,17 @@ export const DocsView: React.FC = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-white">Connected Repositories</h3>
-            <div className="flex items-center space-x-2">
-              <GitBranch size={16} className="text-dark-400" />
-              <span className="text-sm text-dark-400">main branch</span>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <GitBranch size={16} className="text-dark-400" />
+                <span className="text-sm text-dark-400">main branch</span>
+              </div>
+              {onlineUsers.length > 0 && (
+                <div className="flex items-center space-x-2 text-sm text-dark-400">
+                  <Users size={14} />
+                  <span>{onlineUsers.length} collaborating</span>
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -246,6 +385,7 @@ export const DocsView: React.FC = () => {
                 const repoDocumentation = getRepositoryDocumentation(repo.id);
                 const hasDocumentation = repoDocumentation.length > 0;
                 const isSelected = selectedRepo === repo.id;
+                const isBeingEdited = collaborativeEditing === repo.id;
                 
                 return (
                   <div
@@ -254,7 +394,7 @@ export const DocsView: React.FC = () => {
                       isSelected 
                         ? 'border-primary-500 bg-primary-900/20' 
                         : 'border-dark-600 hover:border-primary-500'
-                    }`}
+                    } ${isBeingEdited ? 'ring-2 ring-secondary-500' : ''}`}
                     onClick={() => handleRepositorySelect(repo.id)}
                   >
                     <div className="flex items-start space-x-3 mb-3">
@@ -272,6 +412,11 @@ export const DocsView: React.FC = () => {
                         {isSelected && (
                           <div className="flex items-center space-x-1 text-primary-400">
                             <Zap size={12} />
+                          </div>
+                        )}
+                        {isBeingEdited && (
+                          <div className="flex items-center space-x-1 text-secondary-400">
+                            <Edit size={12} />
                           </div>
                         )}
                       </div>
@@ -306,6 +451,21 @@ export const DocsView: React.FC = () => {
                               className="p-1"
                             >
                               <Eye size={12} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isBeingEdited) {
+                                  handleStopCollaborativeEditing();
+                                } else {
+                                  handleStartCollaborativeEditing(repo.id);
+                                }
+                              }}
+                              className="p-1"
+                            >
+                              <Edit size={12} />
                             </Button>
                           </>
                         )}
@@ -420,6 +580,14 @@ export const DocsView: React.FC = () => {
                       >
                         <Eye size={14} className="mr-1" />
                         View
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleStartCollaborativeEditing(doc.id)}
+                      >
+                        <Edit size={14} className="mr-1" />
+                        Edit
                       </Button>
                       <Button variant="ghost" size="sm">
                         <RefreshCw size={14} className="mr-1" />

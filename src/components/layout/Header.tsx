@@ -1,10 +1,13 @@
 import React from 'react';
 import { Search, Bell, User, Command } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
+import { useAuth } from '../../hooks/useSupabase';
 import { Button } from '../ui/Button';
+import { RealtimeIndicator } from '../ui/RealtimeIndicator';
 
 export const Header: React.FC = () => {
   const { setOverlayOpen } = useAppStore();
+  const { user } = useAuth();
 
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-dark-900 border-b border-dark-700">
@@ -15,6 +18,9 @@ export const Header: React.FC = () => {
       </div>
 
       <div className="flex items-center space-x-4">
+        {/* Real-time Connection Status */}
+        <RealtimeIndicator />
+
         {/* AI Command Palette Trigger */}
         <Button
           variant="ghost"
@@ -40,13 +46,23 @@ export const Header: React.FC = () => {
         </div>
 
         {/* Notifications */}
-        <button className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors">
+        <button className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors relative">
           <Bell size={20} />
+          {/* Notification badge */}
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-error-500 rounded-full" />
         </button>
 
         {/* Profile */}
         <button className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors">
-          <User size={20} />
+          {user?.user_metadata?.avatar_url ? (
+            <img
+              src={user.user_metadata.avatar_url}
+              alt="Profile"
+              className="w-5 h-5 rounded-full object-cover"
+            />
+          ) : (
+            <User size={20} />
+          )}
         </button>
       </div>
     </header>

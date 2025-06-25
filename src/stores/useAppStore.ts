@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Repository, Task, Sprint } from '../types';
+import { Repository, Task, Sprint, Developer } from '../types';
 import { GeneratedDocumentation } from '../services/docGenerator';
 
 interface AppState {
@@ -16,10 +16,16 @@ interface AppState {
   // Documentation state
   generatedDocs: Map<string, GeneratedDocumentation>;
   
+  // Developer state (mock data)
+  developers: Developer[];
+  
   // UI state
   sidebarOpen: boolean;
   overlayOpen: boolean;
   currentView: 'dashboard' | 'tasks' | 'docs' | 'profile' | 'sprints';
+  
+  // Real-time collaboration state
+  onlineUsers: Map<string, { id: string; name: string; avatar?: string; lastSeen: Date }>;
   
   // Actions
   setCurrentRepository: (repo: Repository | null) => void;
@@ -31,6 +37,11 @@ interface AppState {
   addGeneratedDoc: (repoId: string, doc: GeneratedDocumentation) => void;
   updateGeneratedDoc: (repoId: string, doc: GeneratedDocumentation) => void;
   getGeneratedDoc: (repoId: string) => GeneratedDocumentation | null;
+  
+  // Real-time collaboration actions
+  addOnlineUser: (user: { id: string; name: string; avatar?: string }) => void;
+  removeOnlineUser: (userId: string) => void;
+  updateUserPresence: (userId: string, lastSeen: Date) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -91,9 +102,56 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   generatedDocs: new Map(),
   
+  developers: [
+    {
+      id: '1',
+      name: 'Alex Chen',
+      email: 'alex@company.com',
+      avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?w=150',
+      profile: {
+        velocity: 8,
+        strengths: ['Frontend', 'React', 'TypeScript'],
+        preferredTasks: ['feature', 'bug'],
+        commitFrequency: 12,
+        codeQuality: 9,
+        collaboration: 8,
+      },
+    },
+    {
+      id: '2',
+      name: 'Sarah Johnson',
+      email: 'sarah@company.com',
+      avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?w=150',
+      profile: {
+        velocity: 10,
+        strengths: ['Backend', 'Python', 'DevOps'],
+        preferredTasks: ['feature', 'devops'],
+        commitFrequency: 15,
+        codeQuality: 9,
+        collaboration: 9,
+      },
+    },
+    {
+      id: '3',
+      name: 'Mike Rodriguez',
+      email: 'mike@company.com',
+      avatar: 'https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?w=150',
+      profile: {
+        velocity: 6,
+        strengths: ['Testing', 'QA', 'Documentation'],
+        preferredTasks: ['test', 'docs', 'bug'],
+        commitFrequency: 8,
+        codeQuality: 8,
+        collaboration: 10,
+      },
+    },
+  ],
+  
   sidebarOpen: true,
   overlayOpen: false,
   currentView: 'dashboard',
+  
+  onlineUsers: new Map(),
   
   // Actions
   setCurrentRepository: (repo) => set({ currentRepository: repo }),
@@ -119,4 +177,31 @@ export const useAppStore = create<AppState>((set, get) => ({
   getGeneratedDoc: (repoId) => {
     return get().generatedDocs.get(repoId) || null;
   },
+  
+  // Real-time collaboration actions
+  addOnlineUser: (user) => set((state) => ({
+    onlineUsers: new Map(state.onlineUsers.set(user.id, {
+      ...user,
+      lastSeen: new Date(),
+    }))
+  })),
+  
+  removeOnlineUser: (userId) => set((state) => {
+    const newMap = new Map(state.onlineUsers);
+    newMap.delete(userId);
+    return { onlineUsers: newMap };
+  }),
+  
+  updateUserPresence: (userId, lastSeen) => set((state) => {
+    const user = state.onlineUsers.get(userId);
+    if (user) {
+      return {
+        onlineUsers: new Map(state.onlineUsers.set(userId, {
+          ...user,
+          lastSeen,
+        }))
+      };
+    }
+    return state;
+  }),
 }));
