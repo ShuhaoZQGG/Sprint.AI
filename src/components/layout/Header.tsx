@@ -62,7 +62,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-dark-900 border-b border-dark-700 relative z-40">
+    <header className="flex items-center justify-between px-6 py-4 bg-dark-900 border-b border-dark-700 relative z-50">
       <div className="flex items-center space-x-4">
         <h1 className="text-2xl font-bold text-white">
           Sprint.AI
@@ -113,7 +113,7 @@ export const Header: React.FC = () => {
         </button>
 
         {/* User Menu */}
-        <div className="relative">
+        <div className="relative z-50">
           <button
             ref={userButtonRef}
             onClick={handleUserMenuToggle}
@@ -143,7 +143,8 @@ export const Header: React.FC = () => {
           {showUserMenu && (
             <div 
               ref={userMenuRef}
-              className="absolute right-0 top-full mt-2 w-48 bg-dark-800 border border-dark-700 rounded-lg shadow-lg z-50 animate-scale-in"
+              className="absolute right-0 top-full mt-2 w-48 bg-dark-800 border border-dark-700 rounded-lg shadow-xl z-[9999] animate-scale-in backdrop-blur-sm"
+              style={{ zIndex: 9999 }}
             >
               <div className="p-3 border-b border-dark-700">
                 <p className="text-sm font-medium text-white">
@@ -184,6 +185,15 @@ export const Header: React.FC = () => {
         isOpen={showProfileSettings}
         onClose={() => setShowProfileSettings(false)}
       />
+
+      {/* Backdrop overlay when menu is open */}
+      {showUserMenu && (
+        <div 
+          className="fixed inset-0 z-[9998]" 
+          onClick={() => setShowUserMenu(false)}
+          style={{ zIndex: 9998 }}
+        />
+      )}
     </header>
   );
 };

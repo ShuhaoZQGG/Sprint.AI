@@ -18,6 +18,9 @@
 - [x] Authentication loading issue - app stuck on "Loading Sprint.AI..." 
   - *Fixed*: Consolidated auth hooks, improved error handling, added detailed logging, and fixed Supabase client initialization
 
+- [x] User profile dropdown menu hidden behind content and not clickable
+  - *Fixed*: Added proper z-index values (z-50 for header, z-[9999] for dropdown), backdrop overlay, and improved positioning
+
 ## 🔍 Testing & Quality Assurance
 
 ### 17. Testing Infrastructure
