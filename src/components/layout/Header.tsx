@@ -111,89 +111,10 @@ export const Header: React.FC = () => {
           {/* Notification badge */}
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-error-500 rounded-full" />
         </button>
-
-        {/* User Menu */}
-        <div className="relative z-50">
-          <button
-            ref={userButtonRef}
-            onClick={handleUserMenuToggle}
-            className="flex items-center space-x-2 p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors"
-            aria-expanded={showUserMenu}
-            aria-haspopup="true"
-          >
-            {user?.profile?.avatar_url ? (
-              <img
-                src={user.profile.avatar_url}
-                alt="Profile"
-                className="w-6 h-6 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-6 h-6 bg-primary-600 rounded-full flex items-center justify-center">
-                <span className="text-xs font-medium text-white">
-                  {user?.profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                </span>
-              </div>
-            )}
-            <span className="hidden sm:inline text-sm">
-              {user?.profile?.full_name || user?.email?.split('@')[0] || 'User'}
-            </span>
-          </button>
-
-          {/* User Dropdown Menu */}
-          {showUserMenu && (
-            <div 
-              ref={userMenuRef}
-              className="absolute right-0 top-full mt-2 w-48 bg-dark-800 border border-dark-700 rounded-lg shadow-xl z-[9999] animate-scale-in backdrop-blur-sm"
-              style={{ zIndex: 9999 }}
-            >
-              <div className="p-3 border-b border-dark-700">
-                <p className="text-sm font-medium text-white">
-                  {user?.profile?.full_name || 'User'}
-                </p>
-                <p className="text-xs text-dark-400">{user?.email}</p>
-                {user?.profile?.role && (
-                  <p className="text-xs text-primary-400 capitalize">
-                    {user.profile.role}
-                  </p>
-                )}
-              </div>
-              
-              <div className="py-1">
-                <button
-                  onClick={handleProfileSettingsOpen}
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-dark-300 hover:text-white hover:bg-dark-700 transition-colors"
-                >
-                  <Settings size={16} />
-                  <span>Profile Settings</span>
-                </button>
-                
-                <button
-                  onClick={handleSignOut}
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-dark-700 transition-colors"
-                >
-                  <LogOut size={16} />
-                  <span>Sign Out</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Profile Settings Modal */}
-      <ProfileSettings
-        isOpen={showProfileSettings}
-        onClose={() => setShowProfileSettings(false)}
-      />
-
       {/* Backdrop overlay when menu is open */}
-      {showUserMenu && (
-        <div 
-          className="fixed inset-0 z-[9998]" 
-          onClick={() => setShowUserMenu(false)}
-          style={{ zIndex: 9998 }}
-        />
-      )}
     </header>
   );
 };
