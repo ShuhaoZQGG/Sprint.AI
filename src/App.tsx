@@ -15,7 +15,7 @@ import { FadeIn, SlideIn } from './components/ui/AnimatedCounter';
 
 function App() {
   const { currentView } = useAppStore();
-  const { user, loading } = useAuth();
+  const { user, loading, error } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { ShortcutHelperModal } = useKeyboardShortcuts();
 
@@ -26,6 +26,11 @@ function App() {
         <FadeIn className="text-center">
           <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white text-lg">Loading Sprint.AI...</p>
+          {error && (
+            <p className="text-error-400 text-sm mt-2">
+              {error}
+            </p>
+          )}
         </FadeIn>
       </div>
     );
