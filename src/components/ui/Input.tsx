@@ -5,15 +5,32 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
+  isValid?: boolean;
 }
 
 export const Input: React.FC<InputProps> = ({
   label,
   error,
   icon,
+  isValid,
   className,
+  type = 'text',
   ...props
 }) => {
+  const getBorderClasses = () => {
+    if (error) {
+      return 'border-error-500 focus:border-error-500 focus:ring-error-500';
+    }
+    
+    // For password and email inputs in forms, show success border when valid
+    if (isValid && (type === 'email' || type === 'password')) {
+      return 'border-success-500 focus:border-success-500 focus:ring-success-500';
+    }
+    
+    // Default styling with hover effect
+    return 'border-dark-600 hover:border-dark-500 focus:border-primary-500 focus:ring-primary-500';
+  };
+
   return (
     <div className="w-full">
       {label && (
@@ -28,10 +45,11 @@ export const Input: React.FC<InputProps> = ({
           </div>
         )}
         <input
+          type={type}
           className={clsx(
-            'block w-full rounded-lg border border-dark-600 bg-dark-700 px-3 py-2 text-white placeholder-dark-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors',
+            'block w-full rounded-lg border bg-dark-700 px-3 py-2 text-white placeholder-dark-400 focus:outline-none focus:ring-1 transition-colors duration-200',
             icon && 'pl-10',
-            error && 'border-error-500 focus:border-error-500 focus:ring-error-500',
+            getBorderClasses(),
             className
           )}
           {...props}

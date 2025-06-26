@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Search, Bell, User, Command, Settings, LogOut } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { useAuth } from '../auth/AuthProvider';
@@ -11,14 +11,58 @@ export const Header: React.FC = () => {
   const { user, signOut } = useAuth();
   const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const userButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        userMenuRef.current &&
+        userButtonRef.current &&
+        !userMenuRef.current.contains(event.target as Node) &&
+        !userButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowUserMenu(false);
+      }
+    };
+
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showUserMenu]);
+
+  // Close menu on escape key
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowUserMenu(false);
+      }
+    };
+
+    if (showUserMenu) {
+      document.addEventListener('keydown', handleEscape);
+      return () => document.removeEventListener('keydown', handleEscape);
+    }
+  }, [showUserMenu]);
 
   const handleSignOut = async () => {
     await signOut();
     setShowUserMenu(false);
   };
 
+  const handleUserMenuToggle = () => {
+    setShowUserMenu(!showUserMenu);
+  };
+
+  const handleProfileSettingsOpen = () => {
+    setShowProfileSettings(true);
+    setShowUserMenu(false);
+  };
+
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-dark-900 border-b border-dark-700">
+    <header className="flex items-center justify-between px-6 py-4 bg-dark-900 border-b border-dark-700 relative z-40">
       <div className="flex items-center space-x-4">
         <h1 className="text-2xl font-bold text-white">
           Sprint.AI
@@ -57,7 +101,7 @@ export const Header: React.FC = () => {
           <input
             type="text"
             placeholder="Search..."
-            className="pl-10 pr-4 py-2 bg-dark-800 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 w-64"
+            className="pl-10 pr-4 py-2 bg-dark-800 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:border-primary-500 hover:border-dark-500 focus:outline-none focus:ring-1 focus:ring-primary-500 w-64 transition-colors duration-200"
           />
         </div>
 
@@ -71,8 +115,11 @@ export const Header: React.FC = () => {
         {/* User Menu */}
         <div className="relative">
           <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
+            ref={userButtonRef}
+            onClick={handleUserMenuToggle}
             className="flex items-center space-x-2 p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors"
+            aria-expanded={showUserMenu}
+            aria-haspopup="true"
           >
             {user?.profile?.avatar_url ? (
               <img
@@ -94,7 +141,10 @@ export const Header: React.FC = () => {
 
           {/* User Dropdown Menu */}
           {showUserMenu && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-dark-800 border border-dark-700 rounded-lg shadow-lg z-50">
+            <div 
+              ref={userMenuRef}
+              className="absolute right-0 top-full mt-2 w-48 bg-dark-800 border border-dark-700 rounded-lg shadow-lg z-50 animate-scale-in"
+            >
               <div className="p-3 border-b border-dark-700">
                 <p className="text-sm font-medium text-white">
                   {user?.profile?.full_name || 'User'}
@@ -109,10 +159,7 @@ export const Header: React.FC = () => {
               
               <div className="py-1">
                 <button
-                  onClick={() => {
-                    setShowProfileSettings(true);
-                    setShowUserMenu(false);
-                  }}
+                  onClick={handleProfileSettingsOpen}
                   className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-dark-300 hover:text-white hover:bg-dark-700 transition-colors"
                 >
                   <Settings size={16} />
@@ -137,14 +184,6 @@ export const Header: React.FC = () => {
         isOpen={showProfileSettings}
         onClose={() => setShowProfileSettings(false)}
       />
-
-      {/* Click outside to close user menu */}
-      {showUserMenu && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowUserMenu(false)}
-        />
-      )}
     </header>
   );
 };

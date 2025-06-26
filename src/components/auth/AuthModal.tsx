@@ -31,6 +31,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     createTeam: true,
   });
 
+  // Validation states
+  const isEmailValid = formData.email.includes('@') && formData.email.includes('.');
+  const isPasswordValid = formData.password.length >= 6;
+  const isConfirmPasswordValid = formData.confirmPassword === formData.password && formData.password.length > 0;
+  const isFullNameValid = formData.fullName.trim().length >= 2;
+  const isTeamNameValid = !formData.createTeam || formData.teamName.trim().length >= 2;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -120,6 +127,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           value={formData.email}
           onChange={(e) => handleInputChange('email', e.target.value)}
           icon={<Mail size={16} />}
+          isValid={isEmailValid}
           required
         />
 
@@ -133,6 +141,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               value={formData.password}
               onChange={(e) => handleInputChange('password', e.target.value)}
               icon={<Lock size={16} />}
+              isValid={isPasswordValid}
               required
             />
             <button
@@ -154,6 +163,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             value={formData.confirmPassword}
             onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
             icon={<Lock size={16} />}
+            isValid={isConfirmPasswordValid}
             required
           />
         )}
@@ -166,6 +176,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             value={formData.fullName}
             onChange={(e) => handleInputChange('fullName', e.target.value)}
             icon={<User size={16} />}
+            isValid={isFullNameValid}
           />
         )}
 
@@ -200,6 +211,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 value={formData.teamName}
                 onChange={(e) => handleInputChange('teamName', e.target.value)}
                 icon={<Users size={16} />}
+                isValid={isTeamNameValid}
                 required
               />
             )}
