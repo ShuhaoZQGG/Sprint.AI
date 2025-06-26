@@ -1,5 +1,17 @@
 # Sprint.AI - Development Roadmap
 
+## Debug & Improvement
+**Status**: Not Started
+**Description** Debugging and Improving the current code
+
+- [ ] When clicking the user profile, the dropdown menu becomes unresponsive and is partially obscured by overlapping components.
+
+- [ ] Improve the green boader around text inputs
+   -  (e.g., the header and task section search bars) is too prominent. It should only appear on hover.
+   -  For the sign-up/sign-in forms, display the green border only when the input is valid.
+     
+- [ ] The error toast currently triggers multiple times, likely due to excessive re-renders.
+
 ## 🔍 Testing & Quality Assurance
 
 ### 17. Testing Infrastructure
