@@ -7,12 +7,15 @@ TODO_FINISHED.md
 README.md
 tsconfig.**
 vite.**
+src/components/auth
+src/components/dashboard
 src/components/docs
 src/components/overlay
 src/components/repository
-src/components/sprints
 src/components/tasks
+src/components/team
 hooks/**
+src/services/authService.ts
 src/services/businessSpecService.ts
 src/services/codebaseAnalyzer.ts
 src/services/dcoGenerator.ts
@@ -22,5 +25,6 @@ src/services/groq.ts
 src/services/nlpProcessor.ts
 src/services/prGenerator.ts
 src/services/realtimeService.ts
-src/services/sprintService.ts
 src/services/taskService.ts
+src/types/**
+supabase/migrations/**
