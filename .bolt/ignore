@@ -7,15 +7,6 @@ TODO_FINISHED.md
 README.md
 tsconfig.**
 vite.**
-src/components/auth
-src/components/charts
-src/components/dashboard
-src/components/docs
-src/components/overlay
-src/components/repository
-src/components/sprints
-src/components/tasks
-src/components/team
 src/hooks/useBusinessSpec.ts
 src/hooks/useDeveloper.ts
 src/hooks/useDocumentation.ts
@@ -24,6 +15,7 @@ src/hooks/useRepositories.ts
 src/hooks/useSprints.ts
 src/hooks/useSupabase.ts
 src/hooks/useTasks.ts
+src/services/**
 src/services/authService.ts
 src/services/businessSpecService.ts
 src/services/codebaseAnalyzer.ts
