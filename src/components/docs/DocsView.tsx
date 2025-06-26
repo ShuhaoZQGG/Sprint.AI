@@ -27,7 +27,7 @@ import { useRepositories } from '../../hooks/useRepositories';
 import { useDocumentation } from '../../hooks/useDocumentation';
 import { useAppStore } from '../../stores/useAppStore';
 import { useRealtimeTable, usePresence } from '../../hooks/useRealtime';
-import { useAuth } from '../../hooks/useSupabase';
+import { useAuth } from '../../components/auth/AuthProvider';
 import { GeneratedDocumentation } from '../../services/docGenerator';
 import { RepositoryAnalysis } from '../../types/github';
 import { DocumentationSearchResult } from '../../services/documentationService';
@@ -80,13 +80,13 @@ export const DocsView: React.FC = () => {
           
         case 'UPDATE':
           if (newRecord && newRecord.created_by !== user?.id) {
-            toast.info(`Documentation updated: ${newRecord.title}`);
+            toast.success(`Documentation updated: ${newRecord.title}`);
           }
           break;
           
         case 'DELETE':
           if (oldRecord) {
-            toast.info(`Documentation deleted: ${oldRecord.title}`);
+            toast.success(`Documentation deleted: ${oldRecord.title}`);
           }
           break;
       }
@@ -98,13 +98,13 @@ export const DocsView: React.FC = () => {
   useEffect(() => {
     onBroadcast('doc-editing-started', (payload) => {
       if (payload.userId !== user?.id) {
-        toast.info(`${payload.userName} started editing documentation`);
+        toast.success(`${payload.userName} started editing documentation`);
       }
     });
 
     onBroadcast('doc-editing-stopped', (payload) => {
       if (payload.userId !== user?.id) {
-        toast.info(`${payload.userName} stopped editing documentation`);
+        toast.success(`${payload.userName} stopped editing documentation`);
       }
     });
 
@@ -185,7 +185,7 @@ export const DocsView: React.FC = () => {
         
         toast.success('Opening documentation...');
       } else {
-        toast.info('No documentation found for this repository');
+        toast.success('No documentation found for this repository');
       }
     } catch (error) {
       console.error('Failed to fetch documentation:', error);

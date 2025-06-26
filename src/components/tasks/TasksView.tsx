@@ -27,7 +27,7 @@ import { useTasks } from '../../hooks/useTasks';
 import { useRepositories } from '../../hooks/useRepositories';
 import { useAppStore } from '../../stores/useAppStore';
 import { useRealtimeTable, usePresence, useOptimisticUpdates } from '../../hooks/useRealtime';
-import { useAuth } from '../../hooks/useSupabase';
+import { useAuth } from '../../components/auth/AuthProvider';
 import { prGenerator } from '../../services/prGenerator';
 import { Task, TaskStatus, PRTemplate } from '../../types';
 import toast from 'react-hot-toast';
@@ -123,7 +123,7 @@ export const TasksView: React.FC = () => {
         case 'DELETE':
           if (oldRecord) {
             confirmUpdate(oldRecord.id);
-            toast.info(`Task "${oldRecord.title}" was deleted`);
+            toast.success(`Task "${oldRecord.title}" was deleted`);
           }
           break;
       }
@@ -141,7 +141,7 @@ export const TasksView: React.FC = () => {
 
     onBroadcast('task-assignment-changed', (payload) => {
       if (payload.updatedBy !== user?.id) {
-        toast.info(`Task assignment changed`);
+        toast.success(`Task assignment changed`);
       }
     });
   }, [onBroadcast, user?.id]);

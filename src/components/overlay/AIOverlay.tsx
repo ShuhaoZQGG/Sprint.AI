@@ -233,7 +233,7 @@ export const AIOverlay: React.FC = () => {
       case 'select-repository':
         setCurrentView('docs');
         setOverlayOpen(false);
-        toast.info('Please select a repository in the docs view');
+        toast.success('Please select a repository in the docs view');
         break;
       case 'analyze-capacity':
         setCurrentView('profile');
@@ -241,7 +241,7 @@ export const AIOverlay: React.FC = () => {
         toast.success('Opening team capacity analysis...');
         break;
       default:
-        toast.info(`Action: ${actionId}`);
+        toast.success(`Action: ${actionId}`);
     }
   };
 
