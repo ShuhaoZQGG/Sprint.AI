@@ -88,130 +88,128 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       size="lg"
     >
       <div className="flex flex-col h-full">
-        <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-6">
-          <div className="flex-1 space-y-6 overflow-y-auto pr-2">
-            <Input
-              label="Task Title"
-              placeholder="Enter task title..."
-              value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              required
-              className="transition-colors duration-200 hover:border-dark-500"
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-dark-200 mb-2">
-                Description
-              </label>
-              <textarea
-                placeholder="Describe the task in detail..."
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                rows={6}
-                className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white placeholder-dark-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none transition-colors duration-200"
+        <form onSubmit={handleSubmit} className="flex flex-col h-full">
+          <div className="flex-1 overflow-y-auto space-y-6 pr-2">
+            <div className="grid grid-cols-1 gap-4">
+              <Input
+                label="Task Title"
+                placeholder="Enter task title..."
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 required
               />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Type
-                </label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as TaskType }))}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
-                >
-                  <option value="feature">Feature</option>
-                  <option value="bug">Bug</option>
-                  <option value="refactor">Refactor</option>
-                  <option value="docs">Documentation</option>
-                  <option value="test">Testing</option>
-                  <option value="devops">DevOps</option>
-                </select>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Priority
+                  Description
                 </label>
-                <select
-                  value={formData.priority}
-                  onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as Priority }))}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Status
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as TaskStatus }))}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
-                >
-                  <option value="backlog">Backlog</option>
-                  <option value="todo">To Do</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="review">Review</option>
-                  <option value="done">Done</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-dark-200 mb-2">
-                  Assignee
-                </label>
-                <select
-                  value={formData.assigneeId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, assigneeId: e.target.value }))}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
-                >
-                  <option value="">Unassigned</option>
-                  {developers.map(dev => (
-                    <option key={dev.id} value={dev.id}>
-                      {dev.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Estimated Effort (hours)"
-                type="number"
-                min="1"
-                max="40"
-                value={formData.estimatedEffort}
-                onChange={(e) => setFormData(prev => ({ ...prev, estimatedEffort: parseInt(e.target.value) || 8 }))}
-                className="transition-colors duration-200 hover:border-dark-500"
-              />
-
-              {task && (
-                <Input
-                  label="Actual Effort (hours)"
-                  type="number"
-                  min="0"
-                  value={formData.actualEffort}
-                  onChange={(e) => setFormData(prev => ({ ...prev, actualEffort: parseInt(e.target.value) || 0 }))}
-                  className="transition-colors duration-200 hover:border-dark-500"
+                <textarea
+                  placeholder="Describe the task in detail..."
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={4}
+                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none transition-colors duration-200"
+                  required
                 />
-              )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
+                    Type
+                  </label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as TaskType }))}
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
+                  >
+                    <option value="feature">Feature</option>
+                    <option value="bug">Bug</option>
+                    <option value="refactor">Refactor</option>
+                    <option value="docs">Documentation</option>
+                    <option value="test">Testing</option>
+                    <option value="devops">DevOps</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
+                    Priority
+                  </label>
+                  <select
+                    value={formData.priority}
+                    onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as Priority }))}
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
+                    Status
+                  </label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as TaskStatus }))}
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
+                  >
+                    <option value="backlog">Backlog</option>
+                    <option value="todo">To Do</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="review">Review</option>
+                    <option value="done">Done</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-dark-200 mb-2">
+                    Assignee
+                  </label>
+                  <select
+                    value={formData.assigneeId}
+                    onChange={(e) => setFormData(prev => ({ ...prev, assigneeId: e.target.value }))}
+                    className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
+                  >
+                    <option value="">Unassigned</option>
+                    {developers.map(dev => (
+                      <option key={dev.id} value={dev.id}>
+                        {dev.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Estimated Effort (hours)"
+                  type="number"
+                  min="1"
+                  max="40"
+                  value={formData.estimatedEffort}
+                  onChange={(e) => setFormData(prev => ({ ...prev, estimatedEffort: parseInt(e.target.value) || 8 }))}
+                />
+
+                {task && (
+                  <Input
+                    label="Actual Effort (hours)"
+                    type="number"
+                    min="0"
+                    value={formData.actualEffort}
+                    onChange={(e) => setFormData(prev => ({ ...prev, actualEffort: parseInt(e.target.value) || 0 }))}
+                  />
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Sticky Footer */}
-          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-dark-700 bg-dark-800 sticky bottom-0 flex-shrink-0">
+          <div className="sticky bottom-0 flex-shrink-0 flex items-center justify-end space-x-3 pt-6 mt-6 border-t border-dark-700 bg-dark-800">
             <Button variant="ghost" onClick={onClose} type="button">
               Cancel
             </Button>
