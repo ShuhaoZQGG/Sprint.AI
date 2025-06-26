@@ -147,7 +147,7 @@ export const FadeIn: React.FC<{
       className={`transition-all ${className}`}
       style={{
         opacity: isVisible ? 1 : 0,
-        transform: isVisible ? 'translateY(0)' : 'translateY(10px)',
+        transform: isVisible ? 'translateY(0, 0)' : 'translateY(10px, 0px)',
         transitionDuration: `${duration}ms`,
       }}
     >
