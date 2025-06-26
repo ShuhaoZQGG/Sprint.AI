@@ -4,29 +4,6 @@
 **Status**: ✅ Completed
 **Description** Debugging and Improving the current code
 
-- [x] When clicking the user profile, the dropdown menu becomes unresponsive and is partially obscured by overlapping components.
-  - *Fixed*: Added proper z-index, click outside handling, escape key support, and refs for better menu management
-
-- [x] Improve the green border around text inputs
-   - [x] (e.g., the header and task section search bars) is too prominent. It should only appear on hover.
-   - [x] For the sign-up/sign-in forms, display the green border only when the input is valid.
-   - *Fixed*: Updated Input component with conditional styling and hover states
-     
-- [x] The error toast currently triggers multiple times, likely due to excessive re-renders.
-  - *Fixed*: Implemented proper error handling with useCallback and memoization to prevent duplicate toasts
-
-- [x] Authentication loading issue - app stuck on "Loading Sprint.AI..." 
-  - *Fixed*: Consolidated auth hooks, improved error handling, added detailed logging, and fixed Supabase client initialization
-
-- [x] User profile dropdown menu hidden behind content and not clickable
-  - *Fixed*: Added proper z-index values (z-50 for header, z-[9999] for dropdown), backdrop overlay, and improved positioning
-
-- [x] Task form modal height issue - only taking half the available height
-  - *Fixed*: Updated Modal component with flexbox layout, max-height constraints, proper scrolling, and TaskForm with minimum height and sticky footer
-
-- [x] Task form modal responsiveness issue at viewport width > 1024px
-  - *Fixed*: Improved Modal component with better responsive sizing, forced minimum heights for form modals, and enhanced TaskForm layout with proper flex structure
-
 - [x] Authentication session restoration and sign out issues
   - *Fixed*: Improved auth flow with proper session restoration, better error handling, complete sign out with page reload, and enhanced data fetching with auth state dependencies
 
