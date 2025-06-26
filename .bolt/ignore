@@ -18,7 +18,6 @@ src/hooks/useSprints.ts
 src/hooks/useSupabase.ts
 src/hooks/useTasks.ts
 src/services/**
-src/services/authService.ts
 src/services/businessSpecService.ts
 src/services/codebaseAnalyzer.ts
 src/services/dcoGenerator.ts
