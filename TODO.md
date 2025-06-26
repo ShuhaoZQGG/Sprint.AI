@@ -24,6 +24,9 @@
 - [x] Task form modal height issue - only taking half the available height
   - *Fixed*: Updated Modal component with flexbox layout, max-height constraints, proper scrolling, and TaskForm with minimum height and sticky footer
 
+- [x] Task form modal responsiveness issue at viewport width > 1024px
+  - *Fixed*: Improved Modal component with better responsive sizing, forced minimum heights for form modals, and enhanced TaskForm layout with proper flex structure
+
 ## 🔍 Testing & Quality Assurance
 
 ### 17. Testing Infrastructure

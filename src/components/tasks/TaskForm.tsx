@@ -87,15 +87,16 @@ export const TaskForm: React.FC<TaskFormProps> = ({
       title={task ? 'Edit Task' : 'Create New Task'}
       size="lg"
     >
-      <div className="min-h-[600px]">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 gap-6">
+      <div className="flex flex-col h-full">
+        <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-6">
+          <div className="flex-1 space-y-6 overflow-y-auto pr-2">
             <Input
               label="Task Title"
               placeholder="Enter task title..."
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               required
+              className="transition-colors duration-200 hover:border-dark-500"
             />
 
             <div>
@@ -107,7 +108,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 rows={6}
-                className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none transition-colors duration-200"
+                className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white placeholder-dark-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none transition-colors duration-200"
                 required
               />
             </div>
@@ -120,7 +121,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as TaskType }))}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
+                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
                 >
                   <option value="feature">Feature</option>
                   <option value="bug">Bug</option>
@@ -138,7 +139,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 <select
                   value={formData.priority}
                   onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as Priority }))}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
+                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -156,7 +157,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as TaskStatus }))}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
+                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
                 >
                   <option value="backlog">Backlog</option>
                   <option value="todo">To Do</option>
@@ -173,7 +174,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 <select
                   value={formData.assigneeId}
                   onChange={(e) => setFormData(prev => ({ ...prev, assigneeId: e.target.value }))}
-                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
+                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 rounded-lg text-white focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
                 >
                   <option value="">Unassigned</option>
                   {developers.map(dev => (
@@ -193,6 +194,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                 max="40"
                 value={formData.estimatedEffort}
                 onChange={(e) => setFormData(prev => ({ ...prev, estimatedEffort: parseInt(e.target.value) || 8 }))}
+                className="transition-colors duration-200 hover:border-dark-500"
               />
 
               {task && (
@@ -202,13 +204,15 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                   min="0"
                   value={formData.actualEffort}
                   onChange={(e) => setFormData(prev => ({ ...prev, actualEffort: parseInt(e.target.value) || 0 }))}
+                  className="transition-colors duration-200 hover:border-dark-500"
                 />
               )}
             </div>
           </div>
 
-          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-dark-700 sticky bottom-0 bg-dark-800">
-            <Button variant="ghost" onClick={onClose}>
+          {/* Sticky Footer */}
+          <div className="flex items-center justify-end space-x-3 pt-4 border-t border-dark-700 bg-dark-800 sticky bottom-0 flex-shrink-0">
+            <Button variant="ghost" onClick={onClose} type="button">
               Cancel
             </Button>
             <Button type="submit">

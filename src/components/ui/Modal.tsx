@@ -38,24 +38,34 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
+    sm: 'w-full max-w-md',
+    md: 'w-full max-w-lg',
+    lg: 'w-full max-w-2xl',
+    xl: 'w-full max-w-4xl',
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="flex min-h-full items-start justify-center p-4 pt-8">
         <div
           className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm transition-opacity"
           onClick={onClose}
         />
         <div
           className={clsx(
-            'relative w-full max-h-[90vh] transform overflow-hidden rounded-lg bg-dark-800 border border-dark-700 shadow-xl transition-all animate-scale-in flex flex-col',
-            sizeClasses[size]
+            'relative transform overflow-hidden rounded-lg bg-dark-800 border border-dark-700 shadow-xl transition-all animate-scale-in',
+            'flex flex-col',
+            // Responsive height management
+            'h-auto min-h-[400px] max-h-[90vh]',
+            // Responsive width management
+            sizeClasses[size],
+            // Ensure proper sizing on all screen sizes
+            'mx-auto'
           )}
+          style={{
+            // Force minimum height for form modals
+            minHeight: size === 'lg' ? '600px' : '400px',
+          }}
         >
           {title && (
             <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700 flex-shrink-0">
@@ -69,7 +79,7 @@ export const Modal: React.FC<ModalProps> = ({
             </div>
           )}
           <div className="flex-1 overflow-y-auto">
-            <div className="px-6 py-4">
+            <div className="px-6 py-4 h-full">
               {children}
             </div>
           </div>
