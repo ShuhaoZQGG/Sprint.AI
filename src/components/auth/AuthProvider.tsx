@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { authService, AuthUser } from '../../services/authService';
 import { supabase } from '../../services/supabase';
@@ -30,146 +30,161 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
-// Helper function to create a timeout promise
-const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => 
-      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
-    )
-  ]);
-};
-
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Helper function to handle errors consistently
-  const handleError = (error: any, defaultMessage: string) => {
-    const errorMessage = error?.message || defaultMessage;
-    setError(errorMessage);
-    console.error(errorMessage, error);
-    return { error: { message: errorMessage } };
-  };
+  // Create a minimal user object from session data
+  const createUserFromSession = useCallback((session: Session): AuthUser => {
+    return {
+      id: session.user.id,
+      email: session.user.email!,
+      user_metadata: session.user.user_metadata,
+      profile: {
+        id: session.user.id,
+        email: session.user.email!,
+        full_name: session.user.user_metadata?.full_name || null,
+        avatar_url: session.user.user_metadata?.avatar_url || null,
+        github_username: session.user.user_metadata?.github_username || null,
+        team_id: null,
+        role: 'developer',
+        preferences: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      team: null,
+    };
+  }, []);
 
-  // Helper function to fetch user profile with timeout
-  const fetchUserProfile = async (timeoutMs: number = 10000): Promise<AuthUser | null> => {
+  // Enhanced profile fetching with fallback
+  const fetchUserProfile = useCallback(async (session: Session): Promise<AuthUser> => {
     try {
-      console.log('👤 Fetching user profile...');
-      const enrichedUser = await withTimeout(authService.getCurrentUser(), timeoutMs);
-      console.log('✅ User profile loaded:', enrichedUser?.profile?.full_name || enrichedUser?.email);
+      console.log('👤 Attempting to fetch full user profile...');
+      
+      // Try to get the full profile with a reasonable timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 3000);
+      });
+      
+      const profilePromise = authService.getCurrentUser();
+      const enrichedUser = await Promise.race([profilePromise, timeoutPromise]);
+      
+      console.log('✅ Full user profile loaded successfully');
       return enrichedUser;
     } catch (error) {
-      console.error('❌ Error fetching user profile:', error);
+      console.warn('⚠️ Profile fetch failed, using session data:', error);
       
-      // If profile fetch fails, create a minimal user object from session
-      const currentSession = await supabase.auth.getSession();
-      if (currentSession.data.session?.user) {
-        const fallbackUser: AuthUser = {
-          id: currentSession.data.session.user.id,
-          email: currentSession.data.session.user.email!,
-          profile: null,
-          team: null,
-        };
-        console.log('⚠️ Using fallback user object');
-        return fallbackUser;
-      }
+      // Fallback to session-based user object
+      const fallbackUser = createUserFromSession(session);
       
-      throw error;
+      // Try to fetch profile data in the background without blocking
+      authService.getCurrentUser()
+        .then((fullUser) => {
+          console.log('✅ Background profile fetch successful');
+          setUser(fullUser);
+        })
+        .catch((bgError) => {
+          console.warn('⚠️ Background profile fetch also failed:', bgError);
+        });
+      
+      return fallbackUser;
     }
-  };
+  }, [createUserFromSession]);
 
   useEffect(() => {
     let mounted = true;
-    let initializationTimeout: NodeJS.Timeout;
+    let initTimeout: NodeJS.Timeout;
 
-    // Set a maximum initialization time
-    initializationTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('⚠️ Auth initialization taking too long, forcing completion');
-        setLoading(false);
-        setError('Authentication initialization timed out');
-      }
-    }, 15000); // 15 second timeout
-
-    // Get initial session
-    const getInitialSession = async () => {
+    const initializeAuth = async () => {
       try {
-        console.log('🔍 Checking initial session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('🔍 Initializing authentication...');
         
-        if (error) {
-          console.error('❌ Error getting session:', error);
+        // Set a hard timeout for the entire initialization
+        initTimeout = setTimeout(() => {
+          if (mounted && loading) {
+            console.warn('⚠️ Auth initialization timeout - completing with current state');
+            setLoading(false);
+          }
+        }, 10000);
+
+        // Get the current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
           if (mounted) {
-            setError(error.message);
+            setError(sessionError.message);
             setLoading(false);
           }
           return;
         }
 
-        console.log('📋 Initial session:', session ? 'Found' : 'None');
-        
         if (!mounted) return;
-        
+
+        console.log('📋 Session status:', session ? `Found for ${session.user.email}` : 'No session');
         setSession(session);
-        
+
         if (session?.user) {
           try {
-            const enrichedUser = await fetchUserProfile(8000); // 8 second timeout for initial load
+            const userData = await fetchUserProfile(session);
             if (mounted) {
-              setUser(enrichedUser);
+              setUser(userData);
+              console.log('✅ User authenticated:', userData.email);
             }
           } catch (profileError) {
-            console.error('❌ Error fetching user profile:', profileError);
+            console.error('❌ Profile error during init:', profileError);
             if (mounted) {
-              setError('Failed to load user profile');
+              // Still create a basic user object so the app can function
+              const basicUser = createUserFromSession(session);
+              setUser(basicUser);
+              setError('Profile data partially unavailable');
             }
           }
-        } else {
-          console.log('👤 No user session found');
         }
+
       } catch (error) {
-        console.error('❌ Error in getInitialSession:', error);
+        console.error('❌ Auth initialization error:', error);
         if (mounted) {
-          setError('Failed to initialize authentication');
+          setError('Authentication initialization failed');
         }
       } finally {
         if (mounted) {
-          console.log('✅ Auth initialization complete');
-          clearTimeout(initializationTimeout);
+          clearTimeout(initTimeout);
           setLoading(false);
+          console.log('✅ Auth initialization complete');
         }
       }
     };
 
-    getInitialSession();
+    // Start initialization
+    initializeAuth();
 
-    // Listen for auth changes
+    // Set up auth state listener
     console.log('🔄 Setting up auth state listener...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event, newSession) => {
         if (!mounted) return;
         
-        console.log('🔄 Auth state changed:', event, session?.user?.email || 'No user');
+        console.log('🔄 Auth state changed:', event, newSession?.user?.email || 'No user');
         
-        setSession(session);
-        setError(null); // Clear any previous errors
-        
-        if (session?.user) {
+        setSession(newSession);
+        setError(null);
+
+        if (newSession?.user) {
           try {
-            console.log('👤 Fetching user profile after auth change...');
-            const enrichedUser = await fetchUserProfile(5000); // 5 second timeout for auth changes
+            const userData = await fetchUserProfile(newSession);
             if (mounted) {
-              setUser(enrichedUser);
-              console.log('✅ User profile updated');
+              setUser(userData);
+              console.log('✅ User updated from auth change');
             }
           } catch (error) {
-            console.error('❌ Error fetching user profile after auth change:', error);
+            console.error('❌ Error updating user from auth change:', error);
             if (mounted) {
-              // Don't set loading to false here, let the profile fetch handle it
-              setError('Failed to load user profile');
+              // Fallback to basic user object
+              const basicUser = createUserFromSession(newSession);
+              setUser(basicUser);
             }
           }
         } else {
@@ -179,7 +194,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         }
         
-        // Always ensure loading is false after auth state changes
+        // Ensure loading is false after auth state changes (except initial)
         if (mounted && event !== 'INITIAL_SESSION') {
           setLoading(false);
         }
@@ -189,30 +204,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       console.log('🧹 Cleaning up auth provider...');
       mounted = false;
-      clearTimeout(initializationTimeout);
+      clearTimeout(initTimeout);
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserProfile, createUserFromSession]);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
     
     try {
-      console.log('🔐 Attempting sign in for:', email);
-      const { user: authUser, error } = await authService.signIn({ email, password });
+      console.log('🔐 Signing in:', email);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       
       if (error) {
         console.error('❌ Sign in error:', error);
-        return handleError(error, 'Failed to sign in');
+        setError(error.message);
+        return { error };
       }
       
-      console.log('✅ Sign in successful');
-      setUser(authUser);
+      if (data.session) {
+        const userData = await fetchUserProfile(data.session);
+        setUser(userData);
+        setSession(data.session);
+        console.log('✅ Sign in successful');
+      }
+      
       return { error: null };
     } catch (error) {
       console.error('❌ Sign in exception:', error);
-      return handleError(error, 'Failed to sign in');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
+      setError(errorMessage);
+      return { error: { message: errorMessage } };
     } finally {
       setLoading(false);
     }
@@ -229,20 +255,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      console.log('📝 Attempting sign up for:', data.email);
-      const { user: authUser, error } = await authService.signUp(data);
+      console.log('📝 Signing up:', data.email);
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.fullName,
+          }
+        }
+      });
       
       if (error) {
         console.error('❌ Sign up error:', error);
-        return handleError(error, 'Failed to create account');
+        setError(error.message);
+        return { error };
       }
       
-      console.log('✅ Sign up successful');
-      setUser(authUser);
+      if (authData.session) {
+        const userData = createUserFromSession(authData.session);
+        setUser(userData);
+        setSession(authData.session);
+        console.log('✅ Sign up successful');
+      }
+      
       return { error: null };
     } catch (error) {
       console.error('❌ Sign up exception:', error);
-      return handleError(error, 'Failed to create account');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
+      setError(errorMessage);
+      return { error: { message: errorMessage } };
     } finally {
       setLoading(false);
     }
@@ -254,13 +296,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     try {
       console.log('🚪 Signing out...');
-      await authService.signOut();
+      await supabase.auth.signOut();
       setUser(null);
       setSession(null);
       console.log('✅ Sign out successful');
     } catch (error) {
       console.error('❌ Sign out error:', error);
-      handleError(error, 'Failed to sign out');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to sign out';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -270,15 +313,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      const { profile, error } = await authService.updateProfile(updates);
+      const { error } = await supabase.auth.updateUser({
+        data: updates
+      });
       
-      if (!error && profile && user) {
-        setUser({ ...user, profile });
+      if (error) {
+        setError(error.message);
+        return { error };
       }
       
-      return { error };
+      // Update local user state
+      if (user) {
+        setUser({
+          ...user,
+          user_metadata: { ...user.user_metadata, ...updates },
+          profile: user.profile ? { ...user.profile, ...updates } : null,
+        });
+      }
+      
+      return { error: null };
     } catch (error) {
-      return handleError(error, 'Failed to update profile');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+      setError(errorMessage);
+      return { error: { message: errorMessage } };
     }
   };
 
@@ -286,10 +343,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      const { error } = await authService.updatePassword(newPassword);
-      return { error };
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) {
+        setError(error.message);
+        return { error };
+      }
+      
+      return { error: null };
     } catch (error) {
-      return handleError(error, 'Failed to update password');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update password';
+      setError(errorMessage);
+      return { error: { message: errorMessage } };
     }
   };
 
@@ -297,10 +364,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      const { error } = await authService.resetPassword(email);
-      return { error };
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      
+      if (error) {
+        setError(error.message);
+        return { error };
+      }
+      
+      return { error: null };
     } catch (error) {
-      return handleError(error, 'Failed to send reset email');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send reset email';
+      setError(errorMessage);
+      return { error: { message: errorMessage } };
     }
   };
 
