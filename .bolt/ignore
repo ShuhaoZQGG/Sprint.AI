@@ -7,8 +7,12 @@ TODO_FINISHED.md
 README.md
 tsconfig.**
 vite.**
+src/components/auth
 src/components/repository
 src/components/teams
+src/components/sprints
+src/components/tasks
+src/components/docs
 src/hooks/useBusinessSpec.ts
 src/hooks/useDeveloper.ts
 src/hooks/useDocumentation.ts
