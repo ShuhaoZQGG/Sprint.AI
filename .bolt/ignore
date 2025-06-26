@@ -16,7 +16,14 @@ src/components/repository
 src/components/sprints
 src/components/tasks
 src/components/team
-hooks/**
+src/hooks/useBusinessSpec.ts
+src/hooks/useDeveloper.ts
+src/hooks/useDocumentation.ts
+src/hooks/useRealtime.ts
+src/hooks/useRepositories.ts
+src/hooks/useSprints.ts
+src/hooks/useSupabase.ts
+src/hooks/useTasks.ts
 src/services/authService.ts
 src/services/businessSpecService.ts
 src/services/codebaseAnalyzer.ts
