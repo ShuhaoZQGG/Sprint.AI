@@ -12,6 +12,7 @@ src/components/dashboard
 src/components/docs
 src/components/overlay
 src/components/repository
+src/components/sprints
 src/components/tasks
 src/components/team
 hooks/**
@@ -20,7 +21,6 @@ src/services/businessSpecService.ts
 src/services/codebaseAnalyzer.ts
 src/services/dcoGenerator.ts
 src/services/documentationService.ts
-src/services/github.ts
 src/services/groq.ts
 src/services/nlpProcessor.ts
 src/services/prGenerator.ts
