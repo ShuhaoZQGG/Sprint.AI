@@ -177,7 +177,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
                     className="w-full px-3 py-2 bg-dark-700 border border-dark-600 hover:border-dark-500 focus:border-primary-500 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors duration-200"
                   >
                     <option value="">Unassigned</option>
-                    {developers.map(dev => (
+                    {developers?.map(dev => (
                       <option key={dev.id} value={dev.id}>
                         {dev.name}
                       </option>

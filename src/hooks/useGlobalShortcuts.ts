@@ -1,7 +1,5 @@
 import { useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/useAppStore';
-import { useTasks } from './useTasks';
-import { useSprints } from './useSprints';
 import toast from 'react-hot-toast';
 
 interface ShortcutAction {
@@ -14,8 +12,6 @@ interface ShortcutAction {
 
 export const useGlobalShortcuts = () => {
   const { setCurrentView, setOverlayOpen, sidebarOpen, setSidebarOpen } = useAppStore();
-  const { createTask } = useTasks();
-  const { createSprint } = useSprints();
 
   const shortcuts: ShortcutAction[] = [
     // Navigation shortcuts
