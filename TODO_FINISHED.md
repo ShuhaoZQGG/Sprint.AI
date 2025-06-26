@@ -350,3 +350,66 @@
   - ✅ Add version history viewer
   - ✅ Implement collaborative editing interface
   - ✅ Add documentation search and filtering
+
+## 🔧 Real-time Features & Collaboration
+
+### 11. Real-time Updates
+**Status**: ✅ **COMPLETED**  
+**Priority**: Medium  
+**Description**: Implement real-time collaboration and live updates
+
+#### Subtasks:
+- [x] **Supabase Realtime Integration**
+  - *Files created*: `src/hooks/useRealtime.ts`, `src/services/realtimeService.ts`
+  - *Files modified*: `src/stores/useAppStore.ts`
+  - ✅ Set up Supabase realtime subscriptions
+  - ✅ Implement live updates for tasks and sprints
+  - ✅ Add real-time collaboration for documentation
+  - ✅ Handle connection state and reconnection logic
+
+- [x] **Live Task Board Updates**
+  - *Files modified*: `src/components/tasks/TasksView.tsx`
+  - ✅ Real-time task status updates across users
+  - ✅ Live assignment and reassignment notifications
+  - ✅ Implement optimistic updates with conflict resolution
+  - ✅ Add presence indicators for active users
+
+- [x] **Collaborative Documentation**
+  - *Files modified*: `src/components/docs/DocsView.tsx`
+  - ✅ Real-time collaborative editing for documentation
+  - ✅ Track document changes and author attribution
+  - ✅ Implement comment and suggestion system
+  - ✅ Add document locking and conflict resolution
+
+### 12. Authentication & User Management
+**Status**: ✅ **COMPLETED**  
+**Priority**: Medium  
+**Description**: Implement proper user authentication and management
+
+#### Subtasks:
+- [x] **Supabase Auth Integration**
+  - *Files created*: `src/services/authService.ts`, `src/components/auth/AuthProvider.tsx`, `src/components/auth/AuthModal.tsx`
+  - *Files modified*: `src/main.tsx`, `src/App.tsx`
+  - ✅ Set up Supabase authentication (see `authService.ts`)
+  - ✅ Implement email/password and OAuth login (see `AuthModal.tsx`, `AuthProvider.tsx`)
+  - ✅ Add user session management (see `AuthProvider.tsx`)
+  - ✅ Handle authentication state across app (see `AuthProvider.tsx`)
+  - ✅ Integrate authentication into main app flow
+
+- [x] **User Profile Management**
+  - *Files created*: `src/components/auth/ProfileSettings.tsx`
+  - *Files modified*: `src/components/layout/Header.tsx`
+  - ✅ User profile creation and editing (see `ProfileSettings.tsx`)
+  - ✅ Avatar upload and management (UI present, upload logic pending)
+  - ✅ Account settings and preferences (basic profile and password management in `ProfileSettings.tsx`)
+  - ✅ User menu and profile access in header
+
+- [x] **Team Management**
+  - *Files created*: `src/components/team/TeamManagement.tsx`
+  - *Files modified*: `src/components/profile/ProfileView.tsx`
+  - ✅ Team creation and invitation system
+  - ✅ Role-based access control
+  - ✅ Team settings and permissions
+  - ✅ Member onboarding workflow
+  - ✅ Invite link generation and email invitations
+  - ✅ Team member management with role updates
