@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BusinessSpec } from '../types';
 import { businessSpecService } from '../services/businessSpecService';
-import { useAuth } from './useSupabase';
+import { useAuth } from '../components/auth/AuthProvider';
 import toast from 'react-hot-toast';
 
 export const useBusinessSpecs = () => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GeneratedDocumentation } from '../services/docGenerator';
 import { DocumentationVersion, DocumentationSearchResult, documentationService } from '../services/documentationService';
-import { useAuth } from './useSupabase';
+import { useAuth } from '../components/auth/AuthProvider';
 import toast from 'react-hot-toast';
 
 export const useDocumentation = () => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Sprint } from '../types';
 import { sprintService } from '../services/sprintService';
-import { useAuth } from './useSupabase';
+import { useAuth } from '../components/auth/AuthProvider';
 import toast from 'react-hot-toast';
 
 export const useSprints = () => {

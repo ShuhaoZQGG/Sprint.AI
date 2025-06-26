@@ -11,9 +11,9 @@ export class RepositoryService {
   /**
    * Get all repositories for the current user's team
    */
-  async getRepositories(): Promise<Repository[]> {
+  async getRepositories(userId?: string): Promise<Repository[]> {
     try {
-      const teamId = await getCurrentUserTeamId();
+      const teamId = await getCurrentUserTeamId(userId);
       if (!teamId) {
         throw new Error('No team access');
       }
@@ -208,7 +208,7 @@ export class RepositoryService {
   /**
    * Subscribe to repository changes
    */
-  subscribeToRepositories(callback: (repositories: Repository[]) => void) {
+  subscribeToRepositories(userId: string, callback: (repositories: Repository[]) => void) {
     return supabase
       .channel('repositories_changes')
       .on(

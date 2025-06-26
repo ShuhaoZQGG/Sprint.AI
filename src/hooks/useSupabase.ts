@@ -1,121 +1,7 @@
 import { useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase, ensureUserProfile, getCurrentUserTeamId } from '../services/supabase';
+import { supabase, getCurrentUserTeamId } from '../services/supabase';
 import { Database } from '../types/database';
-
-type Profile = Database['public']['Tables']['profiles']['Row'];
-
-export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        loadUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await loadUserProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const loadUserProfile = async (userId: string) => {
-    try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-
-      setProfile(profile);
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { data, error };
-  };
-
-  const signUp = async (email: string, password: string, fullName?: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
-    return { data, error };
-  };
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    return { error };
-  };
-
-  const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user) throw new Error('No user logged in');
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id)
-      .select()
-      .single();
-
-    if (!error && data) {
-      setProfile(data);
-    }
-
-    return { data, error };
-  };
-
-  return {
-    user,
-    session,
-    profile,
-    loading,
-    signIn,
-    signUp,
-    signOut,
-    updateProfile,
-  };
-};
+import { useAuth } from '../components/auth/AuthProvider';
 
 export const useRealtime = <T>(
   table: keyof Database['public']['Tables'],
@@ -128,11 +14,12 @@ export const useRealtime = <T>(
 
   useEffect(() => {
     let subscription: any;
+    const { user } = useAuth();
 
     const setupRealtime = async () => {
       try {
         // Get current user's team ID for filtering
-        const teamId = await getCurrentUserTeamId();
+        const teamId = await getCurrentUserTeamId(user?.id || '');
         if (!teamId) {
           setError('No team access');
           setLoading(false);
@@ -231,10 +118,12 @@ export const useSupabaseQuery = <T>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { user } = useAuth();
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const teamId = await getCurrentUserTeamId();
+        const teamId = await getCurrentUserTeamId(user?.id || '');
         if (!teamId) {
           setError('No team access');
           setLoading(false);
@@ -296,7 +185,7 @@ export const useSupabaseQuery = <T>(
     // Re-run the effect
     const fetchData = async () => {
       try {
-        const teamId = await getCurrentUserTeamId();
+        const teamId = await getCurrentUserTeamId(user?.id || '');
         if (!teamId) {
           setError('No team access');
           setLoading(false);

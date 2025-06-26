@@ -9,8 +9,6 @@ import {
   Copy,
   Check,
   Trash2,
-  Settings,
-  MoreVertical
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -166,7 +164,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
         {teamMembers.map((member) => {
           const RoleIcon = getRoleIcon(member.role);
           const isCurrentUser = member.email === user?.email;
-          const canManage = user?.profile?.role === 'admin' && !isCurrentUser;
+          const canManage = user?.role === 'admin' && !isCurrentUser;
 
           return (
             <Card key={member.id}>

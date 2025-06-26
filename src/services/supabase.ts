@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/database';
+import { authService } from './authService';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -105,18 +106,15 @@ export const ensureUserProfile = async (user: any) => {
 };
 
 // Helper function to get current user's team ID
-export const getCurrentUserTeamId = async (): Promise<string | null> => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return null;
-    }
+export const getCurrentUserTeamId = async (userId?: string): Promise<string | null> => {
+  const id = userId ?? (await authService.getCurrentUser())?.id;
+  if (!id) return null;
 
+  try {
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('team_id')
-      .eq('id', user.id)
+      .eq('id', id)
       .single();
 
     if (error) {

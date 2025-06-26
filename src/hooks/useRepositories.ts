@@ -19,13 +19,14 @@ export const useRepositories = () => {
       return;
     }
 
+
     const fetchRepositories = async () => {
       try {
         setLoading(true);
         setError(null);
         
         // Small delay to ensure auth is fully initialized
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // await new Promise(resolve => setTimeout(resolve, 100));
         
         const data = await repositoryService.getRepositories();
         setRepositories(data);
@@ -48,7 +49,7 @@ export const useRepositories = () => {
     fetchRepositories();
 
     // Subscribe to real-time updates
-    const subscription = repositoryService.subscribeToRepositories((updatedRepos) => {
+    const subscription = repositoryService.subscribeToRepositories(user.id, (updatedRepos) => {
       setRepositories(updatedRepos);
     });
 

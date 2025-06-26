@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session } from '@supabase/supabase-js';
+import { Session, User } from '@supabase/supabase-js';
 import { authService, AuthUser } from '../../services/authService';
 import { supabase } from '../../services/supabase';
 
 interface AuthContextType {
-  user: AuthUser | null;
+  user: AuthUser | User | null;
   session: Session | null;
   loading: boolean;
   error: string | null;
@@ -70,7 +70,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         while (retryCount < maxRetries && mounted) {
           try {
             const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-            
             if (sessionError) {
               console.log(`❌ Session error (attempt ${retryCount + 1}):`, sessionError.message);
               if (sessionError.message.includes('Invalid Refresh Token') || 
@@ -156,12 +155,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Listen for auth state changes
   useEffect(() => {
-    if (!initialized) return;
 
     console.log('🔄 Setting up auth state listener...');
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('🔄 Auth state changed:', event, session);
         console.log('🔄 Auth state changed:', event, session?.user?.email || 'No user');
         
         try {
@@ -178,10 +177,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log('👤 Fetching user profile after auth change...');
             
             try {
-              const enrichedUser = await authService.getCurrentUser();
-              setUser(enrichedUser);
+              setUser(session?.user);
               setError(null);
-              console.log('✅ User profile updated:', enrichedUser?.email);
+              console.log('✅ User profile updated:', session?.user?.email);
             } catch (profileError: any) {
               console.error('❌ Profile fetch error after auth change:', profileError.message);
               
@@ -263,7 +261,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = async () => {
     try {
       console.log('👋 Signing out...');
-      setLoading(true);
+      setLoading(false);
       
       // Clear state immediately for better UX
       setUser(null);

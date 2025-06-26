@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Developer } from '../types';
 import { developerService } from '../services/developerService';
-import { useAuth } from './useSupabase';
+import { useAuth } from '../components/auth/AuthProvider';
 import toast from 'react-hot-toast';
 
 export const useDevelopers = () => {
