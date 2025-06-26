@@ -8,6 +8,7 @@ README.md
 tsconfig.**
 vite.**
 src/components/auth
+src/components/charts
 src/components/dashboard
 src/components/docs
 src/components/overlay
@@ -21,10 +22,11 @@ src/services/businessSpecService.ts
 src/services/codebaseAnalyzer.ts
 src/services/dcoGenerator.ts
 src/services/documentationService.ts
-src/services/groq.ts
-src/services/nlpProcessor.ts
 src/services/prGenerator.ts
+src/services/repositoryService.ts
 src/services/realtimeService.ts
+src/services/sprintAutomation.ts
+src/services/sprintService.ts
 src/services/taskService.ts
 src/types/**
 supabase/migrations/**
