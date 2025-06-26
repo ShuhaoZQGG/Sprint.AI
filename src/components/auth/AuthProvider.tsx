@@ -30,6 +30,16 @@ interface AuthProviderProps {
   children: React.ReactNode;
 }
 
+// Helper function to create a timeout promise
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(`Operation timed out after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ]);
+};
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -44,8 +54,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return { error: { message: errorMessage } };
   };
 
+  // Helper function to fetch user profile with timeout
+  const fetchUserProfile = async (timeoutMs: number = 10000): Promise<AuthUser | null> => {
+    try {
+      console.log('👤 Fetching user profile...');
+      const enrichedUser = await withTimeout(authService.getCurrentUser(), timeoutMs);
+      console.log('✅ User profile loaded:', enrichedUser?.profile?.full_name || enrichedUser?.email);
+      return enrichedUser;
+    } catch (error) {
+      console.error('❌ Error fetching user profile:', error);
+      
+      // If profile fetch fails, create a minimal user object from session
+      const currentSession = await supabase.auth.getSession();
+      if (currentSession.data.session?.user) {
+        const fallbackUser: AuthUser = {
+          id: currentSession.data.session.user.id,
+          email: currentSession.data.session.user.email!,
+          profile: null,
+          team: null,
+        };
+        console.log('⚠️ Using fallback user object');
+        return fallbackUser;
+      }
+      
+      throw error;
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
+    let initializationTimeout: NodeJS.Timeout;
+
+    // Set a maximum initialization time
+    initializationTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn('⚠️ Auth initialization taking too long, forcing completion');
+        setLoading(false);
+        setError('Authentication initialization timed out');
+      }
+    }, 15000); // 15 second timeout
 
     // Get initial session
     const getInitialSession = async () => {
@@ -69,10 +116,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         
         if (session?.user) {
-          console.log('👤 User found, fetching profile...');
           try {
-            const enrichedUser = await authService.getCurrentUser();
-            console.log('✅ User profile loaded:', enrichedUser?.profile?.full_name || enrichedUser?.email);
+            const enrichedUser = await fetchUserProfile(8000); // 8 second timeout for initial load
             if (mounted) {
               setUser(enrichedUser);
             }
@@ -93,6 +138,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } finally {
         if (mounted) {
           console.log('✅ Auth initialization complete');
+          clearTimeout(initializationTimeout);
           setLoading(false);
         }
       }
@@ -114,7 +160,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (session?.user) {
           try {
             console.log('👤 Fetching user profile after auth change...');
-            const enrichedUser = await authService.getCurrentUser();
+            const enrichedUser = await fetchUserProfile(5000); // 5 second timeout for auth changes
             if (mounted) {
               setUser(enrichedUser);
               console.log('✅ User profile updated');
@@ -122,6 +168,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           } catch (error) {
             console.error('❌ Error fetching user profile after auth change:', error);
             if (mounted) {
+              // Don't set loading to false here, let the profile fetch handle it
               setError('Failed to load user profile');
             }
           }
@@ -132,7 +179,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         }
         
-        if (mounted) {
+        // Always ensure loading is false after auth state changes
+        if (mounted && event !== 'INITIAL_SESSION') {
           setLoading(false);
         }
       }
@@ -141,6 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       console.log('🧹 Cleaning up auth provider...');
       mounted = false;
+      clearTimeout(initializationTimeout);
       subscription.unsubscribe();
     };
   }, []);
