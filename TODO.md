@@ -1,37 +1,5 @@
 # Sprint.AI - Development Roadmap
 
-### 13. Advanced Sprint Planning
-**Status**: ✅ **COMPLETED**  
-**Priority**: Medium  
-**Description**: Enhance sprint planning with AI-powered automation
-
-#### Subtasks:
-- [x] **Capacity Planning Algorithm**
-  - *Files created*: `src/services/capacityPlanner.ts`, `src/utils/velocityCalculator.ts`
-  - *Files modified*: `src/components/sprints/SprintsView.tsx`
-  - ✅ Implement velocity-based capacity calculation
-  - ✅ Account for developer availability and time off
-  - ✅ Generate sprint recommendations
-  - ✅ Auto-assign tasks based on capacity and skills
-  - ✅ Team workload balancing and optimization
-
-- [x] **Burndown Chart Implementation**
-  - *Files created*: `src/components/charts/BurndownChart.tsx`, `src/utils/chartData.ts`
-  - *Files modified*: `src/components/sprints/SprintsView.tsx`
-  - ✅ Real-time burndown chart visualization
-  - ✅ Progress tracking and predictions
-  - ✅ Sprint health indicators
-  - ✅ Interactive chart with trend analysis
-
-- [x] **Sprint Automation**
-  - *Files created*: `src/services/sprintAutomation.ts`
-  - *Files modified*: `src/components/sprints/SprintsView.tsx`
-  - ✅ Automatic sprint creation and task distribution
-  - ✅ Sprint retrospective data collection
-  - ✅ Performance analytics and insights
-  - ✅ Success probability prediction
-  - ✅ AI-powered sprint optimization
-
 ## 🔧 Medium Priority Features
 
 ### 14. Developer Analytics Enhancement
