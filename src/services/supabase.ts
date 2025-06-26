@@ -29,6 +29,38 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+// Helper function to handle Supabase errors
+export const handleSupabaseError = (error: any, context?: string) => {
+  console.error(`Supabase error${context ? ` in ${context}` : ''}:`, error);
+  
+  // Handle specific error types
+  if (error?.code === 'PGRST116') {
+    return { message: 'No data found', type: 'not_found' };
+  }
+  
+  if (error?.code === '23505') {
+    return { message: 'This record already exists', type: 'duplicate' };
+  }
+  
+  if (error?.code === '42501') {
+    return { message: 'Permission denied', type: 'permission' };
+  }
+  
+  if (error?.message?.includes('JWT')) {
+    return { message: 'Authentication required', type: 'auth' };
+  }
+  
+  if (error?.message?.includes('RLS')) {
+    return { message: 'Access denied', type: 'access' };
+  }
+  
+  // Default error handling
+  return { 
+    message: error?.message || 'An unexpected error occurred', 
+    type: 'unknown' 
+  };
+};
+
 // Helper function to ensure user profile exists
 export const ensureUserProfile = async (user: any) => {
   if (!user) return null;
