@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Repository } from '../types';
 import { repositoryService } from '../services/repositoryService';
 import { useAuth } from '../components/auth/AuthProvider';
-import { RepositoryAnalysis } from '../types/github';
 import toast from 'react-hot-toast';
 
 export const useRepositories = () => {
@@ -22,43 +21,52 @@ export const useRepositories = () => {
 
     const fetchRepositories = async () => {
       try {
-        console.log('📁 Fetching repositories for user:', user.email);
         setLoading(true);
         setError(null);
         
+        // Small delay to ensure auth is fully initialized
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const data = await repositoryService.getRepositories();
-        console.log('✅ Repositories fetched:', data.length);
         setRepositories(data);
-      } catch (err) {
-        console.error('❌ Error fetching repositories:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch repositories';
-        setError(errorMessage);
+      } catch (err: any) {
+        const errorMessage = err.message || 'Failed to fetch repositories';
         
         // Don't show toast for auth-related errors
         if (!errorMessage.includes('JWT') && !errorMessage.includes('session')) {
+          console.error('Repository fetch error:', errorMessage);
+          setError(errorMessage);
           toast.error(errorMessage);
+        } else {
+          console.log('Auth-related repository fetch error (ignored):', errorMessage);
         }
       } finally {
         setLoading(false);
       }
     };
 
-    // Add a small delay to ensure auth is fully initialized
-    const timeoutId = setTimeout(fetchRepositories, 100);
-    
-    return () => clearTimeout(timeoutId);
-  }, [user, session]);
+    fetchRepositories();
 
-  const addRepository = async (repo: Omit<Repository, 'id'>) => {
+    // Subscribe to real-time updates
+    const subscription = repositoryService.subscribeToRepositories((updatedRepos) => {
+      setRepositories(updatedRepos);
+    });
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, [user, session]); // Depend on both user and session
+
+  const addRepository = async (repo: Omit<Repository, 'id' | 'lastUpdated'>) => {
     try {
-      console.log('➕ Adding repository:', repo.name);
-      const newRepo = await repositoryService.createRepository(repo);
+      const newRepo = await repositoryService.addRepository(repo);
       setRepositories(prev => [newRepo, ...prev]);
       toast.success(`Repository "${repo.name}" added successfully!`);
       return newRepo;
-    } catch (err) {
-      console.error('❌ Error adding repository:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to add repository';
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to add repository';
       toast.error(errorMessage);
       throw err;
     }
@@ -66,74 +74,37 @@ export const useRepositories = () => {
 
   const updateRepository = async (id: string, updates: Partial<Repository>) => {
     try {
-      console.log('📝 Updating repository:', id);
       const updatedRepo = await repositoryService.updateRepository(id, updates);
       setRepositories(prev => 
         prev.map(repo => repo.id === id ? updatedRepo : repo)
       );
       toast.success('Repository updated successfully!');
       return updatedRepo;
-    } catch (err) {
-      console.error('❌ Error updating repository:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update repository';
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to update repository';
       toast.error(errorMessage);
       throw err;
     }
   };
 
-  const deleteRepository = async (id: string) => {
+  const removeRepository = async (id: string) => {
     try {
-      console.log('🗑️ Deleting repository:', id);
-      await repositoryService.deleteRepository(id);
+      await repositoryService.removeRepository(id);
       setRepositories(prev => prev.filter(repo => repo.id !== id));
-      toast.success('Repository deleted successfully!');
-    } catch (err) {
-      console.error('❌ Error deleting repository:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete repository';
+      toast.success('Repository removed successfully!');
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to remove repository';
       toast.error(errorMessage);
       throw err;
     }
   };
 
-  const storeAnalysis = async (repositoryId: string, analysis: RepositoryAnalysis) => {
+  const storeAnalysis = async (repositoryId: string, analysis: any) => {
     try {
-      console.log('💾 Storing analysis for repository:', repositoryId);
       await repositoryService.storeAnalysis(repositoryId, analysis);
-      
-      // Update the repository with analysis data
-      setRepositories(prev => 
-        prev.map(repo => 
-          repo.id === repositoryId 
-            ? { 
-                ...repo, 
-                lastAnalyzed: new Date(),
-                structure: analysis.structure ? {
-                  modules: analysis.structure.map(item => ({ name: item.name, type: item.type })),
-                  services: [],
-                  dependencies: Object.keys(analysis.languages || {}),
-                  summary: analysis.summary?.primaryLanguage || 'Unknown'
-                } : undefined
-              }
-            : repo
-        )
-      );
-      
-      console.log('✅ Analysis stored successfully');
-    } catch (err) {
-      console.error('❌ Error storing analysis:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to store analysis';
-      toast.error(errorMessage);
-      throw err;
-    }
-  };
-
-  const getAnalysis = async (repositoryId: string) => {
-    try {
-      console.log('📊 Getting analysis for repository:', repositoryId);
-      return await repositoryService.getAnalysis(repositoryId);
-    } catch (err) {
-      console.error('❌ Error getting analysis:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to get analysis';
+      toast.success('Repository analysis stored successfully!');
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to store analysis';
       toast.error(errorMessage);
       throw err;
     }
@@ -145,17 +116,11 @@ export const useRepositories = () => {
     error,
     addRepository,
     updateRepository,
-    deleteRepository,
+    removeRepository,
     storeAnalysis,
-    getAnalysis,
     refetch: () => {
       if (user && session) {
-        repositoryService.getRepositories()
-          .then(setRepositories)
-          .catch(err => {
-            console.error('❌ Error refetching repositories:', err);
-            setError(err instanceof Error ? err.message : 'Failed to refetch repositories');
-          });
+        repositoryService.getRepositories().then(setRepositories).catch(console.error);
       }
     },
   };

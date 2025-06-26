@@ -15,7 +15,7 @@ import { FadeIn, SlideIn } from './components/ui/AnimatedCounter';
 
 function App() {
   const { currentView } = useAppStore();
-  const { user, loading, error } = useAuth();
+  const { user, loading, error, clearError } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { ShortcutHelperModal } = useKeyboardShortcuts();
 
@@ -27,9 +27,15 @@ function App() {
           <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white text-lg">Loading Sprint.AI...</p>
           {error && (
-            <p className="text-error-400 text-sm mt-2">
-              {error}
-            </p>
+            <div className="mt-4 p-3 bg-error-900/20 border border-error-500 rounded-lg max-w-md">
+              <p className="text-error-400 text-sm">{error}</p>
+              <button
+                onClick={clearError}
+                className="mt-2 text-xs text-error-300 hover:text-error-200 underline"
+              >
+                Dismiss
+              </button>
+            </div>
           )}
         </FadeIn>
       </div>
@@ -66,6 +72,19 @@ function App() {
                 >
                   Get Started
                 </button>
+                
+                {/* Show error if there's an auth error */}
+                {error && (
+                  <div className="p-3 bg-error-900/20 border border-error-500 rounded-lg">
+                    <p className="text-error-400 text-sm">{error}</p>
+                    <button
+                      onClick={clearError}
+                      className="mt-2 text-xs text-error-300 hover:text-error-200 underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-3 gap-4 text-sm text-dark-400">
                   <FadeIn delay={1000}>
