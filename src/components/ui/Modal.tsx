@@ -53,12 +53,12 @@ export const Modal: React.FC<ModalProps> = ({
         />
         <div
           className={clsx(
-            'relative w-full transform overflow-hidden rounded-lg bg-dark-800 border border-dark-700 shadow-xl transition-all animate-scale-in',
+            'relative w-full max-h-[90vh] transform overflow-hidden rounded-lg bg-dark-800 border border-dark-700 shadow-xl transition-all animate-scale-in flex flex-col',
             sizeClasses[size]
           )}
         >
           {title && (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700 flex-shrink-0">
               <h3 className="text-lg font-semibold text-white">{title}</h3>
               <button
                 onClick={onClose}
@@ -68,8 +68,10 @@ export const Modal: React.FC<ModalProps> = ({
               </button>
             </div>
           )}
-          <div className="px-6 py-4">
-            {children}
+          <div className="flex-1 overflow-y-auto">
+            <div className="px-6 py-4">
+              {children}
+            </div>
           </div>
         </div>
       </div>

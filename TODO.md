@@ -21,6 +21,9 @@
 - [x] User profile dropdown menu hidden behind content and not clickable
   - *Fixed*: Added proper z-index values (z-50 for header, z-[9999] for dropdown), backdrop overlay, and improved positioning
 
+- [x] Task form modal height issue - only taking half the available height
+  - *Fixed*: Updated Modal component with flexbox layout, max-height constraints, proper scrolling, and TaskForm with minimum height and sticky footer
+
 ## 🔍 Testing & Quality Assurance
 
 ### 17. Testing Infrastructure
