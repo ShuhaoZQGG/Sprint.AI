@@ -127,6 +127,38 @@ class GitHubService {
   }
 
   /**
+   * Get commits with additional parameters
+   */
+  async getCommits(
+    repositoryId: string, 
+    options: {
+      since?: string;
+      until?: string;
+      author?: string;
+      path?: string;
+    } = {}
+  ): Promise<GitHubCommit[]> {
+    try {
+      // For now, we'll use a mock implementation since we don't have the actual repo details
+      // In a real implementation, you'd parse the repository ID to get owner/repo
+      const response = await this.octokit.rest.repos.listCommits({
+        owner: 'example', // This would be parsed from repositoryId
+        repo: 'repo', // This would be parsed from repositoryId
+        since: options.since,
+        until: options.until,
+        author: options.author,
+        path: options.path,
+        per_page: 100,
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching commits with options:', error);
+      throw new Error('Failed to fetch commits');
+    }
+  }
+
+  /**
    * Get repository contributors
    */
   async getContributors(owner: string, repo: string): Promise<GitHubContributor[]> {
@@ -184,6 +216,107 @@ class GitHubService {
     } catch (error) {
       console.error('Error fetching file content:', error);
       throw new Error('Failed to fetch file content');
+    }
+  }
+
+  /**
+   * Create a new branch
+   */
+  async createBranch(owner: string, repo: string, branchName: string, fromBranch: string = 'main'): Promise<void> {
+    try {
+      // Get the SHA of the source branch
+      const { data: refData } = await this.octokit.rest.git.getRef({
+        owner,
+        repo,
+        ref: `heads/${fromBranch}`,
+      });
+
+      // Create new branch
+      await this.octokit.rest.git.createRef({
+        owner,
+        repo,
+        ref: `refs/heads/${branchName}`,
+        sha: refData.object.sha,
+      });
+    } catch (error) {
+      console.error('Error creating branch:', error);
+      throw new Error('Failed to create branch');
+    }
+  }
+
+  /**
+   * Create a pull request
+   */
+  async createPullRequest(
+    owner: string,
+    repo: string,
+    title: string,
+    body: string,
+    head: string,
+    base: string = 'main'
+  ): Promise<{ prUrl: string; prNumber: number }> {
+    try {
+      const response = await this.octokit.rest.pulls.create({
+        owner,
+        repo,
+        title,
+        body,
+        head,
+        base,
+      });
+
+      return {
+        prUrl: response.data.html_url,
+        prNumber: response.data.number,
+      };
+    } catch (error) {
+      console.error('Error creating pull request:', error);
+      throw new Error('Failed to create pull request');
+    }
+  }
+
+  /**
+   * Create or update file content
+   */
+  async createOrUpdateFile(
+    owner: string,
+    repo: string,
+    path: string,
+    content: string,
+    message: string,
+    branch?: string
+  ): Promise<void> {
+    try {
+      // Check if file exists
+      let sha: string | undefined;
+      try {
+        const { data: fileData } = await this.octokit.rest.repos.getContent({
+          owner,
+          repo,
+          path,
+          ref: branch,
+        });
+        
+        if (!Array.isArray(fileData) && fileData.type === 'file') {
+          sha = fileData.sha;
+        }
+      } catch (error) {
+        // File doesn't exist, that's okay
+      }
+
+      // Create or update file
+      await this.octokit.rest.repos.createOrUpdateFileContents({
+        owner,
+        repo,
+        path,
+        message,
+        content: btoa(content), // Base64 encode content
+        sha,
+        branch,
+      });
+    } catch (error) {
+      console.error('Error creating/updating file:', error);
+      throw new Error('Failed to create or update file');
     }
   }
 

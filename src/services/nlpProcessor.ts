@@ -40,6 +40,19 @@ export interface SuggestedAction {
   parameters?: Record<string, any>;
 }
 
+export interface TaskGenerationRequest {
+  businessSpec: BusinessSpec;
+  codebaseContext?: any;
+  teamSkills: string[];
+  additionalContext?: string;
+}
+
+export interface TaskGenerationResponse {
+  tasks: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[];
+  reasoning: string;
+  confidence: number;
+}
+
 class NLPProcessor {
   private intentPatterns = {
     task_generation: [
@@ -129,6 +142,171 @@ class NLPProcessor {
     } catch (error) {
       console.error('NLP processing error:', error);
       return this.createFallbackResponse(query, context);
+    }
+  }
+
+  /**
+   * Generate tasks from business specification using AI
+   */
+  async generateTasksFromBusinessSpec(request: TaskGenerationRequest): Promise<TaskGenerationResponse> {
+    if (!groqService.isAvailable()) {
+      throw new Error('AI service is not available');
+    }
+
+    try {
+      const prompt = `
+        Generate technical tasks from the following business specification:
+
+        Title: ${request.businessSpec.title}
+        Description: ${request.businessSpec.description}
+        
+        Acceptance Criteria:
+        ${request.businessSpec.acceptanceCriteria.map(criteria => `- ${criteria}`).join('\n')}
+        
+        Technical Requirements:
+        ${request.businessSpec.technicalRequirements?.map(req => `- ${req}`).join('\n') || 'None specified'}
+        
+        Team Skills Available:
+        ${request.teamSkills.join(', ')}
+        
+        ${request.additionalContext ? `Additional Context:\n${request.additionalContext}` : ''}
+        
+        Generate 3-5 technical tasks that implement this business specification.
+        Each task should be:
+        1. Specific and actionable
+        2. Appropriately sized (4-16 hours)
+        3. Assigned appropriate type (feature, bug, refactor, docs, test, devops)
+        4. Given realistic priority (low, medium, high, critical)
+        
+        Consider the team's skills when determining task complexity and type.
+        Break down complex features into smaller, manageable tasks.
+        Include testing and documentation tasks where appropriate.
+        
+        Return a JSON array of tasks:
+        [
+          {
+            "title": "Task title",
+            "description": "Detailed task description with implementation notes",
+            "type": "feature|bug|refactor|docs|test|devops",
+            "priority": "low|medium|high|critical",
+            "estimatedEffort": 8
+          }
+        ]
+      `;
+
+      const response = await groqService.makeCompletion(prompt, 2048);
+      
+      try {
+        // Try to parse the JSON response
+        const tasksData = this.parseAIResponse(response);
+        
+        if (!Array.isArray(tasksData)) {
+          throw new Error('Expected array of tasks');
+        }
+
+        const tasks = tasksData.map((taskData: any) => ({
+          title: taskData.title || 'Untitled Task',
+          description: taskData.description || '',
+          type: taskData.type || 'feature',
+          priority: taskData.priority || 'medium',
+          status: 'backlog' as const,
+          estimatedEffort: Math.max(1, Math.min(40, taskData.estimatedEffort || 8)),
+        }));
+
+        return {
+          tasks,
+          reasoning: `Generated ${tasks.length} tasks based on business specification analysis`,
+          confidence: 0.85,
+        };
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', parseError);
+        
+        // Fallback: create a single task from the business spec
+        return {
+          tasks: [{
+            title: request.businessSpec.title,
+            description: request.businessSpec.description,
+            type: 'feature',
+            priority: request.businessSpec.priority || 'medium',
+            status: 'backlog' as const,
+            estimatedEffort: request.businessSpec.estimatedEffort || 8,
+          }],
+          reasoning: 'Created single task due to AI parsing issues',
+          confidence: 0.6,
+        };
+      }
+    } catch (error) {
+      console.error('Error generating tasks from business spec:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Analyze documentation changes and suggest business spec updates
+   */
+  async analyzeDocumentationChanges(
+    oldContent: string,
+    newContent: string,
+    sectionTitle: string
+  ): Promise<{
+    hasSignificantChanges: boolean;
+    suggestedSpec?: Partial<BusinessSpec>;
+    changeAnalysis: string;
+  }> {
+    if (!groqService.isAvailable()) {
+      return {
+        hasSignificantChanges: false,
+        changeAnalysis: 'AI service not available for analysis',
+      };
+    }
+
+    try {
+      const prompt = `
+        Analyze the following documentation changes and determine if they warrant a new business specification:
+
+        Section: ${sectionTitle}
+        
+        Original Content:
+        ${oldContent}
+        
+        Updated Content:
+        ${newContent}
+        
+        Analyze the changes and determine:
+        1. Are there significant functional changes that require new development work?
+        2. Do the changes introduce new features or modify existing behavior?
+        3. Are there new requirements or acceptance criteria implied?
+        
+        If significant changes are detected, generate a business specification.
+        
+        Return JSON:
+        {
+          "hasSignificantChanges": boolean,
+          "changeAnalysis": "Description of what changed",
+          "suggestedSpec": {
+            "title": "Spec title",
+            "description": "Detailed description",
+            "acceptanceCriteria": ["criteria 1", "criteria 2"],
+            "technicalRequirements": ["requirement 1", "requirement 2"],
+            "priority": "low|medium|high|critical"
+          }
+        }
+      `;
+
+      const response = await groqService.makeCompletion(prompt, 1024);
+      const analysis = this.parseAIResponse(response);
+
+      return {
+        hasSignificantChanges: analysis.hasSignificantChanges || false,
+        suggestedSpec: analysis.suggestedSpec,
+        changeAnalysis: analysis.changeAnalysis || 'No significant changes detected',
+      };
+    } catch (error) {
+      console.error('Error analyzing documentation changes:', error);
+      return {
+        hasSignificantChanges: false,
+        changeAnalysis: 'Error analyzing changes',
+      };
     }
   }
 
@@ -464,6 +642,23 @@ Be conversational and helpful.
       needsMoreInfo: true,
       followUpQuestions: ['What would you like me to help you with?'],
     };
+  }
+
+  /**
+   * Parse AI response with error handling
+   */
+  private parseAIResponse(response: string): any {
+    try {
+      // Extract JSON from response if it's wrapped in text
+      const jsonMatch = response.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      return JSON.parse(response);
+    } catch (error) {
+      console.error('Error parsing AI response:', error);
+      return {};
+    }
   }
 }
 

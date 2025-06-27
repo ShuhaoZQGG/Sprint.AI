@@ -27,6 +27,14 @@ interface AppState {
   // Real-time collaboration state
   onlineUsers: Map<string, { id: string; name: string; avatar?: string; lastSeen: Date }>;
   
+  // Integration workflow state
+  workflowState: {
+    activeBusinessSpec: string | null;
+    generatedTasks: Task[];
+    selectedTask: string | null;
+    generatedPR: any | null;
+  };
+  
   // Actions
   setCurrentRepository: (repo: Repository | null) => void;
   setSidebarOpen: (open: boolean) => void;
@@ -42,6 +50,13 @@ interface AppState {
   addOnlineUser: (user: { id: string; name: string; avatar?: string }) => void;
   removeOnlineUser: (userId: string) => void;
   updateUserPresence: (userId: string, lastSeen: Date) => void;
+  
+  // Integration workflow actions
+  setActiveBusinessSpec: (specId: string | null) => void;
+  setGeneratedTasks: (tasks: Task[]) => void;
+  setSelectedTask: (taskId: string | null) => void;
+  setGeneratedPR: (pr: any | null) => void;
+  resetWorkflowState: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -153,6 +168,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   onlineUsers: new Map(),
   
+  // Integration workflow state
+  workflowState: {
+    activeBusinessSpec: null,
+    generatedTasks: [],
+    selectedTask: null,
+    generatedPR: null,
+  },
+  
   // Actions
   setCurrentRepository: (repo) => set({ currentRepository: repo }),
   
@@ -204,4 +227,42 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     return state;
   }),
+  
+  // Integration workflow actions
+  setActiveBusinessSpec: (specId) => set((state) => ({
+    workflowState: {
+      ...state.workflowState,
+      activeBusinessSpec: specId,
+    }
+  })),
+  
+  setGeneratedTasks: (tasks) => set((state) => ({
+    workflowState: {
+      ...state.workflowState,
+      generatedTasks: tasks,
+    }
+  })),
+  
+  setSelectedTask: (taskId) => set((state) => ({
+    workflowState: {
+      ...state.workflowState,
+      selectedTask: taskId,
+    }
+  })),
+  
+  setGeneratedPR: (pr) => set((state) => ({
+    workflowState: {
+      ...state.workflowState,
+      generatedPR: pr,
+    }
+  })),
+  
+  resetWorkflowState: () => set((state) => ({
+    workflowState: {
+      activeBusinessSpec: null,
+      generatedTasks: [],
+      selectedTask: null,
+      generatedPR: null,
+    }
+  })),
 }));

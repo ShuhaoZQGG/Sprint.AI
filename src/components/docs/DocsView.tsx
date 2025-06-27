@@ -1,707 +1,393 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
-  RefreshCw, 
-  Edit, 
-  Download,
+  Plus, 
+  Search, 
+  Filter, 
+  Download, 
+  RefreshCw,
+  Edit3,
+  Save,
+  X,
   GitBranch,
-  Clock,
-  Sparkles,
-  Plus,
-  Github,
   Zap,
-  History,
-  Search,
   Eye,
-  Users
+  History
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { PresenceIndicator } from '../ui/PresenceIndicator';
-import { RealtimeIndicator } from '../ui/RealtimeIndicator';
-import { RepositoryConnector } from '../repository/RepositoryConnector';
+import { Modal } from '../ui/Modal';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { DocGenerator } from './DocGenerator';
 import { VersionHistory } from './VersionHistory';
-import { useRepositories } from '../../hooks/useRepositories';
+import { MarkdownModal } from './MarkdownModal';
 import { useDocumentation } from '../../hooks/useDocumentation';
-import { useAppStore } from '../../stores/useAppStore';
-import { useRealtimeTable, usePresence } from '../../hooks/useRealtime';
-import { useAuth } from '../../components/auth/AuthProvider';
-import { GeneratedDocumentation } from '../../services/docGenerator';
-import { RepositoryAnalysis } from '../../types/github';
-import { DocumentationSearchResult } from '../../services/documentationService';
+import { useRepositories } from '../../hooks/useRepositories';
+import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
+import { docGenerator, GeneratedDocumentation } from '../../services/docGenerator';
+import { groqService } from '../../services/groq';
+import { BusinessSpec } from '../../types';
 import toast from 'react-hot-toast';
-import 'highlight.js/styles/github.css';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
-import MarkdownModal from './MarkdownModal';
 
 export const DocsView: React.FC = () => {
-  const { repositories, loading: repositoriesLoading } = useRepositories();
-  const { 
-    documentation, 
-    loading: docsLoading, 
-    storeDocumentation, 
-    searchDocumentation,
-    getDocumentationById,
-    getLatestDocumentation
-  } = useDocumentation();
-  const { currentRepository, setCurrentRepository } = useAppStore();
-  const { user } = useAuth();
+  const { documentation, loading, getDocumentationByRepository, updateDocumentation } = useDocumentation();
+  const { repositories } = useRepositories();
+  const { createBusinessSpec } = useBusinessSpecs();
   
-  const [generating, setGenerating] = useState(false);
-  const [showConnector, setShowConnector] = useState(false);
+  const [showGenerator, setShowGenerator] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
-  const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+  const [showMarkdownModal, setShowMarkdownModal] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<GeneratedDocumentation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<DocumentationSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [collaborativeEditing, setCollaborativeEditing] = useState<string | null>(null);
-  const [viewingDoc, setViewingDoc] = useState<GeneratedDocumentation | null>(null);
-  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
-  const [activeSectionIdx, setActiveSectionIdx] = useState(0);
+  const [editingDoc, setEditingDoc] = useState<GeneratedDocumentation | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editSectionId, setEditSectionId] = useState<string | null>(null);
+  const [generatingSpec, setGeneratingSpec] = useState(false);
 
-  // Real-time presence for collaboration
-  const { users: onlineUsers, broadcast, onBroadcast } = usePresence(
-    'docs-collaboration',
-    {
-      id: user?.id || 'anonymous',
-      name: user?.user_metadata?.full_name || user?.email || 'Anonymous',
-      avatar: user?.user_metadata?.avatar_url,
-    },
-    { enabled: !!user }
+  const filteredDocs = documentation.filter(doc =>
+    doc.sections.some(section => 
+      section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      section.content.toLowerCase().includes(searchQuery.toLowerCase())
+    )
   );
 
-  // Real-time documentation updates
-  useRealtimeTable(
-    'generated_docs',
-    (payload) => {
-      const { eventType, new: newRecord, old: oldRecord } = payload;
-      
-      // Fix: unwrap generated_docs with type guard
-      const newDoc = (newRecord && 'generated_docs' in newRecord) ? newRecord.generated_docs : undefined;
-      const oldDoc = (oldRecord && 'generated_docs' in oldRecord) ? oldRecord.generated_docs : undefined;
-      switch (eventType) {
-        case 'INSERT':
-          if (newDoc && newDoc.created_by !== user?.id) {
-            toast.success(`New documentation created: ${newDoc.title}`);
-          }
-          break;
-          
-        case 'UPDATE':
-          if (newDoc && newDoc.created_by !== user?.id) {
-            toast.success(`Documentation updated: ${newDoc.title}`);
-          }
-          break;
-          
-        case 'DELETE':
-          if (oldDoc) {
-            toast.success(`Documentation deleted: ${oldDoc.title}`);
-          }
-          break;
-      }
-    },
-    { enabled: !docsLoading }
-  );
-
-  // Listen for collaborative editing events
-  useEffect(() => {
-    onBroadcast('doc-editing-started', (payload) => {
-      if (payload.userId !== user?.id) {
-        toast.success(`${payload.userName} started editing documentation`);
-      }
-    });
-
-    onBroadcast('doc-editing-stopped', (payload) => {
-      if (payload.userId !== user?.id) {
-        toast.success(`${payload.userName} stopped editing documentation`);
-      }
-    });
-
-    onBroadcast('doc-section-updated', (payload) => {
-      if (payload.userId !== user?.id) {
-        toast.success(`${payload.userName} updated a documentation section`);
-      }
-    });
-  }, [onBroadcast, user?.id]);
-
-  const handleGenerateDocs = async () => {
-    setGenerating(true);
-    
-    // Broadcast that user started generating docs
-    broadcast('doc-generation-started', {
-      userId: user?.id,
-      userName: user?.user_metadata?.full_name || user?.email,
-      repositoryId: selectedRepo,
-    });
-
-    // Simulate AI documentation generation
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setGenerating(false);
-
-    // Broadcast completion
-    broadcast('doc-generation-completed', {
-      userId: user?.id,
-      userName: user?.user_metadata?.full_name || user?.email,
-      repositoryId: selectedRepo,
-    });
-  };
-
-  const handleDocumentationGenerated = async (repoId: string, documentation: GeneratedDocumentation) => {
-    try {
-      await storeDocumentation(repoId, documentation);
-      toast.success('Documentation saved to database!');
-      
-      // Broadcast the new documentation
-      broadcast('doc-created', {
-        userId: user?.id,
-        userName: user?.user_metadata?.full_name || user?.email,
-        repositoryId: repoId,
-        documentationId: documentation.id,
-      });
-    } catch (error) {
-      console.error('Failed to store documentation:', error);
+  const handleEditSection = (doc: GeneratedDocumentation, sectionId: string) => {
+    const section = doc.sections.find(s => s.id === sectionId);
+    if (section) {
+      setEditingDoc(doc);
+      setEditSectionId(sectionId);
+      setEditContent(section.content);
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
+  const handleSaveSection = async () => {
+    if (!editingDoc || !editSectionId) return;
+
+    try {
+      const updatedSections = editingDoc.sections.map(section =>
+        section.id === editSectionId
+          ? { ...section, content: editContent, lastGenerated: new Date() }
+          : section
+      );
+
+      const updatedDoc = {
+        ...editingDoc,
+        sections: updatedSections,
+        lastUpdated: new Date(),
+      };
+
+      await updateDocumentation(editingDoc.id, updatedDoc);
+      
+      // Check if changes warrant a new business spec
+      await checkForSpecGeneration(editingDoc, editSectionId, editContent);
+      
+      setEditingDoc(null);
+      setEditSectionId(null);
+      setEditContent('');
+      
+      toast.success('Documentation updated successfully!');
+    } catch (error) {
+      console.error('Error saving documentation:', error);
+      toast.error('Failed to save documentation');
+    }
+  };
+
+  const checkForSpecGeneration = async (doc: GeneratedDocumentation, sectionId: string, newContent: string) => {
+    const section = doc.sections.find(s => s.id === sectionId);
+    if (!section) return;
+
+    const oldContent = section.content;
+    const contentChange = Math.abs(newContent.length - oldContent.length) / oldContent.length;
+
+    // If content changed significantly (>20%), suggest generating a business spec
+    if (contentChange > 0.2) {
+      const shouldGenerate = window.confirm(
+        'Significant changes detected in documentation. Would you like to generate a business specification from these changes?'
+      );
+
+      if (shouldGenerate) {
+        await generateBusinessSpecFromChanges(doc, sectionId, oldContent, newContent);
+      }
+    }
+  };
+
+  const generateBusinessSpecFromChanges = async (
+    doc: GeneratedDocumentation, 
+    sectionId: string, 
+    oldContent: string, 
+    newContent: string
+  ) => {
+    if (!groqService.isAvailable()) {
+      toast.error('AI service not available for spec generation');
       return;
     }
 
-    try {
-      setSearching(true);
-      const results = await searchDocumentation(searchQuery);
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Search failed:', error);
-    } finally {
-      setSearching(false);
-    }
-  };
+    setGeneratingSpec(true);
 
-  const handleViewDocumentation = async (id: string) => {
     try {
-      const doc = await getDocumentationById(id);
-      if (doc) {
-        // Broadcast that user is viewing documentation
-        broadcast('doc-viewing', {
-          userId: user?.id,
-          userName: user?.user_metadata?.full_name || user?.email,
-          repositoryId: doc.repositoryId,
-          documentationId: doc.id,
-        });
+      const prompt = `
+        Analyze the following documentation changes and generate a business specification:
 
-        setViewingDoc(doc);
-        setIsDocModalOpen(true);
-      } else {
-        toast.error('No documentation found for this repository');
-      }
-    } catch (error) {
-      console.error('Failed to fetch documentation:', error);
-    }
-  };
-
-  const handleViewLatestDocumentation = async (repositoryId: string) => {
-    try {
-      const doc = await getLatestDocumentation(repositoryId);
-      if (doc) {
-        // Broadcast that user is viewing documentation
-        broadcast('doc-viewing', {
-          userId: user?.id,
-          userName: user?.user_metadata?.full_name || user?.email,
-          repositoryId: doc.repositoryId,
-          documentationId: doc.id,
-        });
+        Section: ${doc.sections.find(s => s.id === sectionId)?.title}
         
-        toast.success('Opening documentation...');
-      } else {
-        toast.error('No documentation found for this repository');
-      }
+        Original Content:
+        ${oldContent}
+        
+        Updated Content:
+        ${newContent}
+        
+        Generate a business specification that captures the new requirements or changes.
+        Include:
+        1. Clear title
+        2. Detailed description
+        3. Acceptance criteria (as array)
+        4. Technical requirements (as array)
+        
+        Return as JSON:
+        {
+          "title": "Feature Title",
+          "description": "Detailed description",
+          "acceptanceCriteria": ["criteria 1", "criteria 2"],
+          "technicalRequirements": ["requirement 1", "requirement 2"]
+        }
+      `;
+
+      const response = await groqService.makeCompletion(prompt, 1024);
+      const specData = JSON.parse(response);
+
+      const businessSpec: Omit<BusinessSpec, 'id' | 'lastUpdated'> = {
+        title: specData.title || 'Generated from Documentation Changes',
+        description: specData.description || 'Auto-generated from documentation updates',
+        acceptanceCriteria: specData.acceptanceCriteria || [],
+        technicalRequirements: specData.technicalRequirements || [],
+        status: 'draft',
+        priority: 'medium',
+        tags: ['auto-generated', 'documentation'],
+        createdAt: new Date(),
+      };
+
+      await createBusinessSpec(businessSpec);
+      toast.success('Business specification generated from documentation changes!');
     } catch (error) {
-      console.error('Failed to fetch documentation:', error);
+      console.error('Error generating business spec:', error);
+      toast.error('Failed to generate business specification');
+    } finally {
+      setGeneratingSpec(false);
     }
   };
 
-  const handleStartCollaborativeEditing = (docId: string) => {
-    setCollaborativeEditing(docId);
-    
-    // Broadcast that user started editing
-    broadcast('doc-editing-started', {
-      userId: user?.id,
-      userName: user?.user_metadata?.full_name || user?.email,
-      documentationId: docId,
-    });
+  const handleCancelEdit = () => {
+    setEditingDoc(null);
+    setEditSectionId(null);
+    setEditContent('');
   };
 
-  const handleStopCollaborativeEditing = () => {
-    if (collaborativeEditing) {
-      broadcast('doc-editing-stopped', {
-        userId: user?.id,
-        userName: user?.user_metadata?.full_name || user?.email,
-        documentationId: collaborativeEditing,
+  const handleViewDoc = (doc: GeneratedDocumentation) => {
+    setSelectedDoc(doc);
+    setShowMarkdownModal(true);
+  };
+
+  const handleExportDoc = (doc: GeneratedDocumentation, format: 'markdown' | 'html' | 'json' = 'markdown') => {
+    try {
+      const content = docGenerator.exportDocumentation(doc, format);
+      const blob = new Blob([content], { 
+        type: format === 'json' ? 'application/json' : 'text/plain' 
       });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${doc.repositoryId}-docs.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       
-      setCollaborativeEditing(null);
+      toast.success(`Documentation exported as ${format.toUpperCase()}`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export documentation');
     }
   };
 
-  const getRepositoryAnalysis = (repoId: string): RepositoryAnalysis | null => {
-    // In a real implementation, this would fetch the analysis from the database
-    // For now, we'll create a mock analysis
-    const repo = repositories.find(r => r.id === repoId);
-    if (!repo) return null;
-
-    return {
-      repository: {
-        id: parseInt(repo.id),
-        name: repo.name,
-        full_name: repo.name,
-        description: repo.description,
-        html_url: repo.url,
-        clone_url: repo.url,
-        language: repo.language,
-        stargazers_count: repo.stars,
-        forks_count: 0,
-        open_issues_count: 0,
-        default_branch: 'main',
-        created_at: new Date().toISOString(),
-        updated_at: repo.lastUpdated.toISOString(),
-        pushed_at: repo.lastUpdated.toISOString(),
-        size: 1000,
-        owner: {
-          login: 'owner',
-          avatar_url: '',
-          html_url: '',
-        },
-      },
-      structure: [],
-      contributors: [],
-      languages: { [repo.language]: 1000 },
-      recentCommits: [],
-      summary: {
-        totalFiles: 50,
-        totalLines: 5000,
-        primaryLanguage: repo.language,
-        lastActivity: repo.lastUpdated.toISOString(),
-        commitFrequency: 10,
-      },
-    };
-  };
-
-  const handleRepositorySelect = (repoId: string) => {
-    const repo = repositories.find(r => r.id === repoId);
-    if (repo) {
-      setCurrentRepository(repo);
-      setSelectedRepo(repoId);
-      
-      // Broadcast repository selection
-      broadcast('repo-selected', {
-        userId: user?.id,
-        userName: user?.user_metadata?.full_name || user?.email,
-        repositoryId: repoId,
-        repositoryName: repo.name,
-      });
-    }
-  };
-
-  const getRepositoryDocumentation = (repoId: string) => {
-    return documentation.filter(doc => doc.repositoryId === repoId);
-  };
-
-  // MarkdownViewer component for safe markdown rendering
-  const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
-    // Normalize: treat single newlines as line breaks (add two spaces before single newlines)
-    const normalized = React.useMemo(() =>
-      markdown.replace(/([^\n])\n([^\n])/g, '$1  \n$2'),
-      [markdown]
-    );
-    console.log(normalized);
-    const html = React.useMemo(
-      () => DOMPurify.sanitize(String(marked.parse(normalized))),
-      [normalized]
-    );
+  if (loading) {
     return (
-      <div
-        className="prose prose-invert text-dark-200"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="flex items-center justify-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-2">Living Documentation</h1>
-          <p className="text-dark-400">AI-generated and maintained codebase documentation</p>
+          <h1 className="text-2xl font-bold text-white mb-2">Documentation</h1>
+          <p className="text-dark-400">
+            AI-generated living documentation with collaborative editing
+          </p>
         </div>
+        
         <div className="flex items-center space-x-3">
-          <PresenceIndicator users={onlineUsers} showNames />
-          <RealtimeIndicator />
-          <Button variant="ghost" onClick={() => setShowConnector(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setShowVersionHistory(true)}>
+            <History size={16} className="mr-2" />
+            History
+          </Button>
+          <Button onClick={() => setShowGenerator(true)}>
             <Plus size={16} className="mr-2" />
-            Connect Repository
-          </Button>
-          <Button variant="ghost">
-            <Download size={16} className="mr-2" />
-            Export
-          </Button>
-          <Button
-            onClick={handleGenerateDocs}
-            loading={generating}
-          >
-            <Sparkles size={16} className="mr-2" />
-            Generate with AI
+            Generate Docs
           </Button>
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search and Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             <div className="flex-1">
               <Input
                 placeholder="Search documentation..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 icon={<Search size={16} />}
               />
             </div>
-            <Button onClick={handleSearch} loading={searching}>
-              Search
+            <Button variant="ghost" size="sm">
+              <Filter size={16} className="mr-2" />
+              Filter
             </Button>
           </div>
-
-          {/* Search Results */}
-          {searchResults.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <h4 className="text-sm font-medium text-white">Search Results ({searchResults.length})</h4>
-              {searchResults.map((result) => (
-                <div
-                  key={result.id}
-                  className="p-3 bg-dark-700 rounded-lg border border-dark-600 hover:border-primary-500 transition-colors cursor-pointer"
-                  onClick={() => handleViewDocumentation(result.id)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h5 className="font-medium text-white">{result.title}</h5>
-                      <p className="text-sm text-dark-400 mt-1">{result.repositoryName}</p>
-                      <p className="text-sm text-dark-300 mt-2">{result.excerpt}</p>
-                    </div>
-                    <div className="flex items-center space-x-2 text-xs text-dark-500">
-                      <span>v{result.version}</span>
-                      <span>•</span>
-                      <span>{result.lastUpdated.toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Repository Selector */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">Connected Repositories</h3>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <GitBranch size={16} className="text-dark-400" />
-                <span className="text-sm text-dark-400">main branch</span>
-              </div>
-              {onlineUsers.length > 0 && (
-                <div className="flex items-center space-x-2 text-sm text-dark-400">
-                  <Users size={14} />
-                  <span>{onlineUsers.length} collaborating</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {repositoriesLoading ? (
-            <div className="text-center py-8">
-              <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-dark-400">Loading repositories...</p>
-            </div>
-          ) : repositories.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {repositories.map((repo) => {
-                const repoDocumentation = getRepositoryDocumentation(repo.id);
-                const hasDocumentation = repoDocumentation.length > 0;
-                const isSelected = selectedRepo === repo.id;
-                const isBeingEdited = collaborativeEditing === repo.id;
-                
-                return (
-                  <div
-                    key={repo.id}
-                    className={`p-4 border rounded-lg transition-colors cursor-pointer ${
-                      isSelected 
-                        ? 'border-primary-500 bg-primary-900/20' 
-                        : 'border-dark-600 hover:border-primary-500'
-                    } ${isBeingEdited ? 'ring-2 ring-secondary-500' : ''}`}
-                    onClick={() => handleRepositorySelect(repo.id)}
-                  >
-                    <div className="flex items-start space-x-3 mb-3">
-                      <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                        <Github size={16} className="text-primary-400" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-white mb-1">{repo.name}</h4>
-                        <p className="text-sm text-dark-400 mb-2">{repo.description}</p>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {hasDocumentation && (
-                          <div className="w-3 h-3 bg-success-400 rounded-full" title="Documentation available" />
-                        )}
-                        {isSelected && (
-                          <div className="flex items-center space-x-1 text-primary-400">
-                            <Zap size={12} />
-                          </div>
-                        )}
-                        {isBeingEdited && (
-                          <div className="flex items-center space-x-1 text-secondary-400">
-                            <Edit size={12} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-dark-500">{repo.language}</span>
-                        <span className="text-dark-500">⭐ {repo.stars}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {hasDocumentation && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowVersionHistory(true);
-                              }}
-                              className="p-1"
-                            >
-                              <History size={12} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewLatestDocumentation(repo.id);
-                              }}
-                              className="p-1"
-                            >
-                              <Eye size={12} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (isBeingEdited) {
-                                  handleStopCollaborativeEditing();
-                                } else {
-                                  handleStartCollaborativeEditing(repo.id);
-                                }
-                              }}
-                              className="p-1"
-                            >
-                              <Edit size={12} />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Documentation Status */}
-                    {hasDocumentation && (
-                      <div className="mt-3 pt-3 border-t border-dark-700">
-                        <div className="flex items-center justify-between text-xs text-dark-500">
-                          <span>{repoDocumentation.length} version{repoDocumentation.length !== 1 ? 's' : ''}</span>
-                          <span>Latest: {repoDocumentation[0]?.lastUpdated.toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {repo.structure && (
-                      <div className="mt-3 pt-3 border-t border-dark-700">
-                        <div className="flex items-center justify-between text-xs text-dark-500">
-                          <span>{repo.structure.modules.length} modules</span>
-                          <span>{repo.structure.services.length} services</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-dark-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Github className="w-8 h-8 text-dark-400" />
-              </div>
-              <h4 className="text-lg font-medium text-white mb-2">No Repositories Connected</h4>
+      {/* Documentation List */}
+      <div className="space-y-4">
+        {filteredDocs.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <FileText className="w-12 h-12 text-dark-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">No Documentation Found</h3>
               <p className="text-dark-400 mb-4">
-                Connect your GitHub repositories to start generating documentation
+                {searchQuery ? 'No documentation matches your search.' : 'Generate documentation from your repositories to get started.'}
               </p>
-              <Button onClick={() => setShowConnector(true)}>
+              <Button onClick={() => setShowGenerator(true)}>
                 <Plus size={16} className="mr-2" />
-                Connect Repository
+                Generate Documentation
               </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* AI Documentation Generator */}
-      {selectedRepo && (
-        <div className="space-y-6">
-          {(() => {
-            const repo = repositories.find(r => r.id === selectedRepo);
-            const analysis = getRepositoryAnalysis(selectedRepo);
-            
-            if (!repo || !analysis) return null;
-            
-            return (
-              <DocGenerator
-                repository={repo}
-                analysis={analysis}
-                onDocumentationGenerated={(doc) => handleDocumentationGenerated(repo.id, doc)}
-              />
-            );
-          })()}
-        </div>
-      )}
-
-      {/* Existing Documentation Grid */}
-      {documentation.length > 0 && !selectedRepo && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-white">Recent Documentation</h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {documentation.slice(0, 6).map((doc) => (
-              <Card key={doc.id} hover>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 bg-dark-700 rounded-lg flex items-center justify-center">
-                        <FileText size={20} className="text-primary-400" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-white">{doc.id}</h3>
-                        <p className="text-sm text-dark-400 mt-1">{doc.sections.length} sections</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex items-center space-x-1 text-xs text-secondary-400 bg-secondary-900/20 px-2 py-1 rounded">
-                        <Sparkles size={12} />
-                        <span>AI</span>
-                      </div>
-                      <div
-                        className={`w-3 h-3 rounded-full ${
-                          doc.status === 'completed' ? 'bg-success-400' : 
-                          doc.status === 'generating' ? 'bg-warning-400' : 'bg-error-400'
-                        }`}
-                      />
-                    </div>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredDocs.map((doc) => (
+            <Card key={doc.id} hover>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">{doc.repositoryId}</h3>
+                    <p className="text-sm text-dark-400">
+                      {doc.sections.length} sections • Last updated {doc.lastUpdated.toLocaleDateString()}
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 text-sm text-dark-400">
-                      <div className="flex items-center space-x-1">
-                        <Clock size={14} />
-                        <span>Updated {doc.lastUpdated.toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleViewDocumentation(doc.id)}
-                      >
-                        <Eye size={14} className="mr-1" />
-                        View
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => handleStartCollaborativeEditing(doc.id)}
-                      >
-                        <Edit size={14} className="mr-1" />
-                        Edit
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <RefreshCw size={14} className="mr-1" />
-                        Refresh
-                      </Button>
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <Button variant="ghost" size="sm" onClick={() => handleViewDoc(doc)}>
+                      <Eye size={14} className="mr-1" />
+                      View
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleExportDoc(doc)}>
+                      <Download size={14} className="mr-1" />
+                      Export
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {doc.sections.map((section) => (
+                    <div key={section.id} className="border border-dark-700 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-white">{section.title}</h4>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-dark-400">
+                            {section.wordCount} words
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditSection(doc, section.id)}
+                            className="p-1 h-6 w-6"
+                          >
+                            <Edit3 size={12} />
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {editingDoc?.id === doc.id && editSectionId === section.id ? (
+                        <div className="space-y-3">
+                          <textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="w-full h-32 px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:border-primary-500 focus:outline-none resize-none"
+                            placeholder="Edit section content..."
+                          />
+                          <div className="flex items-center space-x-2">
+                            <Button size="sm" onClick={handleSaveSection} disabled={generatingSpec}>
+                              {generatingSpec ? (
+                                <LoadingSpinner size="sm" className="mr-1" />
+                              ) : (
+                                <Save size={14} className="mr-1" />
+                              )}
+                              Save
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
+                              <X size={14} className="mr-1" />
+                              Cancel
+                            </Button>
+                            {generatingSpec && (
+                              <span className="text-sm text-warning-400 flex items-center">
+                                <Zap size={12} className="mr-1" />
+                                Analyzing changes for spec generation...
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="prose prose-sm prose-invert max-w-none">
+                          <p className="text-dark-300 line-clamp-3">
+                            {section.content.substring(0, 200)}...
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
 
-      {/* AI Generation Status */}
-      {generating && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center animate-pulse">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h4 className="font-medium text-white">Generating Documentation</h4>
-                <p className="text-sm text-dark-400">AI is analyzing your codebase and creating comprehensive docs...</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Repository Connector Modal */}
-      <RepositoryConnector
-        isOpen={showConnector}
-        onClose={() => setShowConnector(false)}
+      {/* Modals */}
+      <DocGenerator
+        isOpen={showGenerator}
+        onClose={() => setShowGenerator(false)}
+        repositories={repositories}
       />
 
-      {/* Version History Modal */}
-      {selectedRepo && (
-        <VersionHistory
-          isOpen={showVersionHistory}
-          onClose={() => setShowVersionHistory(false)}
-          repositoryId={selectedRepo}
-          repositoryName={repositories.find(r => r.id === selectedRepo)?.name || 'Repository'}
+      <VersionHistory
+        isOpen={showVersionHistory}
+        onClose={() => setShowVersionHistory(false)}
+      />
+
+      {selectedDoc && (
+        <MarkdownModal
+          isOpen={showMarkdownModal}
+          onClose={() => {
+            setShowMarkdownModal(false);
+            setSelectedDoc(null);
+          }}
+          documentation={selectedDoc}
         />
       )}
-
-      {/* Documentation View Modal */}
-      <MarkdownModal
-        isOpen={isDocModalOpen}
-        onClose={() => setIsDocModalOpen(false)}
-        title={
-          viewingDoc
-            ? (repositories.find(r => r.id === viewingDoc.repositoryId)?.name || viewingDoc.id)
-            : 'Documentation'
-        }
-        sections={viewingDoc ? viewingDoc.sections : []}
-        activeSectionIdx={activeSectionIdx}
-        setActiveSectionIdx={setActiveSectionIdx}
-        lastUpdated={viewingDoc ? viewingDoc.lastUpdated : undefined}
-      />
     </div>
   );
 };

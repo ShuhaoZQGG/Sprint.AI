@@ -83,10 +83,10 @@ export class BusinessSpecService {
         description: spec.description,
         acceptance_criteria: spec.acceptanceCriteria.filter(c => c.trim()),
         technical_requirements: spec.technicalRequirements?.filter(r => r.trim()) || [],
-        priority: 'medium',
-        status: 'draft',
-        estimated_effort: null,
-        tags: [],
+        priority: spec.priority || 'medium',
+        status: spec.status || 'draft',
+        estimated_effort: spec.estimatedEffort || null,
+        tags: spec.tags || [],
       };
 
       const { data, error } = await supabase
@@ -122,6 +122,10 @@ export class BusinessSpecService {
       if (updates.technicalRequirements) {
         updateData.technical_requirements = updates.technicalRequirements.filter(r => r.trim());
       }
+      if (updates.priority) updateData.priority = updates.priority;
+      if (updates.status) updateData.status = updates.status;
+      if (updates.estimatedEffort !== undefined) updateData.estimated_effort = updates.estimatedEffort;
+      if (updates.tags) updateData.tags = updates.tags;
 
       updateData.updated_at = new Date().toISOString();
 
@@ -285,6 +289,44 @@ export class BusinessSpecService {
    */
   async getApprovedBusinessSpecs(): Promise<BusinessSpec[]> {
     return this.getBusinessSpecsByStatus('approved');
+  }
+
+  /**
+   * Generate business spec from documentation changes
+   */
+  async generateFromDocumentationChanges(
+    title: string,
+    oldContent: string,
+    newContent: string,
+    sectionTitle: string
+  ): Promise<BusinessSpec> {
+    try {
+      // This would typically use AI to analyze the changes
+      // For now, we'll create a basic spec from the changes
+      const spec: Omit<BusinessSpec, 'id' | 'lastUpdated'> = {
+        title: `Documentation Update: ${sectionTitle}`,
+        description: `Business specification generated from documentation changes in ${sectionTitle}.\n\nChanges detected in documentation require implementation.`,
+        acceptanceCriteria: [
+          'Implement changes as described in updated documentation',
+          'Ensure backward compatibility where possible',
+          'Update related documentation and tests',
+        ],
+        technicalRequirements: [
+          'Review documentation changes for technical implications',
+          'Identify affected code modules and components',
+          'Plan implementation approach',
+        ],
+        status: 'draft',
+        priority: 'medium',
+        tags: ['auto-generated', 'documentation', 'update'],
+        createdAt: new Date(),
+      };
+
+      return this.createBusinessSpec(spec);
+    } catch (error) {
+      console.error('Error generating business spec from documentation:', error);
+      throw error;
+    }
   }
 
   /**

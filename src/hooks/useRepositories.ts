@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Repository } from '../types';
 import { repositoryService } from '../services/repositoryService';
 import { useAuth } from '../components/auth/AuthProvider';
+import { useAppStore } from '../stores/useAppStore';
 import toast from 'react-hot-toast';
 
 export const useRepositories = () => {
@@ -9,6 +10,7 @@ export const useRepositories = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
+  const { currentRepository, setCurrentRepository } = useAppStore();
 
   useEffect(() => {
     // Reset state when user changes
@@ -19,17 +21,21 @@ export const useRepositories = () => {
       return;
     }
 
-
     const fetchRepositories = async () => {
       try {
         setLoading(true);
         setError(null);
         
         // Small delay to ensure auth is fully initialized
-        // await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         const data = await repositoryService.getRepositories();
         setRepositories(data);
+        
+        // Set current repository if not already set
+        if (data.length > 0 && !currentRepository) {
+          setCurrentRepository(data[0]);
+        }
       } catch (err: any) {
         const errorMessage = err.message || 'Failed to fetch repositories';
         
@@ -58,12 +64,18 @@ export const useRepositories = () => {
         subscription.unsubscribe();
       }
     };
-  }, [user, session]); // Depend on both user and session
+  }, [user, session, currentRepository, setCurrentRepository]); // Depend on both user and session
 
   const addRepository = async (repo: Omit<Repository, 'id' | 'lastUpdated'>) => {
     try {
       const newRepo = await repositoryService.addRepository(repo);
       setRepositories(prev => [newRepo, ...prev]);
+      
+      // Set as current repository if none is selected
+      if (!currentRepository) {
+        setCurrentRepository(newRepo);
+      }
+      
       toast.success(`Repository "${repo.name}" added successfully!`);
       return newRepo;
     } catch (err: any) {
@@ -79,6 +91,12 @@ export const useRepositories = () => {
       setRepositories(prev => 
         prev.map(repo => repo.id === id ? updatedRepo : repo)
       );
+      
+      // Update current repository if it's the one being updated
+      if (currentRepository?.id === id) {
+        setCurrentRepository(updatedRepo);
+      }
+      
       toast.success('Repository updated successfully!');
       return updatedRepo;
     } catch (err: any) {
@@ -90,8 +108,14 @@ export const useRepositories = () => {
 
   const removeRepository = async (id: string) => {
     try {
-      await repositoryService.removeRepository(id);
+      await repositoryService.deleteRepository(id);
       setRepositories(prev => prev.filter(repo => repo.id !== id));
+      
+      // Clear current repository if it's the one being removed
+      if (currentRepository?.id === id) {
+        setCurrentRepository(repositories.find(r => r.id !== id) || null);
+      }
+      
       toast.success('Repository removed successfully!');
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to remove repository';
@@ -113,12 +137,14 @@ export const useRepositories = () => {
 
   return {
     repositories,
+    currentRepository,
     loading,
     error,
     addRepository,
     updateRepository,
     removeRepository,
     storeAnalysis,
+    setCurrentRepository,
     refetch: () => {
       if (user && session) {
         repositoryService.getRepositories().then(setRepositories).catch(console.error);

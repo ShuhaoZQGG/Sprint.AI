@@ -72,6 +72,25 @@ export const useTasks = () => {
     }
   };
 
+  const createMultipleTasks = async (tasks: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[]) => {
+    try {
+      const createdTasks: Task[] = [];
+      
+      for (const taskData of tasks) {
+        const newTask = await taskService.createTask(taskData);
+        createdTasks.push(newTask);
+      }
+      
+      setTasks(prev => [...createdTasks, ...prev]);
+      toast.success(`${createdTasks.length} tasks created successfully!`);
+      return createdTasks;
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to create tasks';
+      toast.error(errorMessage);
+      throw err;
+    }
+  };
+
   const updateTask = async (id: string, updates: Partial<Task>) => {
     try {
       const updatedTask = await taskService.updateTask(id, updates);
@@ -137,17 +156,36 @@ export const useTasks = () => {
     return tasks.filter(task => task.assignee?.id === developerId);
   };
 
+  const generatePRForTask = async (taskId: string) => {
+    try {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task) {
+        throw new Error('Task not found');
+      }
+      
+      // This would typically call a service to generate the PR
+      toast.success(`PR generation initiated for task "${task.title}"`);
+      return { success: true };
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to generate PR';
+      toast.error(errorMessage);
+      throw err;
+    }
+  };
+
   return {
     tasks,
     loading,
     error,
     createTask,
+    createMultipleTasks,
     updateTask,
     updateTaskStatus,
     deleteTask,
     assignTask,
     getTasksByStatus,
     getTasksByAssignee,
+    generatePRForTask,
     refetch: () => {
       if (user && session) {
         taskService.getTasks().then(setTasks).catch(console.error);

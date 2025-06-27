@@ -1,458 +1,366 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { clsx } from 'clsx';
 import { 
+  X, 
+  Search, 
   Command, 
-  Send, 
-  Sparkles, 
+  Zap, 
   FileText, 
-  CheckSquare, 
-  Users,
-  X,
-  Zap,
+  GitBranch, 
+  Users, 
+  Calendar,
+  CheckSquare,
+  Loader,
   MessageSquare,
-  Lightbulb,
   ArrowRight,
-  HelpCircle
+  Lightbulb
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Card, CardContent } from '../ui/Card';
 import { useRepositories } from '../../hooks/useRepositories';
 import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
+import { useDevelopers } from '../../hooks/useDevelopers';
 import { useTasks } from '../../hooks/useTasks';
-import { Button } from '../ui/Button';
-import { TaskGenerator } from './TaskGenerator';
-import { nlpProcessor, ProcessedQuery } from '../../services/nlpProcessor';
+import { nlpProcessor, ProcessedQuery, QueryContext, TaskGenerationRequest } from '../../services/nlpProcessor';
+import { TaskReviewModal } from './TaskReviewModal';
+import { Task } from '../../types';
 import toast from 'react-hot-toast';
 
-const aiSuggestions = [
-  {
-    id: '1',
-    title: 'Generate Tasks',
-    description: 'Convert business requirements into technical tasks',
-    icon: CheckSquare,
-    action: 'generate-tasks',
-    color: 'bg-primary-500',
-  },
-  {
-    id: '2',
-    title: 'Update Docs',
-    description: 'Refresh documentation from codebase',
-    icon: FileText,
-    action: 'update-docs',
-    color: 'bg-secondary-500',
-  },
-  {
-    id: '3',
-    title: 'Assign Team',
-    description: 'Auto-assign based on capacity',
-    icon: Users,
-    action: 'assign-team',
-    color: 'bg-accent-500',
-  },
-  {
-    id: '4',
-    title: 'Generate PR',
-    description: 'Create branch and file scaffolds',
-    icon: Sparkles,
-    action: 'generate-pr',
-    color: 'bg-warning-500',
-  },
-];
-
-interface Message {
-  id: string;
-  content: string;
-  type: 'user' | 'assistant';
-  timestamp: Date;
-  processedQuery?: ProcessedQuery;
-}
-
 export const AIOverlay: React.FC = () => {
-  const { 
-    overlayOpen, 
-    setOverlayOpen, 
-    developers, 
-    currentRepository,
-    setCurrentView
-  } = useAppStore();
-  
-  const { repositories } = useRepositories();
-  const { businessSpecs } = useBusinessSpecs();
+  const { overlayOpen, setOverlayOpen } = useAppStore();
+  const { repositories, currentRepository } = useRepositories();
+  const { businessSpecs, generateTasksFromSpec } = useBusinessSpecs();
+  const { developers } = useDevelopers();
   const { tasks } = useTasks();
   
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showTaskGenerator, setShowTaskGenerator] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      content: 'Hi! I\'m your AI assistant. I can help you generate tasks, update documentation, assign team members, and create PR templates. What would you like to work on?',
-      type: 'assistant',
-      timestamp: new Date(),
-    }
-  ]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [processing, setProcessing] = useState(false);
+  const [processedQuery, setProcessedQuery] = useState<ProcessedQuery | null>(null);
+  const [showTaskReview, setShowTaskReview] = useState(false);
+  const [generatedTasks, setGeneratedTasks] = useState<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[]>([]);
+  const [selectedSpecTitle, setSelectedSpecTitle] = useState('');
+  
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key === '.') {
-        event.preventDefault();
-        setOverlayOpen(!overlayOpen);
-      }
-      if (event.key === 'Escape') {
-        setOverlayOpen(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [overlayOpen, setOverlayOpen]);
-
+  // Focus input when overlay opens
   useEffect(() => {
     if (overlayOpen && inputRef.current) {
-      inputRef.current.focus();
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
     }
   }, [overlayOpen]);
 
+  // Close on escape key
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const getQueryContext = () => ({
-    repositories,
-    developers,
-    tasks,
-    businessSpecs,
-    currentRepository: currentRepository || undefined,
-  });
-
-  const handleSendMessage = async () => {
-    if (!query.trim() || loading) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: query,
-      type: 'user',
-      timestamp: new Date(),
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOverlayOpen(false);
+      }
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    const currentQuery = query;
-    setQuery('');
-    setLoading(true);
+    if (overlayOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
 
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [overlayOpen, setOverlayOpen]);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    if (!query.trim()) return;
+    
+    setProcessing(true);
+    
     try {
-      // Process query with NLP
-      const processedQuery = await nlpProcessor.processQuery(currentQuery, getQueryContext());
+      // Prepare context for NLP processor
+      const context: QueryContext = {
+        repositories,
+        developers,
+        tasks,
+        currentRepository,
+        businessSpecs,
+      };
       
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: processedQuery.response,
-        type: 'assistant',
-        timestamp: new Date(),
-        processedQuery,
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-
-      // Show follow-up questions if needed
-      if (processedQuery.needsMoreInfo && processedQuery.followUpQuestions.length > 0) {
-        setTimeout(() => {
-          const followUpMessage: Message = {
-            id: (Date.now() + 2).toString(),
-            content: `To help you better, could you clarify:\n\n${processedQuery.followUpQuestions.map(q => `• ${q}`).join('\n')}`,
-            type: 'assistant',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, followUpMessage]);
-        }, 1000);
+      // Process the query
+      const result = await nlpProcessor.processQuery(query, context);
+      setProcessedQuery(result);
+      
+      // If the intent is task generation and we have business specs, offer to generate tasks
+      if (result.intent.type === 'task_generation' && businessSpecs.length > 0) {
+        const specEntity = result.intent.entities.find(e => e.type === 'repository');
+        if (specEntity) {
+          const matchingSpec = businessSpecs.find(spec => 
+            spec.title.toLowerCase().includes(specEntity.value.toLowerCase())
+          );
+          
+          if (matchingSpec) {
+            handleGenerateTasks(matchingSpec.id, matchingSpec.title);
+          }
+        }
       }
-
     } catch (error) {
-      console.error('Query processing error:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: 'I apologize, but I encountered an error processing your request. Please try again or use one of the quick actions below.',
-        type: 'assistant',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      console.error('Error processing query:', error);
       toast.error('Failed to process your request');
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
-  const handleSuggestionClick = async (action: string, title: string) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: title,
-      type: 'user',
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setLoading(true);
-
+  const handleGenerateTasks = async (specId: string, specTitle: string) => {
     try {
-      // Process the action as a query
-      const processedQuery = await nlpProcessor.processQuery(title, getQueryContext());
-      
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: processedQuery.response,
-        type: 'assistant',
-        timestamp: new Date(),
-        processedQuery,
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      setProcessing(true);
+      const response = await generateTasksFromSpec(specId);
+      setGeneratedTasks(response.tasks);
+      setSelectedSpecTitle(specTitle);
+      setShowTaskReview(true);
     } catch (error) {
-      console.error('Action processing error:', error);
-      toast.error('Failed to process action');
+      console.error('Error generating tasks:', error);
+      toast.error('Failed to generate tasks');
     } finally {
-      setLoading(false);
+      setProcessing(false);
     }
   };
 
-  const handleActionClick = (actionId: string, parameters?: Record<string, any>) => {
-    // Handle specific actions based on actionId
-    switch (actionId) {
+  const handleActionClick = async (action: string, parameters?: Record<string, any>) => {
+    switch (action) {
       case 'generate-tasks-from-specs':
-      case 'create-business-spec':
-        setShowTaskGenerator(true);
+        if (businessSpecs.length > 0) {
+          const spec = businessSpecs[0]; // For demo, use first spec
+          handleGenerateTasks(spec.id, spec.title);
+        }
         break;
+      
       case 'generate-documentation':
-        setCurrentView('docs');
+        toast.success('Documentation generation initiated');
         setOverlayOpen(false);
-        toast.success('Opening documentation generator...');
         break;
+      
       case 'auto-assign-tasks':
-        toast.success('Auto-assigning tasks...');
-        break;
-      case 'select-repository':
-        setCurrentView('docs');
+        toast.success('Auto-assigning tasks to team members');
         setOverlayOpen(false);
-        toast.success('Please select a repository in the docs view');
         break;
-      case 'analyze-capacity':
-        setCurrentView('profile');
+      
+      case 'generate-pr-template':
+        toast.success('PR template generation initiated');
         setOverlayOpen(false);
-        toast.success('Opening team capacity analysis...');
         break;
+      
       default:
-        toast.success(`Action: ${actionId}`);
+        toast.info(`Action "${action}" not implemented yet`);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  const handleTasksCreated = (createdTasks: Task[]) => {
+    setShowTaskReview(false);
+    setOverlayOpen(false);
+    setQuery('');
+    setProcessedQuery(null);
+    toast.success(`${createdTasks.length} tasks created successfully!`);
   };
 
   if (!overlayOpen) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-50 overflow-hidden">
-        <div className="flex min-h-full items-start justify-center pt-8 px-4">
-          <div
-            className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm transition-opacity"
-            onClick={() => setOverlayOpen(false)}
-          />
+      <div 
+        className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={() => setOverlayOpen(false)}
+      >
+        <div 
+          className="w-full max-w-2xl bg-dark-800 border border-dark-700 rounded-lg shadow-xl overflow-hidden"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-dark-700">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">AI Assistant</h2>
+                <p className="text-xs text-dark-400">Ask anything about your project</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setOverlayOpen(false)}
+              className="text-dark-400 hover:text-white"
+            >
+              <X size={20} />
+            </Button>
+          </div>
           
-          <div className="relative w-full max-w-4xl h-[80vh] transform overflow-hidden rounded-lg bg-dark-800 border border-dark-700 shadow-xl transition-all animate-scale-in flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-700 bg-dark-900/50">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
-                  <MessageSquare className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">AI Assistant</h3>
-                  <p className="text-sm text-dark-400">Your intelligent development companion</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setOverlayOpen(false)}
-                className="text-dark-400 hover:text-white transition-colors p-2 hover:bg-dark-700 rounded-lg"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.map((message) => (
-                <div key={message.id} className="space-y-3">
-                  <div
-                    className={clsx(
-                      'flex',
-                      message.type === 'user' ? 'justify-end' : 'justify-start'
-                    )}
-                  >
-                    <div
-                      className={clsx(
-                        'max-w-[80%] rounded-lg px-4 py-3',
-                        message.type === 'user'
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-dark-700 text-dark-100 border border-dark-600'
-                      )}
-                    >
-                      <p className="text-sm leading-relaxed whitespace-pre-line">{message.content}</p>
-                      <p className={clsx(
-                        'text-xs mt-2',
-                        message.type === 'user' ? 'text-primary-200' : 'text-dark-500'
-                      )}>
-                        {message.timestamp.toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Suggested Actions */}
-                  {message.processedQuery?.suggestedActions && message.processedQuery.suggestedActions.length > 0 && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[80%] space-y-2">
-                        <p className="text-xs text-dark-400 px-2">Suggested actions:</p>
-                        <div className="space-y-2">
-                          {message.processedQuery.suggestedActions.map((action) => (
-                            <button
-                              key={action.id}
-                              onClick={() => handleActionClick(action.action, action.parameters)}
-                              className="w-full flex items-center justify-between p-3 bg-dark-700 hover:bg-dark-600 border border-dark-600 hover:border-primary-500 rounded-lg transition-all duration-200 text-left group"
-                            >
-                              <div>
-                                <h5 className="text-sm font-medium text-white">{action.title}</h5>
-                                <p className="text-xs text-dark-400">{action.description}</p>
-                              </div>
-                              <ArrowRight size={14} className="text-dark-500 group-hover:text-primary-400" />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Intent Information (Debug) */}
-                  {message.processedQuery && process.env.NODE_ENV === 'development' && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[80%] p-2 bg-dark-800 border border-dark-600 rounded text-xs text-dark-400">
-                        Intent: {message.processedQuery.intent.type} ({(message.processedQuery.intent.confidence * 100).toFixed(0)}%)
-                        {message.processedQuery.intent.entities.length > 0 && (
-                          <span> | Entities: {message.processedQuery.intent.entities.map(e => `${e.type}:${e.value}`).join(', ')}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-dark-700 border border-dark-600 rounded-lg px-4 py-3 max-w-[80%]">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                      <span className="text-sm text-dark-300">AI is thinking...</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Quick Actions */}
-            {messages.length <= 1 && (
-              <div className="px-6 py-3 border-t border-dark-700 bg-dark-900/30">
-                <h4 className="text-sm font-medium text-dark-300 mb-2 flex items-center">
-                  <Lightbulb size={14} className="mr-2" />
-                  Quick Actions
-                </h4>
-                <div className="grid grid-cols-4 gap-2">
-                  {aiSuggestions.map((suggestion) => {
-                    const Icon = suggestion.icon;
-                    return (
-                      <button
-                        key={suggestion.id}
-                        onClick={() => handleSuggestionClick(suggestion.action, suggestion.title)}
-                        disabled={loading}
-                        className="flex flex-col items-center p-2 rounded-lg border border-dark-600 hover:border-primary-500 hover:bg-dark-700/50 transition-all duration-200 text-center group"
-                      >
-                        <div className={clsx(
-                          'w-6 h-6 rounded-lg flex items-center justify-center mb-1 transition-colors',
-                          suggestion.color,
-                          'group-hover:scale-110'
-                        )}>
-                          <Icon size={12} className="text-white" />
-                        </div>
-                        <h5 className="text-xs font-medium text-white mb-0.5">{suggestion.title}</h5>
-                        <p className="text-xs text-dark-400 leading-tight">{suggestion.description}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Input Area */}
-            <div className="px-6 py-4 border-t border-dark-700 bg-dark-900/50">
-              <div className="flex items-end space-x-3">
-                <div className="flex-1">
-                  <div className="relative">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      placeholder="Ask me anything about your project..."
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      disabled={loading}
-                      className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors resize-none"
-                    />
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <kbd className="px-2 py-1 bg-dark-600 border border-dark-500 rounded text-xs text-dark-300">
-                        Enter
-                      </kbd>
-                    </div>
-                  </div>
-                </div>
+          {/* Search Input */}
+          <div className="p-4 border-b border-dark-700">
+            <form onSubmit={handleSubmit}>
+              <div className="relative">
+                <Input
+                  ref={inputRef}
+                  placeholder="Ask me anything about your project..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  icon={<Command size={16} />}
+                  className="pr-10"
+                />
                 <Button
-                  onClick={handleSendMessage}
-                  disabled={!query.trim() || loading}
-                  className="px-4 py-3"
+                  type="submit"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white"
+                  disabled={processing || !query.trim()}
                 >
-                  {loading ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {processing ? (
+                    <Loader size={16} className="animate-spin" />
                   ) : (
-                    <Send size={16} />
+                    <Search size={16} />
                   )}
                 </Button>
               </div>
-              
-              <div className="flex items-center justify-between mt-3">
-                <p className="text-xs text-dark-500">
-                  Press <kbd className="px-1.5 py-0.5 bg-dark-700 border border-dark-600 rounded text-xs">Ctrl+.</kbd> to toggle
-                </p>
-                <div className="flex items-center space-x-2 text-xs text-dark-500">
-                  <Zap size={12} />
-                  <span>Powered by AI</span>
+            </form>
+          </div>
+          
+          {/* Content */}
+          <div className="max-h-96 overflow-y-auto p-4">
+            {processedQuery ? (
+              <div className="space-y-4">
+                {/* AI Response */}
+                <div className="flex space-x-3">
+                  <div className="w-8 h-8 bg-primary-600 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <Zap className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 bg-dark-700 rounded-lg p-3">
+                    <p className="text-white">{processedQuery.response}</p>
+                  </div>
+                </div>
+                
+                {/* Suggested Actions */}
+                {processedQuery.suggestedActions.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-dark-300">Suggested Actions</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {processedQuery.suggestedActions.map((action) => (
+                        <Card
+                          key={action.id}
+                          hover
+                          className="cursor-pointer"
+                          onClick={() => handleActionClick(action.action, action.parameters)}
+                        >
+                          <CardContent className="p-3 flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                              {action.action.includes('task') ? (
+                                <CheckSquare size={16} className="text-primary-400" />
+                              ) : action.action.includes('doc') ? (
+                                <FileText size={16} className="text-secondary-400" />
+                              ) : action.action.includes('pr') ? (
+                                <GitBranch size={16} className="text-accent-400" />
+                              ) : action.action.includes('assign') ? (
+                                <Users size={16} className="text-warning-400" />
+                              ) : (
+                                <Lightbulb size={16} className="text-primary-400" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="text-sm font-medium text-white">{action.title}</h4>
+                              <p className="text-xs text-dark-400">{action.description}</p>
+                            </div>
+                            <ArrowRight size={14} className="text-dark-400" />
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Follow-up Questions */}
+                {processedQuery.followUpQuestions.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-medium text-dark-300">Follow-up Questions</h3>
+                    <div className="space-y-2">
+                      {processedQuery.followUpQuestions.map((question, index) => (
+                        <Button
+                          key={index}
+                          variant="ghost"
+                          className="w-full justify-start text-left text-dark-300 hover:text-white"
+                          onClick={() => {
+                            setQuery(question);
+                            handleSubmit();
+                          }}
+                        >
+                          <MessageSquare size={14} className="mr-2 flex-shrink-0" />
+                          <span className="truncate">{question}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="text-center py-6">
+                  <Command className="w-12 h-12 text-dark-400 mx-auto mb-3" />
+                  <h3 className="text-lg font-medium text-white mb-1">How can I help you?</h3>
+                  <p className="text-dark-400 mb-6">Ask me anything about your project</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-dark-300">Quick Actions</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <Card hover className="cursor-pointer" onClick={() => setQuery('Generate tasks from business spec')}>
+                      <CardContent className="p-3 flex items-center space-x-3">
+                        <CheckSquare size={16} className="text-primary-400" />
+                        <span className="text-sm text-dark-300">Generate tasks from spec</span>
+                      </CardContent>
+                    </Card>
+                    <Card hover className="cursor-pointer" onClick={() => setQuery('Generate documentation for repository')}>
+                      <CardContent className="p-3 flex items-center space-x-3">
+                        <FileText size={16} className="text-secondary-400" />
+                        <span className="text-sm text-dark-300">Generate documentation</span>
+                      </CardContent>
+                    </Card>
+                    <Card hover className="cursor-pointer" onClick={() => setQuery('Create PR template for task')}>
+                      <CardContent className="p-3 flex items-center space-x-3">
+                        <GitBranch size={16} className="text-accent-400" />
+                        <span className="text-sm text-dark-300">Create PR template</span>
+                      </CardContent>
+                    </Card>
+                    <Card hover className="cursor-pointer" onClick={() => setQuery('Assign tasks to team members')}>
+                      <CardContent className="p-3 flex items-center space-x-3">
+                        <Users size={16} className="text-warning-400" />
+                        <span className="text-sm text-dark-300">Assign tasks to team</span>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
               </div>
+            )}
+          </div>
+          
+          {/* Footer */}
+          <div className="p-3 border-t border-dark-700 text-xs text-dark-400 flex items-center justify-between">
+            <div>
+              Press <kbd className="px-1.5 py-0.5 bg-dark-700 rounded text-xs">Esc</kbd> to close
+            </div>
+            <div className="flex items-center space-x-1">
+              <Zap size={12} />
+              <span>Powered by Groq AI</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Task Generator Modal */}
-      <TaskGenerator
-        isOpen={showTaskGenerator}
-        onClose={() => setShowTaskGenerator(false)}
+      {/* Task Review Modal */}
+      <TaskReviewModal
+        isOpen={showTaskReview}
+        onClose={() => setShowTaskReview(false)}
+        generatedTasks={generatedTasks}
+        businessSpecTitle={selectedSpecTitle}
+        onTasksCreated={handleTasksCreated}
       />
     </>
   );
