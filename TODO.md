@@ -1,30 +1,5 @@
 # Sprint.AI - Development Roadmap
 
-## Debug & Improvement
-**Status**: ✅ Completed
-**Description** Debugging and Improving the current code
-
-- [x] Authentication session restoration and sign out issues
-  - *Fixed*: Improved auth flow with proper session restoration, better error handling, complete sign out with page reload, and enhanced data fetching with auth state dependencies
-
-- [x] Session restoration infinite loading issues
-  - *Fixed*: Enhanced session restoration with timeout protection, retry logic, proper error handling, and prevention of infinite loading states. Added better error display and recovery mechanisms.
-
-## 🎯 Task Management Enhancement
-**Status**: ✅ Completed
-**Priority**: High
-**Description**: Enhanced task management with drag-and-drop Kanban board
-
-- [x] **Drag and Drop Kanban Board**
-  - *Files created*: `src/components/tasks/TaskCard.tsx`, `src/components/tasks/KanbanColumn.tsx`, `src/components/tasks/TaskDetails.tsx`
-  - *Files modified*: `src/components/tasks/TasksView.tsx`, `package.json`
-  - Implemented smooth drag-and-drop functionality using @dnd-kit
-  - Created beautiful task cards with hover effects and micro-interactions
-  - Added visual feedback during drag operations
-  - Implemented column-based task organization
-  - Added task details modal with comprehensive information display
-  - Enhanced task filtering and search capabilities
-
 ## 🔍 Testing & Quality Assurance
 
 ### 17. Testing Infrastructure
