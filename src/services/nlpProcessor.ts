@@ -1,469 +1,421 @@
 import { groqService } from './groq';
-import { useAppStore } from '../stores/useAppStore';
-import { Repository, Developer, Task, BusinessSpec } from '../types';
-import { RepositoryAnalysis } from '../types/github';
+import { BusinessSpec, Task, TaskType, Priority } from '../types';
 
-export interface QueryIntent {
-  type: 'task_generation' | 'documentation' | 'team_assignment' | 'pr_generation' | 'analysis' | 'general';
-  confidence: number;
-  entities: QueryEntity[];
-  context: QueryContext;
+export interface DocumentationChange {
+  documentTitle: string;
+  sectionTitle: string;
+  originalContent: string;
+  updatedContent: string;
+  changeType: 'addition' | 'modification' | 'deletion';
 }
 
-export interface QueryEntity {
-  type: 'repository' | 'developer' | 'task' | 'technology' | 'timeframe' | 'priority';
-  value: string;
-  confidence: number;
-}
-
-export interface QueryContext {
-  repositories: Repository[];
-  developers: Developer[];
-  tasks: Task[];
-  currentRepository?: Repository;
-  businessSpecs: BusinessSpec[];
-}
-
-export interface ProcessedQuery {
-  intent: QueryIntent;
-  response: string;
-  suggestedActions: SuggestedAction[];
-  needsMoreInfo: boolean;
-  followUpQuestions: string[];
-}
-
-export interface SuggestedAction {
-  id: string;
-  title: string;
+export interface BusinessSpecAnalysis {
+  suggestedTitle: string;
   description: string;
-  action: string;
-  parameters?: Record<string, any>;
+  acceptanceCriteria: string[];
+  technicalRequirements: string[];
+  priority: Priority;
+  estimatedEffort?: number;
+  tags: string[];
+  changeImpact: 'low' | 'medium' | 'high';
+  affectedSystems: string[];
+}
+
+export interface TaskGenerationResult {
+  tasks: Array<{
+    title: string;
+    description: string;
+    type: TaskType;
+    priority: Priority;
+    estimatedEffort: number;
+    requiredSkills: string[];
+    dependencies: string[];
+    acceptanceCriteria: string[];
+    technicalNotes?: string;
+  }>;
+  totalEstimatedEffort: number;
+  suggestedSprint: {
+    name: string;
+    duration: number;
+    capacity: number;
+  };
 }
 
 class NLPProcessor {
-  private intentPatterns = {
-    task_generation: [
-      /create\s+(task|tasks|ticket|tickets)/i,
-      /generate\s+(task|tasks)/i,
-      /break\s+down/i,
-      /convert.*to.*task/i,
-      /need.*task/i,
-      /implement.*feature/i,
-      /build.*feature/i,
-    ],
-    documentation: [
-      /document/i,
-      /docs/i,
-      /documentation/i,
-      /generate.*doc/i,
-      /update.*doc/i,
-      /api.*doc/i,
-      /readme/i,
-    ],
-    team_assignment: [
-      /assign/i,
-      /who.*should/i,
-      /best.*developer/i,
-      /team.*member/i,
-      /capacity/i,
-      /workload/i,
-      /available/i,
-    ],
-    pr_generation: [
-      /pull.*request/i,
-      /pr/i,
-      /branch/i,
-      /commit/i,
-      /scaffold/i,
-      /template/i,
-    ],
-    analysis: [
-      /analyze/i,
-      /analysis/i,
-      /review/i,
-      /quality/i,
-      /performance/i,
-      /metrics/i,
-      /insights/i,
-    ],
-  };
-
-  private entityPatterns = {
-    repository: /repo(?:sitory)?\s+(\w+)/i,
-    developer: /(?:developer|dev|engineer|team member)\s+(\w+)/i,
-    technology: /(?:using|with|in)\s+(react|typescript|python|javascript|node|vue|angular|java|go|rust|php)/i,
-    priority: /(urgent|high|medium|low|critical)\s+priority/i,
-    timeframe: /(?:in|within|by)\s+(\d+\s+(?:day|week|month|hour)s?)/i,
-  };
-
   /**
-   * Process a natural language query and return structured intent and response
+   * Analyze documentation changes and generate business specification
    */
-  async processQuery(query: string, context: QueryContext): Promise<ProcessedQuery> {
+  async analyzeDocumentationChanges(changes: DocumentationChange[]): Promise<BusinessSpecAnalysis> {
     try {
-      // Extract intent and entities
-      const intent = this.extractIntent(query, context);
-      const entities = this.extractEntities(query);
-      
-      intent.entities = entities;
+      const prompt = `
+        Analyze the following documentation changes and generate a comprehensive business specification:
 
-      // Generate contextual response based on intent
-      const response = await this.generateResponse(query, intent, context);
-      
-      // Generate suggested actions
-      const suggestedActions = this.generateSuggestedActions(intent, context);
-      
-      // Determine if more information is needed
-      const needsMoreInfo = this.needsMoreInformation(intent, context);
-      
-      // Generate follow-up questions if needed
-      const followUpQuestions = needsMoreInfo ? this.generateFollowUpQuestions(intent, context) : [];
+        Documentation Changes:
+        ${changes.map((change, index) => `
+        Change ${index + 1}:
+        - Document: ${change.documentTitle}
+        - Section: ${change.sectionTitle}
+        - Type: ${change.changeType}
+        - Original: ${change.originalContent.substring(0, 500)}...
+        - Updated: ${change.updatedContent.substring(0, 500)}...
+        `).join('\n')}
+
+        Based on these changes, generate a business specification with:
+        1. A clear, descriptive title that summarizes the business need
+        2. A comprehensive description explaining the business value and context
+        3. Specific acceptance criteria (3-8 items) that define success
+        4. Technical requirements needed for implementation
+        5. Priority level based on impact and urgency
+        6. Estimated effort in hours (consider complexity and scope)
+        7. Relevant tags for categorization
+        8. Change impact assessment (low/medium/high)
+        9. Affected systems or components
+
+        Consider:
+        - Business value and user impact
+        - Technical complexity and dependencies
+        - Risk assessment and mitigation
+        - Integration requirements
+        - Performance and scalability needs
+
+        Return a JSON response:
+        {
+          "suggestedTitle": "Clear business-focused title",
+          "description": "Detailed description with business context and value proposition",
+          "acceptanceCriteria": ["Specific, measurable criteria"],
+          "technicalRequirements": ["Technical implementation needs"],
+          "priority": "high|medium|low|critical",
+          "estimatedEffort": 40,
+          "tags": ["relevant", "tags"],
+          "changeImpact": "high|medium|low",
+          "affectedSystems": ["system1", "system2"]
+        }
+      `;
+
+      const response = await groqService.generateResponse(prompt);
+      const analysis = this.parseAIResponse(response);
 
       return {
-        intent,
-        response,
-        suggestedActions,
-        needsMoreInfo,
-        followUpQuestions,
+        suggestedTitle: analysis.suggestedTitle || 'Documentation Update',
+        description: analysis.description || 'Business specification generated from documentation changes',
+        acceptanceCriteria: analysis.acceptanceCriteria || [],
+        technicalRequirements: analysis.technicalRequirements || [],
+        priority: analysis.priority || 'medium',
+        estimatedEffort: analysis.estimatedEffort,
+        tags: analysis.tags || [],
+        changeImpact: analysis.changeImpact || 'medium',
+        affectedSystems: analysis.affectedSystems || [],
       };
     } catch (error) {
-      console.error('NLP processing error:', error);
-      return this.createFallbackResponse(query, context);
+      console.error('Error analyzing documentation changes:', error);
+      return this.getFallbackBusinessSpecAnalysis(changes);
     }
   }
 
   /**
-   * Extract intent from user query
+   * Generate tasks from business specification
    */
-  private extractIntent(query: string, context: QueryContext): QueryIntent {
-    let bestMatch: { type: keyof typeof this.intentPatterns; confidence: number } = {
-      type: 'general',
-      confidence: 0,
-    };
-
-    // Check each intent pattern
-    Object.entries(this.intentPatterns).forEach(([intentType, patterns]) => {
-      const matches = patterns.filter(pattern => pattern.test(query));
-      if (matches.length > 0) {
-        const confidence = matches.length / patterns.length;
-        if (confidence > bestMatch.confidence) {
-          bestMatch = {
-            type: intentType as keyof typeof this.intentPatterns,
-            confidence,
-          };
-        }
-      }
-    });
-
-    // Boost confidence based on context
-    const contextBoost = this.calculateContextBoost(bestMatch.type, context);
-    
-    return {
-      type: bestMatch.type,
-      confidence: Math.min(1.0, bestMatch.confidence + contextBoost),
-      entities: [],
-      context,
-    };
-  }
-
-  /**
-   * Extract entities from user query
-   */
-  private extractEntities(query: string): QueryEntity[] {
-    const entities: QueryEntity[] = [];
-
-    Object.entries(this.entityPatterns).forEach(([entityType, pattern]) => {
-      const match = query.match(pattern);
-      if (match) {
-        entities.push({
-          type: entityType as QueryEntity['type'],
-          value: match[1] || match[0],
-          confidence: 0.8,
-        });
-      }
-    });
-
-    return entities;
-  }
-
-  /**
-   * Calculate context boost for intent confidence
-   */
-  private calculateContextBoost(intentType: string, context: QueryContext): number {
-    let boost = 0;
-
-    switch (intentType) {
-      case 'documentation':
-        if (context.repositories.length > 0) boost += 0.2;
-        if (context.currentRepository) boost += 0.1;
-        break;
-      case 'team_assignment':
-        if (context.developers.length > 0) boost += 0.2;
-        if (context.tasks.length > 0) boost += 0.1;
-        break;
-      case 'task_generation':
-        if (context.businessSpecs.length > 0) boost += 0.2;
-        if (context.currentRepository) boost += 0.1;
-        break;
-    }
-
-    return boost;
-  }
-
-  /**
-   * Generate contextual AI response
-   */
-  private async generateResponse(query: string, intent: QueryIntent, context: QueryContext): Promise<string> {
-    if (!groqService.isAvailable()) {
-      return this.generateStaticResponse(intent, context);
-    }
-
+  async generateTasksFromBusinessSpec(
+    businessSpec: BusinessSpec,
+    codebaseContext: any,
+    teamSkills: string[]
+  ): Promise<TaskGenerationResult> {
     try {
-      const contextPrompt = this.buildContextPrompt(query, intent, context);
-      const response = await groqService.makeCompletion(contextPrompt, 512);
-      return response;
-    } catch (error) {
-      console.error('AI response generation failed:', error);
-      return this.generateStaticResponse(intent, context);
-    }
-  }
+      const prompt = `
+        Convert the following business specification into actionable technical tasks:
 
-  /**
-   * Build context-aware prompt for AI response
-   */
-  private buildContextPrompt(query: string, intent: QueryIntent, context: QueryContext): string {
-    const contextInfo = {
-      repositories: context.repositories.length,
-      developers: context.developers.length,
-      tasks: context.tasks.length,
-      currentRepo: context.currentRepository?.name || 'none',
-      businessSpecs: context.businessSpecs.length,
-    };
+        Business Specification:
+        - Title: ${businessSpec.title}
+        - Description: ${businessSpec.description}
+        - Priority: ${businessSpec.priority}
+        - Acceptance Criteria: ${businessSpec.acceptanceCriteria.join(', ')}
+        - Technical Requirements: ${businessSpec.technicalRequirements.join(', ')}
+        - Estimated Effort: ${businessSpec.estimatedEffort || 'Not specified'}
 
-    return `
-You are an AI assistant for a development platform. A user asked: "${query}"
+        Codebase Context:
+        ${JSON.stringify(codebaseContext, null, 2)}
 
-Context:
-- Intent: ${intent.type} (confidence: ${intent.confidence.toFixed(2)})
-- Repositories connected: ${contextInfo.repositories}
-- Team members: ${contextInfo.developers}
-- Active tasks: ${contextInfo.tasks}
-- Current repository: ${contextInfo.currentRepo}
-- Business specifications: ${contextInfo.businessSpecs}
+        Team Skills Available: ${teamSkills.join(', ')}
 
-Entities found: ${intent.entities.map(e => `${e.type}: ${e.value}`).join(', ') || 'none'}
+        Generate 3-8 specific, actionable tasks that:
+        1. Break down the business spec into implementable units
+        2. Consider the existing codebase structure and patterns
+        3. Match team skills and capabilities
+        4. Include proper dependencies and sequencing
+        5. Have realistic effort estimates (1-40 hours each)
+        6. Include specific acceptance criteria
+        7. Specify required skills and technologies
 
-Provide a helpful, concise response (max 100 words) that:
-1. Acknowledges their request
-2. Explains what you can help with
-3. Suggests next steps if appropriate
+        Task Types:
+        - feature: New functionality or enhancements
+        - bug: Fixes for existing issues
+        - refactor: Code improvements without functional changes
+        - docs: Documentation updates
+        - test: Testing implementation or improvements
+        - devops: Infrastructure, deployment, or tooling
 
-Be conversational and helpful.
-    `;
-  }
+        Priority Levels:
+        - critical: Blocking or urgent issues
+        - high: Important for business goals
+        - medium: Standard priority
+        - low: Nice to have or future improvements
 
-  /**
-   * Generate static response when AI is not available
-   */
-  private generateStaticResponse(intent: QueryIntent, context: QueryContext): string {
-    switch (intent.type) {
-      case 'task_generation':
-        return `I can help you generate technical tasks from business requirements. ${
-          context.businessSpecs.length > 0 
-            ? `You have ${context.businessSpecs.length} business spec(s) I can work with.` 
-            : 'Please provide a business specification or feature description.'
-        }`;
-      
-      case 'documentation':
-        return `I can generate and update documentation for your repositories. ${
-          context.repositories.length > 0
-            ? `You have ${context.repositories.length} connected repository(ies).`
-            : 'Please connect a repository first.'
-        }`;
-      
-      case 'team_assignment':
-        return `I can help assign tasks based on team capacity and skills. ${
-          context.developers.length > 0
-            ? `Your team has ${context.developers.length} member(s).`
-            : 'Please add team members to get assignment suggestions.'
-        }`;
-      
-      case 'pr_generation':
-        return `I can create PR templates with branch names, commit messages, and file scaffolds. What feature or task would you like to implement?`;
-      
-      case 'analysis':
-        return `I can analyze your codebase, team performance, and project metrics. What would you like me to analyze?`;
-      
-      default:
-        return `I'm here to help with your development workflow! I can generate tasks, update documentation, assign team members, create PR templates, and provide project insights. What would you like to work on?`;
-    }
-  }
-
-  /**
-   * Generate suggested actions based on intent
-   */
-  private generateSuggestedActions(intent: QueryIntent, context: QueryContext): SuggestedAction[] {
-    const actions: SuggestedAction[] = [];
-
-    switch (intent.type) {
-      case 'task_generation':
-        if (context.businessSpecs.length > 0) {
-          actions.push({
-            id: 'generate-from-spec',
-            title: 'Generate from Business Spec',
-            description: 'Convert existing business specifications into tasks',
-            action: 'generate-tasks-from-specs',
-          });
-        }
-        actions.push({
-          id: 'create-new-spec',
-          title: 'Create New Specification',
-          description: 'Write a new business spec and generate tasks',
-          action: 'create-business-spec',
-        });
-        break;
-
-      case 'documentation':
-        if (context.currentRepository) {
-          actions.push({
-            id: 'generate-docs',
-            title: 'Generate Documentation',
-            description: `Generate docs for ${context.currentRepository.name}`,
-            action: 'generate-documentation',
-            parameters: { repositoryId: context.currentRepository.id },
-          });
-        }
-        if (context.repositories.length > 1) {
-          actions.push({
-            id: 'select-repository',
-            title: 'Select Repository',
-            description: 'Choose which repository to document',
-            action: 'select-repository',
-          });
-        }
-        break;
-
-      case 'team_assignment':
-        if (context.tasks.filter(t => !t.assignee).length > 0) {
-          actions.push({
-            id: 'auto-assign',
-            title: 'Auto-assign Tasks',
-            description: 'Automatically assign unassigned tasks',
-            action: 'auto-assign-tasks',
-          });
-        }
-        actions.push({
-          id: 'capacity-analysis',
-          title: 'Analyze Team Capacity',
-          description: 'Review current workload and availability',
-          action: 'analyze-capacity',
-        });
-        break;
-
-      case 'pr_generation':
-        if (context.tasks.length > 0) {
-          actions.push({
-            id: 'generate-pr-from-task',
-            title: 'Generate PR from Task',
-            description: 'Create PR template for an existing task',
-            action: 'generate-pr-template',
-          });
-        }
-        actions.push({
-          id: 'create-feature-pr',
-          title: 'Create Feature PR',
-          description: 'Generate PR template for a new feature',
-          action: 'create-feature-pr',
-        });
-        break;
-    }
-
-    return actions;
-  }
-
-  /**
-   * Determine if more information is needed
-   */
-  private needsMoreInformation(intent: QueryIntent, context: QueryContext): boolean {
-    switch (intent.type) {
-      case 'task_generation':
-        return context.businessSpecs.length === 0 && intent.entities.length === 0;
-      case 'documentation':
-        return context.repositories.length === 0;
-      case 'team_assignment':
-        return context.developers.length === 0 || context.tasks.length === 0;
-      case 'pr_generation':
-        return intent.entities.length === 0;
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * Generate follow-up questions
-   */
-  private generateFollowUpQuestions(intent: QueryIntent, context: QueryContext): string[] {
-    const questions: string[] = [];
-
-    switch (intent.type) {
-      case 'task_generation':
-        if (context.businessSpecs.length === 0) {
-          questions.push('What feature or functionality would you like to implement?');
-          questions.push('Do you have any specific requirements or acceptance criteria?');
-        }
-        break;
-      case 'documentation':
-        if (context.repositories.length === 0) {
-          questions.push('Which repository would you like to document?');
-          questions.push('Would you like to connect a GitHub repository first?');
-        }
-        break;
-      case 'team_assignment':
-        if (context.developers.length === 0) {
-          questions.push('Who are the available team members?');
-        }
-        if (context.tasks.length === 0) {
-          questions.push('What tasks need to be assigned?');
-        }
-        break;
-      case 'pr_generation':
-        questions.push('What feature or task would you like to create a PR for?');
-        questions.push('Which repository should this PR target?');
-        break;
-    }
-
-    return questions;
-  }
-
-  /**
-   * Create fallback response for errors
-   */
-  private createFallbackResponse(query: string, context: QueryContext): ProcessedQuery {
-    return {
-      intent: {
-        type: 'general',
-        confidence: 0.5,
-        entities: [],
-        context,
-      },
-      response: "I'm here to help! I can assist with generating tasks, updating documentation, assigning team members, and creating PR templates. Could you please rephrase your request or try one of the quick actions?",
-      suggestedActions: [
+        Return a JSON response:
         {
-          id: 'generate-tasks',
-          title: 'Generate Tasks',
-          description: 'Convert business requirements into technical tasks',
-          action: 'generate-tasks',
+          "tasks": [
+            {
+              "title": "Specific, actionable task title",
+              "description": "Detailed description with context and approach",
+              "type": "feature|bug|refactor|docs|test|devops",
+              "priority": "critical|high|medium|low",
+              "estimatedEffort": 8,
+              "requiredSkills": ["React", "TypeScript", "API"],
+              "dependencies": ["task-title-1", "task-title-2"],
+              "acceptanceCriteria": ["Specific criteria for completion"],
+              "technicalNotes": "Implementation notes and considerations"
+            }
+          ],
+          "totalEstimatedEffort": 64,
+          "suggestedSprint": {
+            "name": "Sprint Name Based on Business Spec",
+            "duration": 14,
+            "capacity": 80
+          }
+        }
+      `;
+
+      const response = await groqService.generateResponse(prompt);
+      const result = this.parseAIResponse(response);
+
+      return {
+        tasks: result.tasks || [],
+        totalEstimatedEffort: result.totalEstimatedEffort || 0,
+        suggestedSprint: result.suggestedSprint || {
+          name: `Sprint: ${businessSpec.title}`,
+          duration: 14,
+          capacity: 80,
         },
+      };
+    } catch (error) {
+      console.error('Error generating tasks from business spec:', error);
+      return this.getFallbackTaskGeneration(businessSpec);
+    }
+  }
+
+  /**
+   * Analyze task context for PR generation
+   */
+  async analyzeTaskForPR(
+    task: Task,
+    codebaseContext: any,
+    repositoryInfo: any
+  ): Promise<{
+    branchName: string;
+    commitMessage: string;
+    prTitle: string;
+    prDescription: string;
+    suggestedFiles: string[];
+    implementationNotes: string[];
+  }> {
+    try {
+      const prompt = `
+        Analyze the following task and generate PR template information:
+
+        Task Details:
+        - Title: ${task.title}
+        - Description: ${task.description}
+        - Type: ${task.type}
+        - Priority: ${task.priority}
+        - Acceptance Criteria: ${task.acceptanceCriteria?.join(', ') || 'None specified'}
+        - Technical Notes: ${task.technicalNotes || 'None'}
+
+        Repository Context:
+        ${JSON.stringify(repositoryInfo, null, 2)}
+
+        Codebase Structure:
+        ${JSON.stringify(codebaseContext, null, 2)}
+
+        Generate:
+        1. A descriptive branch name following git conventions
+        2. A clear, conventional commit message
+        3. A professional PR title
+        4. A comprehensive PR description with context and changes
+        5. Suggested files that might need modification
+        6. Implementation notes and considerations
+
+        Follow these conventions:
+        - Branch names: feature/task-description, bugfix/issue-description, etc.
+        - Commit messages: type(scope): description
+        - PR titles: Clear, descriptive, and professional
+        - PR descriptions: Include context, changes, testing notes
+
+        Return a JSON response:
         {
-          id: 'update-docs',
-          title: 'Update Documentation',
-          description: 'Generate or refresh project documentation',
-          action: 'update-docs',
+          "branchName": "feature/implement-user-authentication",
+          "commitMessage": "feat(auth): implement user authentication system",
+          "prTitle": "Implement User Authentication System",
+          "prDescription": "## Overview\\n\\nThis PR implements...\\n\\n## Changes\\n\\n- Added...\\n\\n## Testing\\n\\n- Tested...",
+          "suggestedFiles": ["src/auth/", "src/components/auth/"],
+          "implementationNotes": ["Consider security implications", "Add proper error handling"]
+        }
+      `;
+
+      const response = await groqService.generateResponse(prompt);
+      const result = this.parseAIResponse(response);
+
+      return {
+        branchName: result.branchName || this.generateFallbackBranchName(task),
+        commitMessage: result.commitMessage || this.generateFallbackCommitMessage(task),
+        prTitle: result.prTitle || task.title,
+        prDescription: result.prDescription || task.description,
+        suggestedFiles: result.suggestedFiles || [],
+        implementationNotes: result.implementationNotes || [],
+      };
+    } catch (error) {
+      console.error('Error analyzing task for PR:', error);
+      return this.getFallbackPRAnalysis(task);
+    }
+  }
+
+  /**
+   * Extract key information from text using NLP
+   */
+  async extractKeyInformation(
+    text: string,
+    extractionType: 'requirements' | 'features' | 'issues' | 'dependencies'
+  ): Promise<string[]> {
+    try {
+      const prompt = `
+        Extract ${extractionType} from the following text:
+
+        Text:
+        ${text}
+
+        Extract and return a list of ${extractionType} mentioned in the text.
+        Focus on:
+        ${extractionType === 'requirements' ? 'Technical and functional requirements' :
+          extractionType === 'features' ? 'Features and capabilities mentioned' :
+          extractionType === 'issues' ? 'Problems, bugs, or issues identified' :
+          'Dependencies, prerequisites, or related components'}
+
+        Return a JSON array of strings:
+        ["item1", "item2", "item3"]
+      `;
+
+      const response = await groqService.generateResponse(prompt);
+      const items = this.parseAIResponse(response);
+
+      return Array.isArray(items) ? items : [];
+    } catch (error) {
+      console.error(`Error extracting ${extractionType}:`, error);
+      return [];
+    }
+  }
+
+  // Helper methods
+
+  private parseAIResponse(response: string): any {
+    try {
+      // Try to find JSON in the response
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      
+      // Try to parse the entire response as JSON
+      return JSON.parse(response);
+    } catch (error) {
+      console.error('Error parsing AI response:', error);
+      return {};
+    }
+  }
+
+  private getFallbackBusinessSpecAnalysis(changes: DocumentationChange[]): BusinessSpecAnalysis {
+    return {
+      suggestedTitle: `Documentation Update - ${changes[0]?.documentTitle || 'Multiple Documents'}`,
+      description: 'Business specification generated from documentation changes. Please review and update as needed.',
+      acceptanceCriteria: [
+        'Documentation changes are implemented',
+        'All affected systems are updated',
+        'Changes are tested and verified',
+      ],
+      technicalRequirements: [
+        'Update relevant documentation',
+        'Implement necessary code changes',
+        'Add appropriate tests',
+      ],
+      priority: 'medium',
+      estimatedEffort: Math.max(8, changes.length * 4),
+      tags: ['documentation', 'update'],
+      changeImpact: 'medium',
+      affectedSystems: ['documentation'],
+    };
+  }
+
+  private getFallbackTaskGeneration(businessSpec: BusinessSpec): TaskGenerationResult {
+    return {
+      tasks: [
+        {
+          title: `Implement ${businessSpec.title}`,
+          description: businessSpec.description,
+          type: 'feature',
+          priority: businessSpec.priority,
+          estimatedEffort: businessSpec.estimatedEffort || 16,
+          requiredSkills: ['Frontend', 'Backend'],
+          dependencies: [],
+          acceptanceCriteria: businessSpec.acceptanceCriteria,
+          technicalNotes: 'Generated from business specification. Please review and refine.',
         },
       ],
-      needsMoreInfo: true,
-      followUpQuestions: ['What would you like me to help you with?'],
+      totalEstimatedEffort: businessSpec.estimatedEffort || 16,
+      suggestedSprint: {
+        name: `Sprint: ${businessSpec.title}`,
+        duration: 14,
+        capacity: 80,
+      },
     };
+  }
+
+  private getFallbackPRAnalysis(task: Task): {
+    branchName: string;
+    commitMessage: string;
+    prTitle: string;
+    prDescription: string;
+    suggestedFiles: string[];
+    implementationNotes: string[];
+  } {
+    return {
+      branchName: this.generateFallbackBranchName(task),
+      commitMessage: this.generateFallbackCommitMessage(task),
+      prTitle: task.title,
+      prDescription: `## Overview\n\n${task.description}\n\n## Changes\n\n- Implement ${task.title}\n\n## Testing\n\n- [ ] Manual testing completed\n- [ ] Unit tests added`,
+      suggestedFiles: [],
+      implementationNotes: ['Review implementation approach', 'Add appropriate tests', 'Update documentation'],
+    };
+  }
+
+  private generateFallbackBranchName(task: Task): string {
+    const prefix = task.type === 'bug' ? 'bugfix' : 
+                   task.type === 'feature' ? 'feature' :
+                   task.type === 'refactor' ? 'refactor' : 'task';
+    
+    const sanitizedTitle = task.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '-')
+      .substring(0, 50);
+    
+    return `${prefix}/${sanitizedTitle}`;
+  }
+
+  private generateFallbackCommitMessage(task: Task): string {
+    const type = task.type === 'bug' ? 'fix' :
+                 task.type === 'feature' ? 'feat' :
+                 task.type === 'docs' ? 'docs' :
+                 task.type === 'test' ? 'test' :
+                 task.type === 'refactor' ? 'refactor' : 'chore';
+    
+    return `${type}: ${task.title.toLowerCase()}`;
   }
 }
 

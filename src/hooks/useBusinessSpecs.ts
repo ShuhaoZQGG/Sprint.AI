@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BusinessSpec } from '../types';
 import { businessSpecService } from '../services/businessSpecService';
+import { nlpProcessor } from '../services/nlpProcessor';
 import { useAuth } from '../components/auth/AuthProvider';
 import toast from 'react-hot-toast';
 
@@ -116,6 +117,26 @@ export const useBusinessSpecs = () => {
     }
   };
 
+  const generateTasksFromSpec = async (
+    businessSpec: BusinessSpec,
+    codebaseContext: any,
+    teamSkills: string[]
+  ) => {
+    try {
+      const result = await nlpProcessor.generateTasksFromBusinessSpec(
+        businessSpec,
+        codebaseContext,
+        teamSkills
+      );
+      
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate tasks from business specification';
+      toast.error(errorMessage);
+      throw err;
+    }
+  };
+
   const searchBusinessSpecs = async (query: string) => {
     try {
       const results = await businessSpecService.searchBusinessSpecs(query);
@@ -147,6 +168,7 @@ export const useBusinessSpecs = () => {
     deleteBusinessSpec,
     updateStatus,
     updatePriority,
+    generateTasksFromSpec,
     searchBusinessSpecs,
     getSpecsByStatus,
     refetch: () => {

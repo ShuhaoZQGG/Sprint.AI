@@ -1,26 +1,60 @@
-# Logs
-logs
+# Ignore node, build, and env
+node_modules/
+dist/
+.vite/
+.env*
+.cache/
+
+# Ignore assets and design files
+public/
+assets/
+static/
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.ico
+*.gif
+*.mp4
+
+# Ignore test and story files
+coverage/
+__tests__/
+*.test.ts
+*.test.tsx
+*.stories.tsx
+.storybook/
+
+# Ignore markdown/docs and changelogs
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+*.mdx
+
+# Ignore editor/IDE configs
+.vscode/
+.idea/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Ignore UI and layout components (non-core logic)
+src/components/ui/
+src/components/layout/
+src/components/overlay/
+src/components/auth/
+src/components/dashboard/
+src/components/charts/
+src/components/landing/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.env
-*.temp
+# Ignore shortcut and animation hooks
+src/hooks/useKeyboardShortcuts.ts
+src/hooks/useGlobalShortcuts.ts
+src/hooks/useRealtime.ts
+
+# Ignore utilities not directly tied to business logic
+src/utils/chartData.ts
+
+# Optional: ignore duplicate service layers if integrated in other files
+src/services/supabase.ts
+src/services/groq.ts
+src/services/realtimeService.ts
