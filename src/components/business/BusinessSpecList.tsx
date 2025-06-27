@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -13,7 +13,7 @@ import {
   Eye,
   Zap
 } from 'lucide-react';
-import { BusinessSpec } from '../../types';
+import { BusinessSpec, Task } from '../../types';
 import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -23,6 +23,7 @@ import { BusinessSpecDetail } from './BusinessSpecDetail';
 import { BusinessSpecStatusBadge } from './BusinessSpecStatusBadge';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { FadeIn, SlideIn } from '../ui/AnimatedCounter';
+import { TaskReviewModal } from '../overlay/TaskReviewModal';
 
 export const BusinessSpecList: React.FC = () => {
   const { businessSpecs, loading, error, createBusinessSpec, generateTasksFromSpec } = useBusinessSpecs();
@@ -32,6 +33,9 @@ export const BusinessSpecList: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedSpec, setSelectedSpec] = useState<BusinessSpec | null>(null);
   const [generatingTasks, setGeneratingTasks] = useState<string | null>(null);
+  const [showTaskReview, setShowTaskReview] = useState(false);
+  const [generatedTasks, setGeneratedTasks] = useState<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[] | null>(null);
+  const [selectedSpecTitle, setSelectedSpecTitle] = useState('');
 
   // Filter and search business specs
   const filteredSpecs = useMemo(() => {
@@ -68,13 +72,26 @@ export const BusinessSpecList: React.FC = () => {
   const handleGenerateTasks = async (spec: BusinessSpec) => {
     try {
       setGeneratingTasks(spec.id);
-      await generateTasksFromSpec(spec.id);
+      const response = await generateTasksFromSpec(spec.id);
+      if (Array.isArray(response.tasks)) {
+        setGeneratedTasks(response.tasks);
+      } else {
+        setGeneratedTasks([]);
+      }
+      setSelectedSpecTitle(spec.title);
     } catch (error) {
       console.error('Failed to generate tasks:', error);
     } finally {
       setGeneratingTasks(null);
     }
   };
+
+  // Open TaskReviewModal whenever generatedTasks is set (not null)
+  useEffect(() => {
+    if (generatedTasks !== null && generatedTasks.length > 0) {
+      setShowTaskReview(true);
+    }
+  }, [generatedTasks]);
 
   const getStatusIcon = (status: BusinessSpec['status']) => {
     switch (status) {
@@ -318,6 +335,17 @@ export const BusinessSpecList: React.FC = () => {
           isOpen={!!selectedSpec}
           onClose={() => setSelectedSpec(null)}
         />
+      )}
+
+     { generatedTasks && (
+      <TaskReviewModal
+        isOpen={showTaskReview && generatedTasks !== null && generatedTasks.length > 0}
+        onClose={() => setShowTaskReview(false)}
+        generatedTasks={generatedTasks}
+        businessSpecTitle={selectedSpecTitle}
+        businessSpecId={selectedSpec?.id}
+        onTasksCreated={() => setShowTaskReview(false)}
+      />
       )}
     </div>
   );

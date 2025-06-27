@@ -28,7 +28,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     confirmPassword: '',
     fullName: '',
     teamName: '',
-    createTeam: true,
+    createTeam: true as boolean,
   });
 
   // Validation states
@@ -87,7 +87,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -188,7 +188,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="radio"
                   checked={formData.createTeam}
-                  onChange={() => handleInputChange('createTeam', 'true')}
+                  onChange={() => handleInputChange('createTeam', true)}
                   className="text-primary-600 focus:ring-primary-500"
                 />
                 <span className="text-sm text-white">Create new team</span>
@@ -197,7 +197,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="radio"
                   checked={!formData.createTeam}
-                  onChange={() => handleInputChange('createTeam', 'false')}
+                  onChange={() => handleInputChange('createTeam', false)}
                   className="text-primary-600 focus:ring-primary-500"
                 />
                 <span className="text-sm text-white">Join existing team</span>

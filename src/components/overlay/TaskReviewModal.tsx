@@ -27,6 +27,7 @@ interface TaskReviewModalProps {
   onClose: () => void;
   generatedTasks: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[];
   businessSpecTitle: string;
+  businessSpecId?: string;
   onTasksCreated: (tasks: Task[]) => void;
 }
 
@@ -35,6 +36,7 @@ export const TaskReviewModal: React.FC<TaskReviewModalProps> = ({
   onClose,
   generatedTasks,
   businessSpecTitle,
+  businessSpecId,
   onTasksCreated,
 }) => {
   const { createTask } = useTasks();
@@ -78,7 +80,8 @@ export const TaskReviewModal: React.FC<TaskReviewModalProps> = ({
       const createdTasks: Task[] = [];
       
       for (const taskData of tasks) {
-        const createdTask = await createTask(taskData);
+        const payload = businessSpecId ? { ...taskData, businessSpecId } : taskData;
+        const createdTask = await createTask(payload);
         createdTasks.push(createdTask);
       }
 

@@ -57,6 +57,8 @@ export interface DeveloperProfile {
 export interface Task {
   id: string;
   title: string;
+  businessSpecId?: string;
+  repositoryId?: string;
   description: string;
   type: TaskType;
   priority: Priority;

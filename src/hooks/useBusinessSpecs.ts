@@ -156,7 +156,7 @@ export const useBusinessSpecs = () => {
       
       // Get team skills from developers
       const teamSkills = [...new Set(developers.flatMap(dev => dev.profile.strengths))];
-      
+
       // Prepare request for task generation
       const request: TaskGenerationRequest = {
         businessSpec: spec,
@@ -168,7 +168,6 @@ export const useBusinessSpecs = () => {
       
       // Generate tasks using NLP processor
       const response = await nlpProcessor.generateTasksFromBusinessSpec(request);
-      
       setGeneratingTasks(false);
       return response;
     } catch (err) {

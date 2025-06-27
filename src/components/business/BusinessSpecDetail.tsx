@@ -13,7 +13,7 @@ import {
   Calendar,
   AlertCircle
 } from 'lucide-react';
-import { BusinessSpec } from '../../types';
+import { BusinessSpec, Task } from '../../types';
 import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -21,6 +21,7 @@ import { BusinessSpecStatusBadge } from './BusinessSpecStatusBadge';
 import { BusinessSpecEditor } from './BusinessSpecEditor';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { FadeIn, SlideIn } from '../ui/AnimatedCounter';
+import { TaskReviewModal } from '../overlay/TaskReviewModal';
 
 interface BusinessSpecDetailProps {
   spec: BusinessSpec;
@@ -43,6 +44,8 @@ export const BusinessSpecDetail: React.FC<BusinessSpecDetailProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [generatingTasks, setGeneratingTasks] = useState(false);
+  const [showTaskReview, setShowTaskReview] = useState(false);
+  const [generatedTasks, setGeneratedTasks] = useState<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[]>([]);
 
   const handleEdit = async (updates: Partial<BusinessSpec>) => {
     try {
@@ -84,7 +87,9 @@ export const BusinessSpecDetail: React.FC<BusinessSpecDetailProps> = ({
   const handleGenerateTasks = async () => {
     try {
       setGeneratingTasks(true);
-      await generateTasksFromSpec(spec.id);
+      const response = await generateTasksFromSpec(spec.id);
+      setGeneratedTasks(response.tasks);
+      setShowTaskReview(true);
     } catch (error) {
       console.error('Failed to generate tasks:', error);
     } finally {
@@ -334,6 +339,14 @@ export const BusinessSpecDetail: React.FC<BusinessSpecDetailProps> = ({
           </div>
         </SlideIn>
       </div>
+      <TaskReviewModal
+        isOpen={showTaskReview}
+        onClose={() => setShowTaskReview(false)}
+        generatedTasks={generatedTasks}
+        businessSpecTitle={spec.title}
+        businessSpecId={spec.id}
+        onTasksCreated={() => setShowTaskReview(false)}
+      />
     </Modal>
   );
 };

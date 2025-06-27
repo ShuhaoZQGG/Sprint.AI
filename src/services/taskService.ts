@@ -70,6 +70,7 @@ export class TaskService {
    */
   async createTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> {
     try {
+      console.log('Creating task:', task);
       const teamId = await getCurrentUserTeamId();
       if (!teamId) {
         throw new Error('No team access');
@@ -95,8 +96,8 @@ export class TaskService {
         dependencies: [],
         acceptance_criteria: [],
         assigned_to: task.assignee?.id || null,
-        repository_id: null, // Will be set when linking to repository
-        business_spec_id: null, // Will be set when linking to business spec
+        repository_id: task.repositoryId || null, 
+        business_spec_id: task.businessSpecId || null,
       };
 
       const { data, error } = await supabase

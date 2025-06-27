@@ -208,6 +208,8 @@ class NLPProcessor {
           title: taskData.title || 'Untitled Task',
           description: taskData.description || '',
           type: taskData.type || 'feature',
+          businessSpecId: request.businessSpec.id,
+          repositoryId: request.codebaseContext?.repositoryId,
           priority: taskData.priority || 'medium',
           status: 'backlog' as const,
           estimatedEffort: Math.max(1, Math.min(40, taskData.estimatedEffort || 8)),
