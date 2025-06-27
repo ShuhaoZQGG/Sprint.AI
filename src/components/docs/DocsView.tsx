@@ -316,7 +316,10 @@ export const DocsView: React.FC = () => {
                             onClick={() => handleEditSection(doc, section.id)}
                             className="p-1 h-6 w-6"
                           >
-                            <Edit3 size={12} />
+                            <Edit3 size={12} color="white" />
+                            <span className="text-xs text-dark-400">
+                              Edit
+                            </span>
                           </Button>
                         </div>
                       </div>

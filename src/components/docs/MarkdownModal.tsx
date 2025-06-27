@@ -1,55 +1,44 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import remarkBreaks from 'remark-breaks';
+import { GeneratedDocumentation } from '../../services/docGenerator';
 // import DOMPurify from 'dompurify';
 // import { marked } from 'marked';
-
-interface Section {
-  title: string;
-  content: string;
-}
 
 interface MarkdownModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
-  sections: Section[];
-  activeSectionIdx: number;
-  setActiveSectionIdx: (idx: number) => void;
-  lastUpdated?: string | Date;
+  documentation: GeneratedDocumentation;
 }
 
-const MarkdownModal: React.FC<MarkdownModalProps> = ({
+export const MarkdownModal: React.FC<MarkdownModalProps> = ({
   isOpen,
   onClose,
-  title,
-  sections,
-  activeSectionIdx,
-  setActiveSectionIdx,
-  lastUpdated,
+  documentation,
 }) => {
+  const [activeSectionIdx, setActiveSectionIdx] = useState(0);
+
   if (!isOpen) return null;
 
+  const { sections, repositoryId, lastUpdated } = documentation;
   const activeSection = sections[activeSectionIdx];
 
   function replaceNewlinesOutsideCodeBlocks(markdown: string): string {
     // Split by code blocks (```...```)
     const parts = markdown.split(/(```[\s\S]*?```)/g);
     return parts
-      .map((part, idx, arr) => {
+      .map((part) => {
         if (part.startsWith('```') || part.endsWith('```')) {
-          console.log(part)
           return part; // code block or ends with code block delimiter, do not replace
         } else {
-          console.log(part)
           return part.replace(/\n/g, "&#160; \n");
         }
       })
-      .join('').replace(/```&#160;/g, "```\n&#160;")  
-    }
+      .join('').replace(/```&#160;/g, "```\n&#160;");
+  }
 
   return (
     <div
@@ -60,7 +49,7 @@ const MarkdownModal: React.FC<MarkdownModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-dark-600 bg-dark-700">
           <div>
-            <h2 className="text-white">{title}</h2>
+            <h2 className="text-white">{repositoryId}</h2>
             {lastUpdated && (
               <div className="text-dark-400 mt-1">
                 Last updated: {new Date(lastUpdated).toLocaleString()}
@@ -83,7 +72,7 @@ const MarkdownModal: React.FC<MarkdownModalProps> = ({
           <div className="flex flex-wrap gap-2 px-6 py-2 border-b border-dark-700 bg-dark-800">
             {sections.map((section, idx) => (
               <button
-                key={idx}
+                key={section.id}
                 className={`px-3 py-1 rounded transition-colors font-medium ${
                   activeSectionIdx === idx
                     ? 'bg-primary-700 text-white'
@@ -104,7 +93,7 @@ const MarkdownModal: React.FC<MarkdownModalProps> = ({
               style={{ color: '#e5e7eb' }}
             >
               <ReactMarkdown
-                remarkPlugins={[remarkBreaks]}
+                remarkPlugins={[remarkBreaks, remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
                 components={{
                   h1: ({node, ...props}) => <h1 style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
@@ -128,5 +117,3 @@ const MarkdownModal: React.FC<MarkdownModalProps> = ({
     </div>
   );
 };
-
-export default MarkdownModal; 
