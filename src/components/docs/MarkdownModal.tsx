@@ -4,8 +4,6 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import remarkBreaks from 'remark-breaks';
-// import DOMPurify from 'dompurify';
-// import { marked } from 'marked';
 
 interface Section {
   title: string;
@@ -104,7 +102,7 @@ const MarkdownModal: React.FC<MarkdownModalProps> = ({
               style={{ color: '#e5e7eb' }}
             >
               <ReactMarkdown
-                remarkPlugins={[remarkBreaks]}
+                remarkPlugins={[remarkBreaks, remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
                 components={{
                   h1: ({node, ...props}) => <h1 style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
