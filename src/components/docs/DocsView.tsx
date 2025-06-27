@@ -40,7 +40,8 @@ export const DocsView: React.FC = () => {
     loading: docsLoading, 
     storeDocumentation, 
     searchDocumentation,
-    getLatestDocumentation 
+    getDocumentationById,
+    getLatestDocumentation
   } = useDocumentation();
   const { currentRepository, setCurrentRepository } = useAppStore();
   const { user } = useAuth();
@@ -171,21 +172,42 @@ export const DocsView: React.FC = () => {
     }
   };
 
-  const handleViewDocumentation = async (repositoryId: string) => {
+  const handleViewDocumentation = async (id: string) => {
     try {
-      const latestDoc = await getLatestDocumentation(repositoryId);
-      if (latestDoc) {
+      const doc = await getDocumentationById(id);
+      if (doc) {
         // Broadcast that user is viewing documentation
         broadcast('doc-viewing', {
           userId: user?.id,
           userName: user?.user_metadata?.full_name || user?.email,
-          repositoryId,
-          documentationId: latestDoc.id,
+          repositoryId: doc.repositoryId,
+          documentationId: doc.id,
         });
         
         toast.success('Opening documentation...');
       } else {
-        toast.success('No documentation found for this repository');
+        toast.error('No documentation found for this repository');
+      }
+    } catch (error) {
+      console.error('Failed to fetch documentation:', error);
+    }
+  };
+
+  const handleViewLatestDocumentation = async (repositoryId: string) => {
+    try {
+      const doc = await getLatestDocumentation(repositoryId);
+      if (doc) {
+        // Broadcast that user is viewing documentation
+        broadcast('doc-viewing', {
+          userId: user?.id,
+          userName: user?.user_metadata?.full_name || user?.email,
+          repositoryId: doc.repositoryId,
+          documentationId: doc.id,
+        });
+        
+        toast.success('Opening documentation...');
+      } else {
+        toast.error('No documentation found for this repository');
       }
     } catch (error) {
       console.error('Failed to fetch documentation:', error);
@@ -446,7 +468,7 @@ export const DocsView: React.FC = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleViewDocumentation(repo.id);
+                                handleViewLatestDocumentation(repo.id);
                               }}
                               className="p-1"
                             >
@@ -546,7 +568,7 @@ export const DocsView: React.FC = () => {
                         <FileText size={20} className="text-primary-400" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-white">{doc.repositoryId}</h3>
+                        <h3 className="font-semibold text-white">{doc.id}</h3>
                         <p className="text-sm text-dark-400 mt-1">{doc.sections.length} sections</p>
                       </div>
                     </div>

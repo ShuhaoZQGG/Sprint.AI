@@ -61,10 +61,10 @@ export class RepositoryService {
    */
   async addRepository(repository: Omit<Repository, 'id'>): Promise<Repository> {
     try {
-      // const teamId = await getCurrentUserTeamId();
-      // if (!teamId) {
-      //   throw new Error('No team access');
-      // }
+      const teamId = await getCurrentUserTeamId();
+      if (!teamId) {
+        throw new Error('No team access');
+      }
 
       const repositoryData: RepositoryInsert = {
         team_id: teamId,

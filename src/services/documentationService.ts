@@ -53,7 +53,7 @@ export class DocumentationService {
 
       if (error) throw error;
 
-      return data.map(this.mapRowToDocumentation);
+      return data.map(row => this.mapRowToDocumentation(row));
     } catch (error) {
       console.error('Error fetching documentation:', error);
       throw new Error(handleSupabaseError(error));
@@ -77,7 +77,7 @@ export class DocumentationService {
 
       if (error) throw error;
 
-      return data.map(this.mapRowToDocumentation);
+      return data.map(row => this.mapRowToDocumentation(row));
     } catch (error) {
       console.error('Error fetching documentation by repository:', error);
       throw new Error(handleSupabaseError(error));

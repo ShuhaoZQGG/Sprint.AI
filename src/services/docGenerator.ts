@@ -58,7 +58,7 @@ class DocumentationGenerator {
       });
 
       // Validate analysis data
-      if (!analysis.structure || analysis.structure.length === 0) {
+      if (!analysis.structure || analysis.structure.size === 0) {
         throw new Error('Repository structure analysis is incomplete');
       }
 
