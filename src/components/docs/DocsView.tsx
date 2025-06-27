@@ -32,6 +32,10 @@ import { GeneratedDocumentation } from '../../services/docGenerator';
 import { RepositoryAnalysis } from '../../types/github';
 import { DocumentationSearchResult } from '../../services/documentationService';
 import toast from 'react-hot-toast';
+import 'highlight.js/styles/github.css';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import MarkdownModal from './MarkdownModal';
 
 export const DocsView: React.FC = () => {
   const { repositories, loading: repositoriesLoading } = useRepositories();
@@ -54,6 +58,9 @@ export const DocsView: React.FC = () => {
   const [searchResults, setSearchResults] = useState<DocumentationSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [collaborativeEditing, setCollaborativeEditing] = useState<string | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<GeneratedDocumentation | null>(null);
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [activeSectionIdx, setActiveSectionIdx] = useState(0);
 
   // Real-time presence for collaboration
   const { users: onlineUsers, broadcast, onBroadcast } = usePresence(
@@ -72,22 +79,25 @@ export const DocsView: React.FC = () => {
     (payload) => {
       const { eventType, new: newRecord, old: oldRecord } = payload;
       
+      // Fix: unwrap generated_docs with type guard
+      const newDoc = (newRecord && 'generated_docs' in newRecord) ? newRecord.generated_docs : undefined;
+      const oldDoc = (oldRecord && 'generated_docs' in oldRecord) ? oldRecord.generated_docs : undefined;
       switch (eventType) {
         case 'INSERT':
-          if (newRecord && newRecord.created_by !== user?.id) {
-            toast.success(`New documentation created: ${newRecord.title}`);
+          if (newDoc && newDoc.created_by !== user?.id) {
+            toast.success(`New documentation created: ${newDoc.title}`);
           }
           break;
           
         case 'UPDATE':
-          if (newRecord && newRecord.created_by !== user?.id) {
-            toast.success(`Documentation updated: ${newRecord.title}`);
+          if (newDoc && newDoc.created_by !== user?.id) {
+            toast.success(`Documentation updated: ${newDoc.title}`);
           }
           break;
           
         case 'DELETE':
-          if (oldRecord) {
-            toast.success(`Documentation deleted: ${oldRecord.title}`);
+          if (oldDoc) {
+            toast.success(`Documentation deleted: ${oldDoc.title}`);
           }
           break;
       }
@@ -183,8 +193,9 @@ export const DocsView: React.FC = () => {
           repositoryId: doc.repositoryId,
           documentationId: doc.id,
         });
-        
-        toast.success('Opening documentation...');
+
+        setViewingDoc(doc);
+        setIsDocModalOpen(true);
       } else {
         toast.error('No documentation found for this repository');
       }
@@ -298,6 +309,26 @@ export const DocsView: React.FC = () => {
 
   const getRepositoryDocumentation = (repoId: string) => {
     return documentation.filter(doc => doc.repositoryId === repoId);
+  };
+
+  // MarkdownViewer component for safe markdown rendering
+  const MarkdownViewer: React.FC<{ markdown: string }> = ({ markdown }) => {
+    // Normalize: treat single newlines as line breaks (add two spaces before single newlines)
+    const normalized = React.useMemo(() =>
+      markdown.replace(/([^\n])\n([^\n])/g, '$1  \n$2'),
+      [markdown]
+    );
+    console.log(normalized);
+    const html = React.useMemo(
+      () => DOMPurify.sanitize(String(marked.parse(normalized))),
+      [normalized]
+    );
+    return (
+      <div
+        className="prose prose-invert text-dark-200"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
   };
 
   return (
@@ -656,6 +687,21 @@ export const DocsView: React.FC = () => {
           repositoryName={repositories.find(r => r.id === selectedRepo)?.name || 'Repository'}
         />
       )}
+
+      {/* Documentation View Modal */}
+      <MarkdownModal
+        isOpen={isDocModalOpen}
+        onClose={() => setIsDocModalOpen(false)}
+        title={
+          viewingDoc
+            ? (repositories.find(r => r.id === viewingDoc.repositoryId)?.name || viewingDoc.id)
+            : 'Documentation'
+        }
+        sections={viewingDoc ? viewingDoc.sections : []}
+        activeSectionIdx={activeSectionIdx}
+        setActiveSectionIdx={setActiveSectionIdx}
+        lastUpdated={viewingDoc ? viewingDoc.lastUpdated : undefined}
+      />
     </div>
   );
 };
