@@ -1,59 +1,47 @@
 # Sprint.AI - Development Roadmap
 
-## 🔄 Doc → Spec → Task → PR Integration  
-**Status**: Not Started  
-**Priority**: High  
-**Description**: Full workflow integration from documentation editing to PR creation using AI-powered services and GitHub automation.
-
----
-
 ### Subtasks:
 
-- [ ] **Business Spec Generation from Docs**
-  - *Files to modify*: `src/components/docs/DocsView.tsx`, `src/hooks/useBusinessSpecs.ts`
-  - Enable in-line editing and saving of documentation
-  - Automatically generate or update business specifications upon doc change
-  - Track delta changes and create new spec versions
-  - Trigger task generation pipeline
+- [ ] **Business Spec List & Detail View**
+  - *Files to create*:  
+    - `src/components/business/BusinessSpecList.tsx`  
+    - `src/components/business/BusinessSpecDetail.tsx`  
+    - `src/components/business/BusinessSpecEditor.tsx`  
+    - `src/components/business/BusinessSpecModal.tsx` (for create/edit modal)
+    - `src/components/business/BusinessSpecTagSelector.tsx` (optional, for tags)
+    - `src/components/business/BusinessSpecStatusBadge.tsx` (optional, for status UI)
+  - *Files to modify*:  
+    - `src/hooks/useBusinessSpecs.ts`  
+    - `src/services/businessSpecService.ts`  
+    - `src/App.tsx` (add route or navigation to spec management)
+    - `src/components/docs/DocsView.tsx` (link to spec management, or show related specs)
+    - `src/types/index.ts` (ensure types are up to date)
 
-- [ ] **Task Generation from Business Spec**
-  - *Files to create*: `src/components/overlay/TaskReviewModal.tsx`
-  - *Files to modify*: `src/services/nlpProcessor.ts`, `src/services/businessSpecService.ts`
-  - Use NLP to convert updated business specs into actionable tasks
-  - Allow users to review and refine generated tasks before creation
-  - Save validated tasks to Supabase and show real-time updates
+- [ ] **Business Spec CRUD Operations**
+  - *Files to modify*:  
+    - `src/hooks/useBusinessSpecs.ts`  
+    - `src/services/businessSpecService.ts`
+  - *Files to create*:  
+    - (see above, UI components will call these hooks/services)
 
-- [ ] **Codebase Analyzer Integration**
-  - *Files to modify*: `src/services/codebaseAnalyzer.ts`, `src/hooks/useRepositories.ts`
-  - Analyze codebase modules related to each task
-  - Return relevant files, folders, and module owners
-  - Present module scope and ownership in the task review modal
+- [ ] **Business Spec Filtering, Search, and Tagging**
+  - *Files to create*:  
+    - `src/components/business/BusinessSpecTagSelector.tsx` (if not already created)
+    - `src/components/business/BusinessSpecFilterBar.tsx`
+  - *Files to modify*:  
+    - `src/hooks/useBusinessSpecs.ts`
 
-- [ ] **PR Template Generator Integration**
-  - *Files to modify*: `src/components/tasks/PRPreview.tsx`, `src/services/prGenerator.ts`
-  - Generate:
-    - Branch names based on task context
-    - Commit message template
-    - AI-generated PR description
-    - Optional file scaffolding template
-  - Allow preview/edit before pushing
+- [ ] **Business Spec Status & Priority Management**
+  - *Files to create*:  
+    - `src/components/business/BusinessSpecStatusBadge.tsx` (if not already created)
+    - `src/components/business/BusinessSpecPrioritySelector.tsx`
+  - *Files to modify*:  
+    - `src/hooks/useBusinessSpecs.ts`
 
-- [ ] **GitHub Integration & PR Push**
-  - *Files to modify*: `src/services/github.ts`, `src/components/tasks/TasksView.tsx`
-  - Use Octokit to:
-    - Create new branch
-    - Push initial commit (optional scaffolding)
-    - Open pull request with pre-filled details
-  - Show real-time PR creation feedback (success/error/toast)
-
----
-
-### 📈 Outcome
-- 🔄 Seamless transition from documentation to production code
-- 🧠 AI-assisted spec-to-task generation with contextual awareness
-- 🛠 Developer-friendly task and PR scaffolding workflow
-- 🚀 One-click flow: *Edit → Spec → Task → PR → Push*
-
+- [ ] **Integrate with Docs → Spec Flow**
+  - *Files to modify*:  
+    - `src/components/docs/DocsView.tsx` (ensure spec creation from doc edit links to new UI)
+    - `src/hooks/useBusinessSpecs.ts` (ensure new specs appear in UI immediately)
 
 ## 🔍 Testing & Quality Assurance
 

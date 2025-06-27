@@ -45,6 +45,8 @@ src/components/profile
 src/components/charts
 src/components/sprints
 src/components/team
+src/components/repository
+src/components/tasks
 
 src/config
 
