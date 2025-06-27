@@ -160,7 +160,7 @@ function App() {
         <SlideIn direction="left" duration={300}>
           <Sidebar />
         </SlideIn>
-        <div className="flex-1 flex flex-col min-h-screen">
+        <div className="flex-1 flex flex-col min-h-screen overflow-x-auto">
           <SlideIn direction="down" duration={300} delay={100}>
             <Header />
           </SlideIn>

@@ -8,8 +8,9 @@
 }
 
 /* Smooth scrolling */
-html {
+html, body {
   scroll-behavior: smooth;
+  background-color: #0f172a; /* dark-950 */
 }
 
 /* Custom scrollbar */
