@@ -1,3 +1,5 @@
+import { CodebaseStructure } from ".";
+
 export interface Database {
   public: {
     Tables: {
@@ -84,7 +86,7 @@ export interface Database {
           default_branch: string;
           last_updated: string | null;
           last_analyzed: string | null;
-          structure: Record<string, any> | null;
+          structure: CodebaseStructure;
           analysis_summary: Record<string, any> | null;
           created_at: string;
           updated_at: string;

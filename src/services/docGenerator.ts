@@ -40,6 +40,7 @@ class DocumentationGenerator {
     this.activeGenerations.set(repository.id, true);
 
     try {
+      console.log('repository', repository);
       onProgress?.({
         step: 'initialization',
         progress: 0,

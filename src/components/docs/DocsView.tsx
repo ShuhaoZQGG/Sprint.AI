@@ -17,7 +17,7 @@ import {
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Modal } from '../ui/Modal';
+import { Modal as UIModal } from '../ui/Modal';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { DocGenerator } from './DocGenerator';
 import { VersionHistory } from './VersionHistory';
@@ -29,6 +29,9 @@ import { docGenerator, GeneratedDocumentation } from '../../services/docGenerato
 import { groqService } from '../../services/groq';
 import { BusinessSpec } from '../../types';
 import toast from 'react-hot-toast';
+import { codebaseAnalyzer } from '../../services/codebaseAnalyzer';
+import { githubService } from '../../services/github';
+import { RepositoryAnalysis, FileStructure } from '../../types/github';
 
 // Utility to extract JSON from LLM responses
 function extractJsonFromResponse(response: string): any {
@@ -63,6 +66,10 @@ export const DocsView: React.FC = () => {
   const [editContent, setEditContent] = useState('');
   const [editSectionId, setEditSectionId] = useState<string | null>(null);
   const [generatingSpec, setGeneratingSpec] = useState(false);
+  const [selectingRepository, setSelectingRepository] = useState(false);
+  const [selectedRepositoryId, setSelectedRepositoryId] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<RepositoryAnalysis | null>(null);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
 
   const filteredDocs = documentation.filter(doc =>
     doc.sections.some(section => 
@@ -226,6 +233,76 @@ export const DocsView: React.FC = () => {
     }
   };
 
+  const handleContinueToGenerator = async () => {
+    if (!selectedRepositoryId) return;
+    setLoadingAnalysis(true);
+    setAnalysis(null);
+    try {
+      const repo = repositories.find(r => r.id === selectedRepositoryId)!;
+      const parsed = githubService.parseRepositoryUrl(repo.url);
+      if (!parsed) {
+        toast.error('Invalid repository URL');
+        setLoadingAnalysis(false);
+        return;
+      }
+      const codebase = await codebaseAnalyzer.analyzeCodebase(parsed.owner, parsed.repo);
+      const pushedAt = repo.lastUpdated instanceof Date ? repo.lastUpdated.toISOString() : String(repo.lastUpdated);
+      // Build a minimal FileStructure root node with modules as children
+      const structure: FileStructure = {
+        name: repo.name,
+        path: '',
+        type: 'directory',
+        children: codebase.modules.map(m => ({
+          name: m.name,
+          path: m.path,
+          type: 'file',
+          size: 0,
+          language: repo.language,
+          isImportant: true,
+        })),
+      };
+      const lastActivity = repo.lastUpdated instanceof Date ? repo.lastUpdated.toISOString() : String(repo.lastUpdated);
+      const repoAnalysis: RepositoryAnalysis = {
+        repository: {
+          id: 0,
+          name: repo.name,
+          full_name: repo.name,
+          description: repo.description,
+          html_url: repo.url,
+          clone_url: repo.url,
+          language: repo.language,
+          stargazers_count: repo.stars,
+          forks_count: 0,
+          open_issues_count: 0,
+          default_branch: 'main',
+          created_at: lastActivity,
+          updated_at: lastActivity,
+          pushed_at: pushedAt,
+          size: 0,
+          owner: { login: '', avatar_url: '', html_url: '' },
+        },
+        structure,
+        contributors: [],
+        languages: {},
+        recentCommits: [],
+        summary: {
+          totalFiles: codebase.modules.length,
+          totalLines: 0,
+          primaryLanguage: repo.language,
+          lastActivity,
+          commitFrequency: 0,
+        },
+      };
+      setAnalysis(repoAnalysis);
+      setShowGenerator(true);
+    } catch (error) {
+      toast.error('Failed to analyze repository');
+    } finally {
+      setLoadingAnalysis(false);
+      setSelectingRepository(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -250,7 +327,7 @@ export const DocsView: React.FC = () => {
             <History size={16} className="mr-2" />
             History
           </Button>
-          <Button onClick={() => setShowGenerator(true)}>
+          <Button onClick={() => setSelectingRepository(true)}>
             <Plus size={16} className="mr-2" />
             Generate Docs
           </Button>
@@ -287,7 +364,7 @@ export const DocsView: React.FC = () => {
               <p className="text-dark-400 mb-4">
                 {searchQuery ? 'No documentation matches your search.' : 'Generate documentation from your repositories to get started.'}
               </p>
-              <Button onClick={() => setShowGenerator(true)}>
+              <Button onClick={() => setSelectingRepository(true)}>
                 <Plus size={16} className="mr-2" />
                 Generate Documentation
               </Button>
@@ -386,15 +463,60 @@ export const DocsView: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <DocGenerator
-        isOpen={showGenerator}
-        onClose={() => setShowGenerator(false)}
-        repositories={repositories}
-      />
+      <UIModal isOpen={selectingRepository} onClose={() => setSelectingRepository(false)} title="Select Repository">
+        <div className="space-y-4">
+          <select
+            value={selectedRepositoryId || ''}
+            onChange={e => setSelectedRepositoryId(e.target.value)}
+            className="w-full p-2 rounded border border-dark-600 bg-dark-800 text-white"
+          >
+            <option value="" disabled>Select a repository</option>
+            {repositories.map(repo => (
+              <option key={repo.id} value={repo.id}>{repo.name}</option>
+            ))}
+          </select>
+          <div className="flex justify-end space-x-2">
+            <Button variant="ghost" onClick={() => setSelectingRepository(false)}>Cancel</Button>
+            <Button
+              onClick={handleContinueToGenerator}
+              disabled={!selectedRepositoryId || loadingAnalysis}
+            >
+              {loadingAnalysis ? <LoadingSpinner size="sm" /> : 'Continue'}
+            </Button>
+          </div>
+        </div>
+      </UIModal>
+
+      {/* Show loading spinner while analysis is being fetched */}
+      {loadingAnalysis && (
+        <div className="flex items-center justify-center h-32">
+          <LoadingSpinner size="lg" />
+          <span className="ml-3 text-dark-400">Analyzing repository...</span>
+        </div>
+      )}
+
+      {/* Only show DocGenerator when both repository and analysis are available */}
+      {selectedRepositoryId && showGenerator && analysis && (
+        <DocGenerator
+          repository={repositories.find(r => r.id === selectedRepositoryId)!}
+          analysis={analysis}
+          onDocumentationGenerated={() => {
+            setShowGenerator(false);
+            setSelectedRepositoryId(null);
+            setAnalysis(null);
+          }}
+        />
+      )}
 
       <VersionHistory
         isOpen={showVersionHistory}
         onClose={() => setShowVersionHistory(false)}
+        repositoryId={selectedRepositoryId || ''}
+        repositoryName={
+          selectedRepositoryId
+            ? repositories.find(r => r.id === selectedRepositoryId)?.name || ''
+            : ''
+        }
       />
 
       {selectedDoc && (

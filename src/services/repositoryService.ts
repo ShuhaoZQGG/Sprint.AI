@@ -74,8 +74,8 @@ export class RepositoryService {
         language: repository.language,
         stars: repository.stars,
         forks: 0,
-        last_updated: repository.lastUpdated.toISOString(),
-        structure: repository.structure ? this.serializeStructure(repository.structure) : null,
+        last_updated: repository.lastUpdated?.toISOString(),
+        structure: repository.structure
       };
 
       const { data, error } = await supabase
@@ -243,7 +243,7 @@ export class RepositoryService {
       language: row.language || 'Unknown',
       stars: row.stars,
       lastUpdated: new Date(row.last_updated || row.updated_at),
-      structure: row.structure ? this.deserializeStructure(row.structure) : undefined,
+      structure: row.structure
     };
   }
 
