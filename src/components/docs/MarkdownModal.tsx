@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import remarkBreaks from 'remark-breaks';
 // import DOMPurify from 'dompurify';
 // import { marked } from 'marked';
 
@@ -33,6 +34,22 @@ const MarkdownModal: React.FC<MarkdownModalProps> = ({
   if (!isOpen) return null;
 
   const activeSection = sections[activeSectionIdx];
+
+  function replaceNewlinesOutsideCodeBlocks(markdown: string): string {
+    // Split by code blocks (```...```)
+    const parts = markdown.split(/(```[\s\S]*?```)/g);
+    return parts
+      .map((part, idx, arr) => {
+        if (part.startsWith('```') || part.endsWith('```')) {
+          console.log(part)
+          return part; // code block or ends with code block delimiter, do not replace
+        } else {
+          console.log(part)
+          return part.replace(/\n/g, "&#160; \n");
+        }
+      })
+      .join('').replace(/```&#160;/g, "```\n&#160;")  
+    }
 
   return (
     <div
@@ -83,14 +100,24 @@ const MarkdownModal: React.FC<MarkdownModalProps> = ({
         <div className="flex-1 overflow-auto bg-dark-800" style={{ minHeight: 300 }}>
           {activeSection ? (
             <div
-              className="prose prose-invert max-w-none"
+              className="prose prose-invert max-w-none markdown-reset"
               style={{ color: '#e5e7eb' }}
             >
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkBreaks]}
                 rehypePlugins={[rehypeHighlight]}
+                components={{
+                  h1: ({node, ...props}) => <h1 style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
+                  h2: ({node, ...props}) => <h2 style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
+                  h3: ({node, ...props}) => <h3 style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
+                  h4: ({node, ...props}) => <h4 style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
+                  h5: ({node, ...props}) => <h5 style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
+                  h6: ({node, ...props}) => <h6 style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
+                  p: ({node, ...props}) => <p style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
+                  li: ({node, ...props}) => <li style={{fontSize: 'revert', fontWeight: 'revert'}} {...props} />,
+                }}
               >
-                {activeSection.content}
+                {replaceNewlinesOutsideCodeBlocks(activeSection.content)}
               </ReactMarkdown>
             </div>
           ) : (

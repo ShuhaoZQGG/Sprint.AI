@@ -1,0 +1,4 @@
+.markdown-reset, .markdown-reset * {
+  font-size: revert !important;
+  font-weight: revert !important;
+} 
