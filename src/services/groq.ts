@@ -1,4 +1,5 @@
 import Groq from 'groq-sdk';
+import type { CompletionCreateParams } from 'groq-sdk/resources/chat/completions';
 import { AI_CONFIG, PROMPT_TEMPLATES } from '../config/ai';
 import { RepositoryAnalysis } from '../types/github';
 import { CodebaseStructure, Task, BusinessSpec } from '../types';
@@ -72,8 +73,15 @@ class GroqService {
 
   /**
    * Make a completion request to Groq
+   * @param prompt The prompt to send
+   * @param maxTokens Optional max tokens
+   * @param responseFormat Optional response format for structured output (see CompletionCreateParams.ResponseFormatText | ResponseFormatJsonSchema | ResponseFormatJsonObject)
    */
-  async makeCompletion(prompt: string, maxTokens?: number): Promise<string> {
+  async makeCompletion(
+    prompt: string,
+    maxTokens?: number,
+    responseFormat?: CompletionCreateParams.ResponseFormatText | CompletionCreateParams.ResponseFormatJsonSchema | CompletionCreateParams.ResponseFormatJsonObject | null
+  ): Promise<string> {
     if (!this.isAvailable()) {
       throw new Error('Groq API is not available. Please check your API key configuration.');
     }
@@ -99,6 +107,7 @@ class GroqService {
         model: AI_CONFIG.groq.model,
         max_tokens: maxTokens || AI_CONFIG.groq.maxTokens,
         temperature: AI_CONFIG.groq.temperature,
+        ...(responseFormat ? { response_format: responseFormat } : {}),
       });
 
       const content = completion.choices[0]?.message?.content;

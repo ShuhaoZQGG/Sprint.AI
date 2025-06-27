@@ -30,6 +30,25 @@ import { groqService } from '../../services/groq';
 import { BusinessSpec } from '../../types';
 import toast from 'react-hot-toast';
 
+// Utility to extract JSON from LLM responses
+function extractJsonFromResponse(response: string): any {
+  // Try to match a JSON code block
+  const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  let jsonString = codeBlockMatch ? codeBlockMatch[1] : response;
+
+  // If still not pure JSON, try to find the first {...} block
+  const curlyMatch = jsonString.match(/{[\s\S]*}/);
+  if (curlyMatch) {
+    jsonString = curlyMatch[0];
+  }
+
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    throw new Error('Failed to extract valid JSON from response');
+  }
+}
+
 export const DocsView: React.FC = () => {
   const { documentation, loading, getDocumentationByRepository, updateDocumentation } = useDocumentation();
   const { repositories } = useRepositories();
@@ -98,17 +117,13 @@ export const DocsView: React.FC = () => {
     if (!section) return;
 
     const oldContent = section.content;
-    const contentChange = Math.abs(newContent.length - oldContent.length) / oldContent.length;
 
-    // If content changed significantly (>20%), suggest generating a business spec
-    if (contentChange > 0.2) {
-      const shouldGenerate = window.confirm(
-        'Significant changes detected in documentation. Would you like to generate a business specification from these changes?'
-      );
-
-      if (shouldGenerate) {
-        await generateBusinessSpecFromChanges(doc, sectionId, oldContent, newContent);
-      }
+    const shouldGenerate = window.confirm(
+      'Significant changes detected in documentation. Would you like to generate a business specification from these changes?'
+    );
+    
+    if (shouldGenerate) {
+      await generateBusinessSpecFromChanges(doc, sectionId, oldContent, newContent);
     }
   };
 
@@ -153,8 +168,9 @@ export const DocsView: React.FC = () => {
         }
       `;
 
-      const response = await groqService.makeCompletion(prompt, 1024);
-      const specData = JSON.parse(response);
+      const response = await groqService.makeCompletion(prompt, 1024, { type: 'json_object' });
+      // Use robust JSON extraction
+      const specData = extractJsonFromResponse(response);
 
       const businessSpec: Omit<BusinessSpec, 'id' | 'lastUpdated'> = {
         title: specData.title || 'Generated from Documentation Changes',
