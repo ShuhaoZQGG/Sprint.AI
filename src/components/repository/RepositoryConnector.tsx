@@ -8,7 +8,8 @@ import {
   AlertCircle,
   ExternalLink,
   Star,
-  GitFork
+  GitFork,
+  X
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -29,7 +30,7 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { addRepository, storeAnalysis } = useRepositories();
+  const { addRepository, storeAnalysis, updateRepository } = useRepositories();
   const [step, setStep] = useState<'input' | 'search' | 'analyze' | 'complete'>('input');
   const [repoUrl, setRepoUrl] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,13 +102,16 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
         description: repo.description || '',
         language: repo.language || 'Unknown',
         stars: repo.stargazers_count,
-        lastUpdated: new Date(repo.updated_at),
       });
 
       // Then analyze the repository
       const repoAnalysis = await githubService.analyzeRepository(parsed.owner, parsed.repo);
       const codebaseStructure = await codebaseAnalyzer.analyzeCodebase(parsed.owner, parsed.repo);
       
+      await updateRepository(newRepository.id, {
+        structure: codebaseStructure,
+      });
+
       // Store the analysis results
       await storeAnalysis(newRepository.id, repoAnalysis);
       
@@ -213,32 +217,34 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
       {searchResults.length > 0 && (
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {searchResults.map((repo) => (
-            <Card key={repo.id} hover className="cursor-pointer" onClick={() => handleSelectRepository(repo)}>
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <h4 className="font-medium text-white">{repo.full_name}</h4>
-                      <ExternalLink className="w-4 h-4 text-dark-400" />
-                    </div>
-                    <p className="text-sm text-dark-400 mb-3">
-                      {repo.description || 'No description available'}
-                    </p>
-                    <div className="flex items-center space-x-4 text-xs text-dark-500">
-                      <span>{repo.language}</span>
-                      <div className="flex items-center space-x-1">
-                        <Star className="w-3 h-3" />
-                        <span>{repo.stargazers_count}</span>
+            <div key={repo.id} className="cursor-pointer" onClick={() => handleSelectRepository(repo)}>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h4 className="font-medium text-white">{repo.full_name}</h4>
+                        <ExternalLink className="w-4 h-4 text-dark-400" />
                       </div>
-                      <div className="flex items-center space-x-1">
-                        <GitFork className="w-3 h-3" />
-                        <span>{repo.forks_count}</span>
+                      <p className="text-sm text-dark-400 mb-3">
+                        {repo.description || 'No description available'}
+                      </p>
+                      <div className="flex items-center space-x-4 text-xs text-dark-500">
+                        <span>{repo.language}</span>
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-3 h-3" />
+                          <span>{repo.stargazers_count}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <GitFork className="w-3 h-3" />
+                          <span>{repo.forks_count}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           ))}
         </div>
       )}
@@ -382,7 +388,14 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="lg">
-      <div className="min-h-[400px]">
+      <div className="min-h-[400px] relative">
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full text-dark-400 hover:text-white hover:bg-dark-700 transition-colors"
+          title="Close"
+        >
+          <X size={20} />
+        </button>
         {step === 'input' && renderInputStep()}
         {step === 'search' && renderSearchStep()}
         {step === 'analyze' && renderAnalyzeStep()}

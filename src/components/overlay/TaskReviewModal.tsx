@@ -21,6 +21,7 @@ import { useTasks } from '../../hooks/useTasks';
 import { useDevelopers } from '../../hooks/useDevelopers';
 import { prGenerator } from '../../services/prGenerator';
 import toast from 'react-hot-toast';
+import { useRepositories } from '../../hooks/useRepositories';
 
 interface TaskReviewModalProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ export const TaskReviewModal: React.FC<TaskReviewModalProps> = ({
 }) => {
   const { createTask } = useTasks();
   const { developers } = useDevelopers();
+  const { currentRepository } = useRepositories();
   const [tasks, setTasks] = useState(generatedTasks);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
@@ -96,42 +98,55 @@ export const TaskReviewModal: React.FC<TaskReviewModalProps> = ({
     }
   };
 
+  const handleCreateAndContinueToPRs = async () => {
+    if (tasks.length === 0) {
+      toast.error('No tasks to create');
+      return;
+    }
+    setCreating(true);
+    try {
+      const createdTasks: Task[] = [];
+      for (const taskData of tasks) {
+        const payload = businessSpecId ? { ...taskData, businessSpecId } : taskData;
+        const createdTask = await createTask(payload);
+        createdTasks.push(createdTask);
+      }
+      onTasksCreated(createdTasks);
+      toast.success(`${createdTasks.length} tasks created successfully!`);
+      // Call handleGeneratePR for each task sequentially
+      for (let i = 0; i < tasks.length; i++) {
+        await handleGeneratePR(i);
+      }
+      // Optionally, close modal or navigate
+      onClose();
+    } catch (error) {
+      console.error('Error creating tasks:', error);
+      toast.error('Failed to create tasks');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const handleGeneratePR = async (taskIndex: number) => {
     const task = tasks[taskIndex];
     if (!task) return;
-
+    if (!currentRepository) {
+      toast.error('No repository selected');
+      return;
+    }
     setGeneratingPRs(prev => new Set(prev).add(taskIndex));
-
     try {
-      // For demo purposes, we'll simulate PR generation
-      // In a real implementation, this would create the actual task first
-      const mockTask = {
-        ...task,
-        id: `temp-${taskIndex}`,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Task;
-
-      const mockRepository = {
-        id: 'repo-1',
-        name: 'sprint-ai',
-        url: 'https://github.com/example/sprint-ai',
-        description: 'AI-native development platform',
-        language: 'TypeScript',
-        stars: 128,
-        lastUpdated: new Date(),
-      };
-
-      const prResponse = await prGenerator.generatePRTemplate({
-        task: mockTask,
-        repository: mockRepository,
+      await prGenerator.generatePRTemplate({
+        task: {
+          ...task,
+          id: (task as any).id || `temp-${taskIndex}`,
+          createdAt: (task as any).createdAt || new Date(),
+          updatedAt: (task as any).updatedAt || new Date(),
+        },
+        repository: currentRepository,
         includeScaffolds: true,
       });
-
       toast.success(`PR template generated for "${task.title}"`);
-      
-      // Here you would typically open a PR preview modal
-      console.log('Generated PR template:', prResponse.template);
     } catch (error) {
       console.error('Error generating PR:', error);
       toast.error('Failed to generate PR template');
@@ -359,20 +374,42 @@ export const TaskReviewModal: React.FC<TaskReviewModalProps> = ({
                       <div className="text-xs text-dark-400">
                         Task {index + 1} of {tasks.length}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleGeneratePR(index)}
-                        disabled={generatingPRs.has(index)}
-                        className="text-primary-400 hover:text-primary-300"
-                      >
-                        {generatingPRs.has(index) ? (
-                          <LoadingSpinner size="sm" className="mr-1" />
-                        ) : (
-                          <GitBranch size={14} className="mr-1" />
-                        )}
-                        Generate PR
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={async () => {
+                            setCreating(true);
+                            try {
+                              const payload = businessSpecId ? { ...task, businessSpecId } : task;
+                              await createTask(payload);
+                              toast.success(`Task '${task.title}' created!`);
+                            } catch (error) {
+                              toast.error('Failed to create task and generate PR');
+                            } finally {
+                              setCreating(false);
+                            }
+                          }}
+                          disabled={creating}
+                        >
+                          <CheckCircle size={14} className="mr-1" />
+                          Create Task
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleGeneratePR(index)}
+                          disabled={generatingPRs.has(index)}
+                          className="text-primary-400 hover:text-primary-300"
+                        >
+                          {generatingPRs.has(index) ? (
+                            <LoadingSpinner size="sm" className="mr-1" />
+                          ) : (
+                            <GitBranch size={14} className="mr-1" />
+                          )}
+                          Generate PR
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -390,7 +427,7 @@ export const TaskReviewModal: React.FC<TaskReviewModalProps> = ({
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleCreateTasks} disabled={creating || tasks.length === 0}>
+            <Button onClick={handleCreateAndContinueToPRs} disabled={creating || tasks.length === 0}>
               {creating ? (
                 <LoadingSpinner size="sm" className="mr-2" />
               ) : (

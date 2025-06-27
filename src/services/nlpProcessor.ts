@@ -295,7 +295,9 @@ class NLPProcessor {
         }
       `;
 
-      const response = await groqService.makeCompletion(prompt, 1024);
+      const response = await groqService.makeCompletion(prompt, 1024, {
+        type: 'json_object',
+      });
       const analysis = this.parseAIResponse(response);
 
       return {

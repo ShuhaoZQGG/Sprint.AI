@@ -11,7 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Clipboard
+  Clipboard,
+  Github
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { useAuth } from '../auth/AuthProvider';
@@ -24,6 +25,7 @@ const navigationItems = [
   { id: 'docs', label: 'Documentation', icon: FileText },
   { id: 'profile', label: 'Team Profile', icon: Users },
   { id: 'sprints', label: 'Sprints', icon: Calendar },
+  { id: 'repository-connector', label: 'Repository Connector', icon: Github },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -154,7 +156,7 @@ export const Sidebar: React.FC = () => {
             aria-expanded={showUserMenu}
             aria-haspopup="true"
           >
-            {user?.profile?.avatar_url ? (
+            {user && 'profile' in user && user.profile?.avatar_url ? (
               <img
                 src={user.profile.avatar_url}
                 alt="Profile"
@@ -163,13 +165,13 @@ export const Sidebar: React.FC = () => {
             ) : (
               <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
                 <span className="text-sm font-medium text-white">
-                  {user?.profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                  {user && 'profile' in user && user.profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                 </span>
               </div>
             )}
             {sidebarOpen && (
               <span className="text-sm">
-                {user?.profile?.full_name || user?.email?.split('@')[0] || 'User'}
+                {user && 'profile' in user && user.profile?.full_name || user?.email?.split('@')[0] || 'User'}
               </span>
             )}
           </button>
@@ -182,10 +184,10 @@ export const Sidebar: React.FC = () => {
             >
               <div className="p-3 border-b border-dark-700">
                 <p className="text-sm font-medium text-white">
-                  {user?.profile?.full_name || 'User'}
+                  {user && 'profile' in user && user.profile?.full_name || 'User'}
                 </p>
-                <p className="text-xs text-dark-400">{user?.email}</p>
-                {user?.profile?.role && (
+                <p className="text-xs text-dark-400">{user && user.email}</p>
+                {user && 'profile' in user && user.profile?.role && (
                   <p className="text-xs text-primary-400 capitalize">
                     {user.profile.role}
                   </p>

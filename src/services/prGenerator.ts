@@ -33,6 +33,7 @@ class PRGenerator {
    */
   async generatePRTemplate(request: PRGenerationRequest): Promise<PRGenerationResponse> {
     try {
+      console.log('[PRGenerator] generatePRTemplate called with request:', request);
       if (!groqService.isAvailable()) {
         throw new Error('AI service is not available');
       }
@@ -43,11 +44,13 @@ class PRGenerator {
       let codebaseContext = request.codebaseContext;
       if (!codebaseContext && repository.structure) {
         try {
+          console.log('[PRGenerator] Analyzing codebase context...');
           codebaseContext = await codebaseAnalyzer.analyzeTaskContext(
             repository.structure,
             task.description,
             task.type
           );
+          console.log('[PRGenerator] codebaseContext:', codebaseContext);
         } catch (error) {
           console.warn('Failed to analyze codebase context:', error);
         }
@@ -55,17 +58,22 @@ class PRGenerator {
 
       // Generate branch name
       const branchName = this.generateBranchName(task);
+      console.log('[PRGenerator] branchName:', branchName);
 
       // Generate PR title and description with AI
       const { title, description } = await this.generatePRContentWithAI(task, repository, codebaseContext);
+      console.log('[PRGenerator] PR title:', title);
+      console.log('[PRGenerator] PR description:', description);
 
       // Generate commit message
       const commitMessage = this.generateCommitMessage(task);
+      console.log('[PRGenerator] commitMessage:', commitMessage);
 
       // Generate file scaffolds if requested
       const fileScaffolds = includeScaffolds 
         ? await this.generateFileScaffoldsWithAI(task, repository, codebaseContext)
         : [];
+      console.log('[PRGenerator] fileScaffolds:', fileScaffolds);
 
       const template: PRTemplate = {
         branchName,
@@ -74,6 +82,7 @@ class PRGenerator {
         fileScaffolds,
         commitMessage,
       };
+      console.log('[PRGenerator] Final PRTemplate:', template);
 
       return {
         template,
@@ -82,6 +91,7 @@ class PRGenerator {
       };
 
     } catch (error) {
+      console.error('[PRGenerator] PR generation error:', error);
       console.error('PR generation error:', error);
       throw error;
     }
@@ -187,7 +197,9 @@ class PRGenerator {
         }
       `;
 
-      const response = await groqService.makeCompletion(prompt, 1024);
+      const response = await groqService.makeCompletion(prompt, 1024, {
+        type: 'json_object',
+      });
       const parsed = JSON.parse(response);
       
       return {
@@ -218,6 +230,10 @@ class PRGenerator {
       // Determine file types needed based on task and codebase context
       const fileTypes = this.determineRequiredFilesWithContext(task, repository, codebaseContext);
 
+      console.debug('[PRGenerator] fileTypes:', fileTypes);
+      console.debug('[PRGenerator] codebaseContext:', codebaseContext);
+      console.debug('[PRGenerator] task:', task);
+      console.debug('[PRGenerator] repository:', repository);
       for (const fileType of fileTypes) {
         const scaffold = await this.generateFileScaffoldWithAI(task, repository, fileType, codebaseContext);
         if (scaffold) {
@@ -284,8 +300,12 @@ class PRGenerator {
     codebaseContext?: CodebaseContext
   ): Promise<FileScaffold | null> {
     try {
+      console.log('[PRGenerator] generateFileScaffoldWithAI called with task:', task);
+      console.log('[PRGenerator] generateFileScaffoldWithAI called with fileType:', fileType);
+      console.log('[PRGenerator] generateFileScaffoldWithAI called with repository:', repository);
+      console.log('[PRGenerator] generateFileScaffoldWithAI called with codebaseContext:', codebaseContext);
       const prompt = `
-        Generate a file scaffold for the following task:
+        Generate a file scaffold for the following task.
 
         Task: ${task.title}
         Description: ${task.description}
@@ -305,9 +325,8 @@ class PRGenerator {
         2. Basic file structure with TODO comments for implementation
         3. List of TODO items for development
 
-        Consider the existing codebase patterns and follow established conventions.
+        IMPORTANT: Only output a valid JSON object. Do NOT include any Markdown formatting, triple quotes, or extra text. The output must be a single JSON object matching this schema:
 
-        Format as JSON:
         {
           "path": "relative/file/path",
           "content": "file content with TODO comments",
@@ -315,7 +334,9 @@ class PRGenerator {
         }
       `;
 
-      const response = await groqService.makeCompletion(prompt, 1024);
+      const response = await groqService.makeCompletion(prompt, 1024, {
+        type: 'json_object',
+      });
       const parsed = JSON.parse(response);
       
       return {
@@ -368,7 +389,9 @@ class PRGenerator {
         }
       `;
 
-      const response = await groqService.makeCompletion(prompt, 512);
+      const response = await groqService.makeCompletion(prompt, 512, {
+        type: 'json_object',
+      });
       const parsed = JSON.parse(response);
 
       return {
@@ -462,10 +485,11 @@ class PRGenerator {
     const language = repository.language?.toLowerCase();
 
     if (task.type === 'feature' && (language === 'typescript' || language === 'javascript')) {
-      scaffolds.push(this.generateFallbackScaffold(task, 'component', language));
+      const scaffold = this.generateFallbackScaffold(task, 'component', language);
+      if (scaffold) scaffolds.push(scaffold);
     }
 
-    return scaffolds.filter(Boolean) as FileScaffold[];
+    return scaffolds;
   }
 
   private generateFallbackScaffold(
@@ -551,10 +575,10 @@ class PRGenerator {
     ];
 
     const riskFactors = [];
-    if (codebaseContext?.complexity.riskLevel === 'high') {
+    if (codebaseContext && codebaseContext.complexity && codebaseContext.complexity.riskLevel === 'high') {
       riskFactors.push('High complexity implementation');
     }
-    if (codebaseContext?.relevantModules.length > 3) {
+    if (codebaseContext && codebaseContext.relevantModules && codebaseContext.relevantModules.length > 3) {
       riskFactors.push('Multiple modules affected');
     }
 

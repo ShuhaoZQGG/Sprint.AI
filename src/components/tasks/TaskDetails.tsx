@@ -26,6 +26,10 @@ interface TaskDetailsProps {
   task: Task;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
+  /**
+   * Optional: Called when the user clicks Generate PR for this task.
+   */
+  onGeneratePR?: (task: Task) => void;
 }
 
 export const TaskDetails: React.FC<TaskDetailsProps> = ({
@@ -34,6 +38,7 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
   task,
   onEdit,
   onDelete,
+  onGeneratePR,
 }) => {
   const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'activity'>('details');
 
@@ -120,6 +125,12 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
           </div>
           
           <div className="flex items-center space-x-2">
+            {onGeneratePR && (
+              <Button variant="ghost" size="sm" onClick={() => onGeneratePR(task)}>
+                <GitBranch size={16} className="mr-2" />
+                Generate PR
+              </Button>
+            )}
             <Button variant="ghost" size="sm" onClick={() => onEdit(task)}>
               <Edit size={16} className="mr-2" />
               Edit
@@ -154,7 +165,7 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
             }`}
             onClick={() => setActiveTab('comments')}
           >
-            Comments ({task.comments?.length || 0})
+            Comments
           </button>
           <button
             className={`text-sm font-medium transition-colors ${
@@ -220,14 +231,7 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
                       </div>
                     )}
                     
-                    {task.dueDate && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-dark-400">Due Date</span>
-                        <span className="text-white font-medium">
-                          {formatDate(task.dueDate)}
-                        </span>
-                      </div>
-                    )}
+                    {/* Due Date feature removed: task.dueDate does not exist on Task type */}
                   </CardContent>
                 </Card>
 
@@ -235,47 +239,11 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
                   <CardHeader>
                     <h3 className="text-lg font-semibold text-white">Assignment</h3>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    {task.assigneeId ? (
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
-                          <User size={16} className="text-white" />
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">Assigned Developer</p>
-                          <p className="text-dark-400 text-sm">ID: {task.assigneeId}</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4">
-                        <User size={24} className="text-dark-400 mx-auto mb-2" />
-                        <p className="text-dark-400">Not assigned</p>
-                      </div>
-                    )}
-                  </CardContent>
+                  {/* CardContent removed: no assignment details to display */}
                 </Card>
               </div>
 
-              {/* Labels */}
-              {task.labels && task.labels.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <h3 className="text-lg font-semibold text-white">Labels</h3>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {task.labels.map((label, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-dark-700 text-dark-300 text-sm rounded-full"
-                        >
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Labels feature removed: task.labels does not exist on Task type */}
 
               {/* Progress */}
               {task.status === 'in-progress' && task.actualEffort && task.estimatedEffort && (
@@ -312,33 +280,7 @@ export const TaskDetails: React.FC<TaskDetailsProps> = ({
 
           {activeTab === 'comments' && (
             <div className="space-y-4">
-              {task.comments && task.comments.length > 0 ? (
-                task.comments.map((comment, index) => (
-                  <Card key={index}>
-                    <CardContent className="p-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
-                          <User size={16} className="text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="font-medium text-white">{comment.author}</span>
-                            <span className="text-xs text-dark-400">
-                              {formatDate(comment.createdAt)}
-                            </span>
-                          </div>
-                          <p className="text-dark-300">{comment.content}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <MessageSquare className="w-12 h-12 text-dark-400 mx-auto mb-3" />
-                  <p className="text-dark-400">No comments yet</p>
-                </div>
-              )}
+              {/* Comments feature removed: task.comments does not exist on Task type */}
             </div>
           )}
 

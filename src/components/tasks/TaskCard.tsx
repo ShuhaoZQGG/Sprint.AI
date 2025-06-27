@@ -22,6 +22,10 @@ interface TaskCardProps {
   onDelete: (taskId: string) => void;
   onView: (task: Task) => void;
   isDragging?: boolean;
+  /**
+   * Optional: Called when the user clicks Generate PR for this task.
+   */
+  onGeneratePR?: (task: Task) => void;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -29,9 +33,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onEdit,
   onDelete,
   onView,
+  onGeneratePR,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
-  
+
   const {
     attributes,
     listeners,
@@ -177,6 +182,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                     >
                       <Edit size={14} />
                       <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={handleActionClick(() => onGeneratePR?.(task))}
+                      className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-primary-400 hover:text-primary-300 hover:bg-dark-700 transition-colors"
+                    >
+                      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-git-branch"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a3 3 0 0 1-3 3H9a3 3 0 0 0-3 3"/></svg>
+                      <span>Generate PR</span>
                     </button>
                     <button
                       onClick={handleActionClick(() => onDelete(task.id))}

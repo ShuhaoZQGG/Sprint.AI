@@ -15,6 +15,10 @@ interface KanbanColumnProps {
   onDeleteTask: (taskId: string) => void;
   onViewTask: (task: Task) => void;
   color?: string;
+  /**
+   * Optional: Called when the user clicks Generate PR for a task in this column.
+   */
+  onGeneratePR?: (task: Task) => void;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -26,6 +30,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onDeleteTask,
   onViewTask,
   color = 'bg-dark-600',
+  onGeneratePR,
 }) => {
   const {
     setNodeRef,
@@ -124,6 +129,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               onEdit={onEditTask}
               onDelete={onDeleteTask}
               onView={onViewTask}
+              onGeneratePR={onGeneratePR}
             />
           ))}
         </SortableContext>

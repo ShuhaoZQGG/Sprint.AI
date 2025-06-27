@@ -4,6 +4,21 @@
 
 ## 🔍 Testing & Quality Assurance
 
+### PR Generation Improvements
+- [ ] **UI Consistency in TaskReviewModal**
+  - *Files to modify*: `src/components/overlay/TaskReviewModal.tsx`
+  - Update button labels to 'Create Task' and 'Generate PR' for each task in preview mode
+  - Ensure button actions match their labels
+
+- [ ] **Footer Action Handler in TaskReviewModal**
+  - *Files to modify*: `src/components/overlay/TaskReviewModal.tsx`
+  - Refactor the footer's 'Create & Continue to PRs' button to call a new handler (not handleCreateTasks)
+  - Implement correct logic for continuing to PRs after task creation
+
+- [ ] **Use Real Data in handleGeneratePR**
+  - *Files to modify*: `src/components/overlay/TaskReviewModal.tsx`
+  - Replace mockTask and mockRepository with actual task and repository data when generating PRs
+
 ### 17. Testing Infrastructure
 **Status**: Not Started  
 **Priority**: Medium  

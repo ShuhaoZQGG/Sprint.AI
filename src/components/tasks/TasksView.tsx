@@ -25,6 +25,9 @@ import {
 import { Task, TaskStatus, TaskType, Priority } from '../../types';
 import { useTasks } from '../../hooks/useTasks';
 import { useAuth } from '../auth/AuthProvider';
+import { useDevelopers } from '../../hooks/useDevelopers';
+import { useRepositories } from '../../hooks/useRepositories';
+import { prGenerator } from '../../services/prGenerator';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
 import { TaskForm } from './TaskForm';
@@ -46,6 +49,8 @@ const TASK_STATUSES: { id: TaskStatus; title: string }[] = [
 export const TasksView: React.FC = () => {
   const { tasks, loading, createTask, updateTask, deleteTask } = useTasks();
   const { user } = useAuth();
+  const { developers } = useDevelopers();
+  const { currentRepository } = useRepositories();
   
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showTaskDetails, setShowTaskDetails] = useState(false);
@@ -73,7 +78,7 @@ export const TasksView: React.FC = () => {
                            task.description?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = filterType === 'all' || task.type === filterType;
       const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
-      const matchesAssignee = filterAssignee === 'all' || task.assigneeId === filterAssignee;
+      const matchesAssignee = filterAssignee === 'all' || task.assignee?.id === filterAssignee;
       
       return matchesSearch && matchesType && matchesPriority && matchesAssignee;
     });
@@ -212,6 +217,30 @@ export const TasksView: React.FC = () => {
     setFilterAssignee('all');
   };
 
+  // PR Generation handler
+  const handleGeneratePR = async (task: Task) => {
+    if (!currentRepository) {
+      toast.error('No repository selected');
+      return;
+    }
+    try {
+      await prGenerator.generatePRTemplate({
+        task: {
+          ...task,
+          id: (task as any).id || `temp-task`,
+          createdAt: (task as any).createdAt || new Date(),
+          updatedAt: (task as any).updatedAt || new Date(),
+        },
+        repository: currentRepository,
+        includeScaffolds: true,
+      });
+      toast.success(`PR template generated for "${task.title}"`);
+    } catch (error) {
+      console.error('Error generating PR:', error);
+      toast.error('Failed to generate PR template');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -316,6 +345,7 @@ export const TasksView: React.FC = () => {
                 onEditTask={handleEditTask}
                 onDeleteTask={handleDeleteTask}
                 onViewTask={handleViewTask}
+                onGeneratePR={handleGeneratePR}
               />
             ))}
           </div>
@@ -346,6 +376,7 @@ export const TasksView: React.FC = () => {
         }}
         onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
         task={editingTask}
+        developers={developers}
       />
 
       {/* Task Details Modal */}
@@ -359,6 +390,7 @@ export const TasksView: React.FC = () => {
           task={selectedTask}
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
+          onGeneratePR={handleGeneratePR}
         />
       )}
     </div>

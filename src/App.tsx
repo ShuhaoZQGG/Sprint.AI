@@ -13,9 +13,10 @@ import { useAppStore } from './stores/useAppStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useAuth } from './components/auth/AuthProvider';
 import { FadeIn, SlideIn } from './components/ui/AnimatedCounter';
+import { RepositoryConnector } from './components/repository/RepositoryConnector';
 
 function App() {
-  const { currentView } = useAppStore();
+  const { currentView, setCurrentView } = useAppStore() as { currentView: 'dashboard' | 'tasks' | 'business-specs' | 'docs' | 'profile' | 'sprints' | 'repository-connector', setCurrentView: (view: string) => void };
   const { user, loading, error, clearError } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { ShortcutHelperModal } = useKeyboardShortcuts();
@@ -147,6 +148,8 @@ function App() {
         return <ProfileView />;
       case 'sprints':
         return <SprintsView />;
+      case 'repository-connector':
+        return <RepositoryConnector isOpen={true} onClose={() => setCurrentView('dashboard')} />;
       default:
         return <DashboardView />;
     }
