@@ -1,47 +1,57 @@
 # Sprint.AI - Development Roadmap
 
-### Subtasks:
+## ✅ **Completed Features**
 
-- [ ] **Business Spec List & Detail View**
-  - *Files to create*:  
+### 🔄 Doc → Spec → Task → PR Integration  
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Full workflow integration from documentation editing to PR creation using AI-powered services and GitHub automation.
+
+#### Subtasks:
+- [x] **Business Spec Generation from Docs**
+- [x] **Task Generation from Business Spec**
+- [x] **Codebase Analyzer Integration**
+- [x] **PR Template Generator Integration**
+- [x] **GitHub Integration & PR Push**
+
+### Business Spec List & Detail View
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Complete frontend interface for managing business specifications with CRUD operations, filtering, and task generation.
+
+#### Subtasks:
+- [x] **Business Spec List & Detail View**
+  - *Files created*:  
     - `src/components/business/BusinessSpecList.tsx`  
     - `src/components/business/BusinessSpecDetail.tsx`  
     - `src/components/business/BusinessSpecEditor.tsx`  
-    - `src/components/business/BusinessSpecModal.tsx` (for create/edit modal)
-    - `src/components/business/BusinessSpecTagSelector.tsx` (optional, for tags)
-    - `src/components/business/BusinessSpecStatusBadge.tsx` (optional, for status UI)
-  - *Files to modify*:  
-    - `src/hooks/useBusinessSpecs.ts`  
-    - `src/services/businessSpecService.ts`  
-    - `src/App.tsx` (add route or navigation to spec management)
-    - `src/components/docs/DocsView.tsx` (link to spec management, or show related specs)
-    - `src/types/index.ts` (ensure types are up to date)
+    - `src/components/business/BusinessSpecModal.tsx`
+    - `src/components/business/BusinessSpecStatusBadge.tsx`
+    - `src/components/business/BusinessSpecView.tsx`
+  - *Files modified*:  
+    - `src/components/layout/Sidebar.tsx` (added Business Specs navigation)
+    - `src/App.tsx` (added business-specs route)
+    - `src/stores/useAppStore.ts` (added business-specs view)
 
-- [ ] **Business Spec CRUD Operations**
-  - *Files to modify*:  
-    - `src/hooks/useBusinessSpecs.ts`  
-    - `src/services/businessSpecService.ts`
-  - *Files to create*:  
-    - (see above, UI components will call these hooks/services)
+- [x] **Business Spec CRUD Operations**
+  - Full create, read, update, delete functionality
+  - Status and priority management
+  - Real-time updates and synchronization
 
-- [ ] **Business Spec Filtering, Search, and Tagging**
-  - *Files to create*:  
-    - `src/components/business/BusinessSpecTagSelector.tsx` (if not already created)
-    - `src/components/business/BusinessSpecFilterBar.tsx`
-  - *Files to modify*:  
-    - `src/hooks/useBusinessSpecs.ts`
+- [x] **Business Spec Filtering, Search, and Tagging**
+  - Advanced filtering by status and priority
+  - Full-text search across title and description
+  - Tag management and display
 
-- [ ] **Business Spec Status & Priority Management**
-  - *Files to create*:  
-    - `src/components/business/BusinessSpecStatusBadge.tsx` (if not already created)
-    - `src/components/business/BusinessSpecPrioritySelector.tsx`
-  - *Files to modify*:  
-    - `src/hooks/useBusinessSpecs.ts`
+- [x] **Business Spec Status & Priority Management**
+  - Visual status badges with color coding
+  - Dropdown selectors for quick status/priority changes
+  - Workflow state management
 
-- [ ] **Integrate with Docs → Spec Flow**
-  - *Files to modify*:  
-    - `src/components/docs/DocsView.tsx` (ensure spec creation from doc edit links to new UI)
-    - `src/hooks/useBusinessSpecs.ts` (ensure new specs appear in UI immediately)
+- [x] **Integrate with Docs → Spec Flow**
+  - Seamless integration with documentation editing
+  - Automatic spec creation from doc changes
+  - Real-time UI updates when specs are created
 
 ## 🔍 Testing & Quality Assurance
 

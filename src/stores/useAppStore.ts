@@ -22,7 +22,7 @@ interface AppState {
   // UI state
   sidebarOpen: boolean;
   overlayOpen: boolean;
-  currentView: 'dashboard' | 'tasks' | 'docs' | 'profile' | 'sprints';
+  currentView: 'dashboard' | 'tasks' | 'docs' | 'profile' | 'sprints' | 'business-specs';
   
   // Real-time collaboration state
   onlineUsers: Map<string, { id: string; name: string; avatar?: string; lastSeen: Date }>;

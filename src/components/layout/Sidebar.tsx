@@ -10,7 +10,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  LogOut
+  LogOut,
+  Clipboard
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { useAuth } from '../auth/AuthProvider';
@@ -19,6 +20,7 @@ import { ProfileSettings } from '../auth/ProfileSettings';
 const navigationItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+  { id: 'business-specs', label: 'Business Specs', icon: Clipboard },
   { id: 'docs', label: 'Documentation', icon: FileText },
   { id: 'profile', label: 'Team Profile', icon: Users },
   { id: 'sprints', label: 'Sprints', icon: Calendar },

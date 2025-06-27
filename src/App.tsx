@@ -7,6 +7,7 @@ import { TasksView } from './components/tasks/TasksView';
 import { DocsView } from './components/docs/DocsView';
 import { ProfileView } from './components/profile/ProfileView';
 import { SprintsView } from './components/sprints/SprintsView';
+import { BusinessSpecView } from './components/business/BusinessSpecView';
 import { AuthModal } from './components/auth/AuthModal';
 import { useAppStore } from './stores/useAppStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -138,6 +139,8 @@ function App() {
         return <DashboardView />;
       case 'tasks':
         return <TasksView />;
+      case 'business-specs':
+        return <BusinessSpecView />;
       case 'docs':
         return <DocsView />;
       case 'profile':
