@@ -1,35 +1,66 @@
-package.json
-package-lock.json
-*.sql
-*.temp
-node_modules
-TODO_FINISHED.md
+# Ignore node, build, and env
+node_modules/
+dist/
+.vite/
+.env*
+.cache/
+
+# Ignore assets and design files
+public/
+assets/
+static/
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.ico
+*.gif
+*.mp4
+
+# Ignore test and story files
+coverage/
+__tests__/
+*.test.ts
+*.test.tsx
+*.stories.tsx
+.storybook/
+
+# Ignore markdown/docs and changelogs
 README.md
-tsconfig.**
-vite.**
+CHANGELOG.md
+LICENSE
+docs/
+*.mdx
+
+# Ignore editor/IDE configs
+.vscode/
+.idea/
+*.log
+
+# Ignore UI and layout components (non-core logic)
+src/components/overlay
 src/components/auth
-src/components/repository
-src/components/teams
+src/components/dashboard
+src/components/profile
+src/components/charts
 src/components/sprints
-src/components/docs
-src/hooks/useBusinessSpec.ts
-src/hooks/useDeveloper.ts
-src/hooks/useDocumentation.ts
+src/components/team
+
+src/config
+
+# Ignore shortcut and animation hooks
+src/hooks/useKeyboardShortcuts.ts
+src/hooks/useGlobalShortcuts.ts
 src/hooks/useRealtime.ts
-src/hooks/useRepositories.ts
 src/hooks/useSprints.ts
-src/hooks/useSupabase.ts
-src/hooks/useTasks.ts
-src/services/**
-src/services/businessSpecService.ts
-src/services/codebaseAnalyzer.ts
-src/services/dcoGenerator.ts
-src/services/documentationService.ts
-src/services/prGenerator.ts
-src/services/repositoryService.ts
+
+# Ignore utilities not directly tied to business logic
+src/utils/chartData.ts
+
+# Optional: ignore duplicate service layers if integrated in other files
+src/services/supabase.ts
 src/services/realtimeService.ts
+src/services/authService.ts
 src/services/sprintAutomation.ts
 src/services/sprintService.ts
-src/services/taskService.ts
-src/types/**
-supabase/migrations/**
+src/servicees/teamOptimizer.ts
