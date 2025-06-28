@@ -1,45 +1,5 @@
 # Sprint.AI - Development Roadmap
 
-## 🧹 MCP-Only AI Processing Migration
-
-### 1. Remove Legacy AI Processing Logic
-- [x] Remove all Groq/legacy NLP logic from `src/services/nlpProcessor.ts`
-- [x] Remove fallback/dual-mode logic from `src/components/overlay/AIOverlay.tsx`
-- [x] Remove legacy quick action logic from `src/services/quickActionHandler.ts` and related files
-
-### 2. Refactor nlpProcessor to MCP-Only
-- [x] Refactor `src/services/nlpProcessor.ts` to only support MCP-based processing
-- [x] Remove all intent/entity extraction and legacy response generation
-- [x] Ensure all AI queries are routed through MCP
-
-### 3. Refactor AIOverlay to Use Only MCP
-- [x] Remove "standard" mode and related UI from `src/components/overlay/AIOverlay.tsx`
-- [x] Remove all non-MCP quick action logic and UI
-- [x] Simplify state/UI to only show MCP-based flows, tools, and results
-
-### 4. Fully Integrate MCP into AI Overlay
-- [x] Ensure all tool suggestions in the overlay are sourced from MCP tool registry (`src/mcp/server/registry.ts`)
-- [x] Ensure all tool executions are routed through MCP client (`src/mcp/client/toolApi.ts`)
-- [x] Ensure all conversation history and tool results are managed via MCP and context memory
-- [x] Refactor overlay UI to display MCP tool feedback, errors, and results in a user-friendly way
-- [x] Remove any remaining legacy or partial integrations in overlay logic
-- [x] Add robust error handling and user feedback for MCP tool execution failures
-- [x] Add loading and execution state indicators for MCP tool calls
-
-### 5. Update/Remove Unused Types, Hooks, and Services
-- [x] Remove unused types/interfaces from `src/types/`
-- [x] Remove or update hooks/services no longer needed (e.g., `quickActionService`)
-- [x] Update or remove tests for legacy logic
-
-### 6. MCP Tool Registry and Client/Server Robustness
-- [x] Audit and update `src/mcp/server/registry.ts` to ensure all tools are properly registered and described
-- [x] Audit and update `src/mcp/client/toolApi.ts` and `src/mcp/client/index.ts` for robust tool execution and error handling
-- [x] Add or update tests for MCP tool registration, execution, and feedback
-
-### 7. Testing and Documentation
-- [x] Update/add tests for MCP-only flows
-- [x] Update documentation to reflect MCP-only architecture
-
 ## 🧠 Enhance MCP Reasoning & Tool Orchestration
 
 ### 8. Expand Tool Coverage and Intelligent Orchestration
