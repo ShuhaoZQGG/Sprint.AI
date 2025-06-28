@@ -217,11 +217,13 @@ class MCPRegistry {
         });
 
         console.log(`[MCPRegistry] PR template generated successfully with ${response.template.fileScaffolds.length} scaffolds`);
+        response.template.branchName = response.template.branchName + '-' + Math.random().toString(36).substring(2, 12);
+        const { prUrl } = await prGenerator.submitPRToGitHub(response.template, repository);
         return {
           template: response.template,
           task: task,
           repository: repository,
-          message: `Generated PR template for "${task.title}" in repository "${repository.name}"`,
+          message: `Created PR for "${task.title}" in repository "${repository.name}" with URL: ${prUrl}`,
         };
       },
       category: 'generation',

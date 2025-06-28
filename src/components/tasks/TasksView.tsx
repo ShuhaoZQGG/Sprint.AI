@@ -37,6 +37,7 @@ import { Input } from '../ui/Input';
 import { Card, CardContent, CardHeader } from '../ui/Card';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import toast from 'react-hot-toast';
+import { repositoryService } from '../../services/repositoryService';
 
 const TASK_STATUSES: { id: TaskStatus; title: string }[] = [
   { id: 'backlog', title: 'Backlog' },
@@ -219,7 +220,8 @@ export const TasksView: React.FC = () => {
 
   // PR Generation handler
   const handleGeneratePR = async (task: Task) => {
-    if (!currentRepository) {
+    const repository = await repositoryService.getRepository(task.repositoryId || '');
+    if (!repository && !currentRepository) {
       toast.error('No repository selected');
       return;
     }
@@ -231,11 +233,11 @@ export const TasksView: React.FC = () => {
           createdAt: (task as any).createdAt || new Date(),
           updatedAt: (task as any).updatedAt || new Date(),
         },
-        repository: currentRepository,
+        repository: repository ? repository : currentRepository!,
         includeScaffolds: true,
       });
       template.branchName = template.branchName + '-' + Math.random().toString(36).substring(2, 12);
-      const { prUrl } = await prGenerator.submitPRToGitHub(template, currentRepository);
+      const { prUrl } = await prGenerator.submitPRToGitHub(template, repository ? repository : currentRepository!);
       toast.success((
         <span>
           PR created for "{task.title}" <a href={prUrl} target="_blank" rel="noopener noreferrer" className="underline text-primary-400">View PR</a>
