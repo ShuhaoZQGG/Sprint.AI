@@ -17,6 +17,7 @@ import { commitAnalyzer } from '../../services/commitAnalyzer';
 import { documentationService } from '../../services/documentationService';
 import { nlpProcessor } from '../../services/nlpProcessor';
 import { groqService } from '../../services/groq';
+import { githubService } from '../../services/github';
 
 class MCPRegistry {
   private registry: MCPServerRegistry;
@@ -130,7 +131,9 @@ class MCPRegistry {
       handler: async (params, context) => {
         const { repositoryId, analysisType = 'all' } = params;
         const repository = context.repositories?.find((r: any) => r.id === repositoryId);
-        
+        const url = repository?.url;
+        const parsed = githubService.parseRepositoryUrl(url);
+
         if (!repository) {
           throw new Error('Repository not found');
         }
@@ -139,7 +142,7 @@ class MCPRegistry {
           throw new Error('Repository structure not available. Please analyze the repository first.');
         }
 
-        return await codebaseAnalyzer.analyzeCodebase('owner', 'repo');
+        return await codebaseAnalyzer.analyzeCodebase(parsed?.owner || '', parsed?.repo || '');
       },
       category: 'analysis',
     });
