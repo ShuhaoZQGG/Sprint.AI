@@ -499,6 +499,125 @@ This document tracks all completed features and their implementation details.
   - Added comprehensive typing for quick actions and parameters
   - Ensured type safety across all service interactions
 
+## MCP Server/Client & AI Overlay Tool-Calling
+
+### 1. Design MCP Architecture
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Design the Model Context Protocol architecture for structured AI tool calling
+
+#### Subtasks:
+- [x] Create: src/mcp/server/index.ts
+- [x] Create: src/mcp/server/services/*.ts
+- [x] Create: src/mcp/client/index.ts
+- [x] Create: src/types/mcp.ts
+
+### 2. Implement MCP Server
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Implement the MCP server with tool registry and execution
+
+#### Subtasks:
+- [x] Create: src/mcp/server/registry.ts
+- [x] Create: src/mcp/server/types.ts
+- [x] Modify: src/mcp/server/index.ts
+
+### 3. Implement MCP Client
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Implement the MCP client for tool calling and conversation management
+
+#### Subtasks:
+- [x] Create: src/mcp/client/toolApi.ts
+- [x] Modify: src/mcp/client/index.ts
+
+### 4. Integrate MCP Tool-Calling into AIOverlay
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Enhance AIOverlay with MCP tool-calling capabilities
+
+#### Subtasks:
+- [x] Modify: src/components/overlay/AIOverlay.tsx
+- [x] Modify: src/services/quickActionHandler.ts
+- [x] Modify: src/services/nlpProcessor.ts
+
+### 5. Implement Conversation Context Memory
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Description**: Add conversation memory for context-aware AI interactions
+
+#### Subtasks:
+- [x] Create: src/services/contextMemory.ts
+- [x] Modify: src/components/overlay/AIOverlay.tsx
+- [x] Modify: src/services/nlpProcessor.ts
+
+### 6. Update Types and Documentation
+**Status**: ✅ Completed  
+**Priority**: Low  
+**Description**: Update types and documentation for MCP integration
+
+#### Subtasks:
+- [x] Modify: src/types/index.ts
+- [x] Modify: TODO.md
+
+
+## MCP Server Integration Plan
+
+### 1. Services to Expose via MCP
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Expose core services through MCP for AI tool calling
+
+#### Subtasks:
+- [x] Expose docGenerator (doc generation)
+- [x] Expose codebaseAnalyzer (code analysis)
+- [x] Expose prGenerator (PR/template generation)
+- [x] Expose taskService (task CRUD)
+- [x] Expose businessSpecService (spec CRUD)
+- [x] Expose repositoryService (repo info/connect)
+- [x] Expose developerService (developer info/assignment)
+- [x] Expose sprintService (sprint management)
+- [x] Expose sprintAutomation (sprint optimization)
+- [x] Expose teamOptimizer (workload/team analysis)
+- [x] Expose capacityPlanner (capacity analysis)
+- [x] Expose commitAnalyzer (commit/PR analysis)
+- [x] Expose documentationService (doc CRUD)
+- [x] Expose nlpProcessor (AI query)
+- [x] Expose groq (raw LLM)
+
+### 2. Adjustments for MCP
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Description**: Refactor services for MCP compatibility
+
+#### Subtasks:
+- [x] Refactor each service to export stateless, MCP-compatible functions
+- [x] Add metadata (name, description, params, returns) for each tool
+- [x] Wrap stateful/context-dependent logic to accept all context as arguments
+- [x] Avoid singleton usage in MCP-exposed functions
+- [x] Add/extend JSDoc or TypeScript types for tool schemas
+
+### 3. MCP Server Registry
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Create registry for all MCP tools and services
+
+#### Subtasks:
+- [x] Create src/mcp/server/registry.ts to register all tools/services
+- [x] Register each tool with id, handler, description, parameters, returns
+
+### 4. Backward Compatibility
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Description**: Maintain backward compatibility with existing code
+
+#### Subtasks:
+- [x] Do not delete or break old service code
+- [x] Export MCP-compatible functions in addition to legacy exports
+- [x] Mark legacy exports as deprecated in comments if needed
+
+
+
 #### **Quick Actions Implemented**:
 
 **Generation Actions**:
