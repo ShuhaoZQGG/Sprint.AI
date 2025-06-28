@@ -90,9 +90,11 @@ class ToolApi {
   }
 
   async callMultipleTools(
-    toolCalls: Array<{ toolId: string; parameters: Record<string, any> }>,
+    toolCalls: Array<{ toolId: string; parameters: Record<string, any>; confidence?: number }>,
     context: MCPExecutionContext
   ): Promise<MCPToolResult[]> {
+    console.log(`[MCP] Calling multiple tools:`, toolCalls.map(t => t.toolId));
+    
     // Convert to MCPToolCall format
     const formattedToolCalls: MCPToolCall[] = toolCalls.map(call => ({
       id: this.generateId(),
@@ -102,8 +104,8 @@ class ToolApi {
     }));
 
     try {
-      console.log(`[MCP] Calling multiple tools:`, toolCalls.map(t => t.toolId));
       // Use the orchestrator for multi-step execution
+      console.log(`[MCP] Creating orchestration plan for ${formattedToolCalls.length} tools`);
       const { planId } = await mcpOrchestrator.createPlan(formattedToolCalls, context);
       console.log(`[MCP] Created plan ${planId} for multiple tools`);
       const results = await mcpOrchestrator.executePlan(planId);
@@ -124,14 +126,31 @@ class ToolApi {
       console.warn(`[MCP] Orchestration failed, falling back to sequential execution: ${error}`);
       const results: MCPToolResult[] = [];
 
-      for (const suggestion of toolCalls) {
-        console.log(`[MCP] Sequential execution of tool: ${suggestion.toolId}`);
-        const result = await this.callTool(
-          suggestion.toolId,
-          suggestion.parameters,
-          context
-        );
-        results.push(result);
+      for (const call of formattedToolCalls) {
+        console.log(`[MCP] Sequential execution of tool: ${call.toolId}`);
+        try {
+          const result = await this.callTool(
+            call.toolId,
+            call.parameters,
+            context
+          );
+          results.push(result);
+          
+          // If this tool creates something that might be needed by subsequent tools,
+          // update the context with the result
+          if (result.success && result.data) {
+            this.updateContextWithResult(context, call.toolId, result.data);
+          }
+        } catch (error) {
+          console.error(`[MCP] Sequential tool execution failed for ${call.toolId}:`, error);
+          results.push({
+            id: this.generateId(),
+            toolCallId: call.id,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date(),
+          });
+        }
       }
 
       return results;
@@ -175,6 +194,14 @@ class ToolApi {
     console.log(`[MCP] Suggesting tools for query: "${query}"`);
     const lowerQuery = query.toLowerCase();
     const suggestions = [];
+
+    // Check if we have enhanced context from AIOverlay
+    const hasEnhancedContext = 'aiContext' in context && typeof context.aiContext === 'string';
+    console.log(`[MCP] Has enhanced context: ${hasEnhancedContext}`);
+    
+    if (hasEnhancedContext) {
+      console.log(`[MCP] Using enhanced context for tool suggestions: ${(context.aiContext as string).substring(0, 100)}...`);
+    }
 
     // Repository analysis queries
     if (lowerQuery.includes('analyze') && (lowerQuery.includes('repo') || lowerQuery.includes('code'))) {
@@ -474,6 +501,32 @@ class ToolApi {
       });
     }
 
+    // If we have enhanced context, boost confidence for relevant tools
+    if (hasEnhancedContext) {
+      const aiContext = context.aiContext as string;
+      const recentActions = context.recentActions as string[] || [];
+      
+      // Boost confidence for tools related to recent actions
+      for (const suggestion of suggestions) {
+        // Check if this tool is related to recent actions
+        const isRelatedToRecentActions = recentActions.some(action => 
+          action.includes(suggestion.toolId) || 
+          (suggestion.toolId.includes('list') && action.includes('list'))
+        );
+        
+        if (isRelatedToRecentActions) {
+          suggestion.confidence = Math.min(1.0, suggestion.confidence + 0.1);
+          console.log(`[MCP] Boosted confidence for ${suggestion.toolId} based on recent actions`);
+        }
+        
+        // Check if this tool is mentioned in AI context
+        if (aiContext.toLowerCase().includes(suggestion.toolId.toLowerCase())) {
+          suggestion.confidence = Math.min(1.0, suggestion.confidence + 0.1);
+          console.log(`[MCP] Boosted confidence for ${suggestion.toolId} based on AI context`);
+        }
+      }
+    }
+
     // Sort by confidence
     const sortedSuggestions = suggestions.sort((a, b) => b.confidence - a.confidence);
     console.log(`[MCP] Generated ${sortedSuggestions.length} tool suggestions`);
@@ -505,6 +558,52 @@ class ToolApi {
 
   private generateId(): string {
     return `mcp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Update context with tool result data for sequential execution
+  private updateContextWithResult(
+    context: MCPExecutionContext,
+    toolId: string,
+    resultData: any
+  ): void {
+    // Update context based on tool type
+    if (toolId === 'create-task' && resultData) {
+      console.log(`[MCP] Adding new task to context: ${resultData.title}`);
+      context.tasks = [
+        resultData,
+        ...(context.tasks || []),
+      ];
+    } else if (toolId === 'list-repositories' && resultData.repositories) {
+      console.log(`[MCP] Updating context with ${resultData.repositories.length} repositories`);
+      context.repositories = this.mergeArraysById(
+        context.repositories || [],
+        resultData.repositories
+      );
+    } else if (toolId === 'list-tasks' && resultData.tasks) {
+      console.log(`[MCP] Updating context with ${resultData.tasks.length} tasks`);
+      context.tasks = this.mergeArraysById(
+        context.tasks || [],
+        resultData.tasks
+      );
+    }
+  }
+
+  // Merge arrays by ID to avoid duplicates
+  private mergeArraysById(existing: any[], newItems: any[]): any[] {
+    if (!existing || existing.length === 0) return newItems;
+    if (!newItems || newItems.length === 0) return existing;
+    
+    const merged = [...existing];
+    const existingIds = new Set(existing.map(item => item.id));
+    
+    for (const item of newItems) {
+      if (item.id && !existingIds.has(item.id)) {
+        merged.push(item);
+        existingIds.add(item.id);
+      }
+    }
+    
+    return merged;
   }
 
   // Helper methods for parameter inference

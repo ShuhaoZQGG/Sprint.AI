@@ -35,7 +35,7 @@ import { Task } from '../../types';
 import toast from 'react-hot-toast';
 import { Modal } from '../ui/Modal';
 import { useDocumentation } from '../../hooks/useDocumentation';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth } from '../components/auth/AuthProvider';
 
 // MCP Integration
 import { mcpClient } from '../../mcp/client';
@@ -135,11 +135,38 @@ export const AIOverlay: React.FC = () => {
     timestamp: new Date(),
   });
 
+  // This function is used for real-time suggestions during typing
   const updateSuggestedTools = (userQuery: string) => {
+    console.log(`[AIOverlay] Updating suggested tools for query: "${userQuery}"`);
     const context = createMCPExecutionContext();
-    console.log('[AIOverlay] Updating suggested tools for query:', userQuery);
     const suggestions = toolApi.suggestTools(userQuery, context);
     setSuggestedTools(suggestions);
+  };
+
+  // This function is used when the user submits a query
+  const getSuggestedToolsWithContext = (userQuery: string): Array<{ toolId: string; parameters: Record<string, any>; confidence: number }> => {
+    console.log(`[AIOverlay] Getting suggested tools with full context for query: "${userQuery}"`);
+    const context = createMCPExecutionContext();
+    
+    // Generate AI context for better tool selection
+    const aiContext = contextMemory.generateAIContext(conversationId);
+    console.log(`[AIOverlay] Using AI context for tool suggestions: ${aiContext.substring(0, 200)}...`);
+    
+    // Use the context to enhance tool suggestions
+    const enhancedContext = {
+      ...context,
+      aiContext,
+      recentActions: contextMemory.getConversationContext(conversationId).recentActions,
+      conversationHistory: mcpMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content.substring(0, 100) // Truncate for context
+      }))
+    };
+    
+    // Get suggestions with enhanced context
+    const suggestions = toolApi.suggestTools(userQuery, enhancedContext);
+    console.log(`[AIOverlay] Got ${suggestions.length} tool suggestions with context`, suggestions);
+    return suggestions;
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -176,11 +203,11 @@ export const AIOverlay: React.FC = () => {
       // Generate AI context for better tool selection
       const aiContext = contextMemory.generateAIContext(conversationId);
       
-      // Update suggested tools based on query
-      updateSuggestedTools(userQuery);
+      // Get enhanced tool suggestions using context
+      const enhancedSuggestions = getSuggestedToolsWithContext(userQuery);
       
-      // Execute suggested tools if confidence is high
-      const highConfidenceSuggestions = suggestedTools
+      // Execute high confidence tools
+      const highConfidenceSuggestions = enhancedSuggestions
         .filter(tool => tool.confidence > 0.8)
         .slice(0, 3); // Limit to top 3 high confidence tools
       
@@ -251,6 +278,9 @@ export const AIOverlay: React.FC = () => {
         }
       }
       
+      // Update suggested tools for UI
+      updateSuggestedTools(userQuery);
+      
       // Clear query after processing
       setQuery('');
       
@@ -267,7 +297,7 @@ export const AIOverlay: React.FC = () => {
       const context = createMCPExecutionContext();
       
       // Use smart tool execution with parameter resolution
-      console.log('[AIOverlay] Executing tool:', toolId, parameters);
+      console.log(`[AIOverlay] Executing individual tool: ${toolId}`, parameters);
       const toolMessage = await mcpClient.executeSmartTool(
         conversationId,
         toolId,
