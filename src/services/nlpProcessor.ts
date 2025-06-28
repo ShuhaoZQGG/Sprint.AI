@@ -45,11 +45,23 @@ export interface TaskGenerationResponse {
 }
 
 class NLPProcessor {
+  private executingQueries: Set<string> = new Set();
+
   /**
    * Process a natural language query and return structured response
    * This method uses MCP-based processing
    */
   async processQuery(query: string, context: QueryContext, conversationId?: string): Promise<ProcessedQuery> {
+    // Create a unique key for this query to prevent duplicate processing
+    const queryKey = `${query}_${Date.now()}`;
+    
+    if (this.executingQueries.has(queryKey)) {
+      console.log(`[NLPProcessor] Duplicate query detected, skipping: "${query}"`);
+      return this.createFallbackResponse(query, context);
+    }
+    
+    this.executingQueries.add(queryKey);
+    
     try {
       console.log(`[NLPProcessor] Processing query: "${query}"`);
       // If no conversationId is provided, generate one
@@ -58,6 +70,8 @@ class NLPProcessor {
     } catch (error) {
       console.error('MCP processing error:', error);
       return this.createFallbackResponse(query, context);
+    } finally {
+      this.executingQueries.delete(queryKey);
     }
   }
 
@@ -109,7 +123,8 @@ class NLPProcessor {
       const enhancedContext = {
         ...mcpContext,
         aiContext,
-        recentActions: contextMemory.getConversationContext(conversationId).recentActions
+        recentActions: contextMemory.getConversationContext(conversationId).recentActions,
+        conversationHistory: [{ role: 'user', content: query }]
       };
       
       // Suggest tools based on query using the enhanced tool suggestion system
@@ -117,7 +132,7 @@ class NLPProcessor {
       const suggestedTools = toolApi.suggestTools(query, enhancedContext);
       console.log(`[NLPProcessor] Got ${suggestedTools.length} tool suggestions`);
       
-      // Execute suggested tools if available
+      // Execute high confidence tools
       let toolResults: MCPToolResult[] = [];
       if (suggestedTools.length > 0) {
         // Use callMultipleTools for better orchestration

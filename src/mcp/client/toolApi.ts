@@ -11,6 +11,7 @@ export interface ToolApiConfig {
 
 class ToolApi {
   private config: ToolApiConfig;
+  private executingTools: Set<string> = new Set();
 
   constructor(config: Partial<ToolApiConfig> = {}) {
     this.config = {
@@ -26,6 +27,22 @@ class ToolApi {
     parameters: Record<string, any>,
     context: MCPExecutionContext
   ): Promise<MCPToolResult> {
+    // Check if this tool is already being executed
+    const toolKey = `${toolId}_${JSON.stringify(parameters)}`;
+    if (this.executingTools.has(toolKey)) {
+      console.log(`[MCP] Tool ${toolId} is already being executed with the same parameters, skipping duplicate call`);
+      return {
+        id: this.generateId(),
+        toolCallId: `skipped_${this.generateId()}`,
+        success: false,
+        error: 'Duplicate tool execution prevented',
+        timestamp: new Date(),
+      };
+    }
+
+    // Mark tool as executing
+    this.executingTools.add(toolKey);
+
     const toolCall: MCPToolCall = {
       id: this.generateId(),
       toolId,
@@ -86,6 +103,9 @@ class ToolApi {
       }
 
       return toolResult;
+    } finally {
+      // Remove tool from executing set
+      this.executingTools.delete(toolKey);
     }
   }
 
@@ -95,11 +115,18 @@ class ToolApi {
   ): Promise<MCPToolResult[]> {
     console.log(`[MCP] Calling multiple tools:`, toolCalls.map(t => t.toolId));
     
+    // Deduplicate tool calls with the same toolId and parameters
+    const uniqueToolCalls = this.deduplicateToolCalls(toolCalls);
+    
+    if (uniqueToolCalls.length < toolCalls.length) {
+      console.log(`[MCP] Removed ${toolCalls.length - uniqueToolCalls.length} duplicate tool calls`);
+    }
+    
     // Convert to MCPToolCall format
-    const formattedToolCalls: MCPToolCall[] = toolCalls.map(call => ({
-      id: this.generateId(),
+    const formattedToolCalls: MCPToolCall[] = uniqueToolCalls.map(call => ({
+      id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       toolId: call.toolId,
-      parameters: call.parameters,
+      parameters: call.parameters || {},
       timestamp: new Date(),
     }));
 
@@ -558,6 +585,22 @@ class ToolApi {
 
   private generateId(): string {
     return `mcp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Deduplicate tool calls with the same toolId and parameters
+  private deduplicateToolCalls(toolCalls: Array<{ toolId: string; parameters: Record<string, any>; confidence?: number }>): Array<{ toolId: string; parameters: Record<string, any>; confidence?: number }> {
+    const uniqueToolCalls: Array<{ toolId: string; parameters: Record<string, any>; confidence?: number }> = [];
+    const toolKeys = new Set<string>();
+    
+    for (const call of toolCalls) {
+      const key = `${call.toolId}_${JSON.stringify(call.parameters)}`;
+      if (!toolKeys.has(key)) {
+        toolKeys.add(key);
+        uniqueToolCalls.push(call);
+      }
+    }
+    
+    return uniqueToolCalls;
   }
 
   // Update context with tool result data for sequential execution
