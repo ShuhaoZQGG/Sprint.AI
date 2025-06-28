@@ -41,7 +41,7 @@ class ToolApi {
       // Try to use the orchestrator for smart parameter resolution
       let result;
       try {
-        const { planId } = await mcpOrchestrator.createSmartPlan(toolCall, context);
+        const { planId, plan } = await mcpOrchestrator.createSmartPlan(toolCall, context);
         const results = await mcpOrchestrator.executePlan(planId);
         result = results[results.length - 1];
       } catch (orchestratorError) {
@@ -59,6 +59,7 @@ class ToolApi {
         success: result.success,
         data: result.data,
         error: result.error,
+        metadata: result.metadata,
         timestamp: new Date(),
       };
 
@@ -115,8 +116,12 @@ class ToolApi {
       console.warn(`[MCP] Orchestration failed, falling back to sequential execution: ${error}`);
       const results: MCPToolResult[] = [];
 
-      for (const { toolId, parameters } of toolCalls) {
-        const result = await this.callTool(toolId, parameters, context);
+      for (const suggestion of toolCalls) {
+        const result = await this.callTool(
+          suggestion.toolId,
+          suggestion.parameters,
+          context
+        );
         results.push(result);
       }
 
@@ -247,6 +252,85 @@ class ToolApi {
       }
     }
 
+    // PR template generation queries
+    if (lowerQuery.includes('pr') || lowerQuery.includes('pull request') || lowerQuery.includes('template')) {
+      // If we have a specific task mentioned
+      const taskTitle = this.extractTaskTitle(query);
+      
+      if (taskTitle && context.currentRepository) {
+        // First check if we have an existing task with this title
+        const matchingTask = context.tasks?.find((task: any) => 
+          task.title.toLowerCase().includes(taskTitle.toLowerCase())
+        );
+        
+        if (matchingTask) {
+          // Use existing task
+          suggestions.push({
+            toolId: 'generate-pr-template',
+            parameters: {
+              taskId: matchingTask.id,
+              repositoryId: context.currentRepository.id,
+              includeScaffolds: true,
+            },
+            confidence: 0.9,
+          });
+        } else {
+          // Suggest creating a task first, then generating PR
+          suggestions.push({
+            toolId: 'create-task',
+            parameters: {
+              title: taskTitle,
+              description: `Task created for PR: ${taskTitle}`,
+              type: this.inferTaskType(query) || 'feature',
+              priority: this.inferPriority(query) || 'medium',
+              estimatedEffort: 8,
+            },
+            confidence: 0.85,
+          });
+          
+          // Then suggest PR template generation (will be handled by orchestrator)
+          suggestions.push({
+            toolId: 'generate-pr-template',
+            parameters: {
+              // taskId will be filled in by orchestrator after task creation
+              repositoryId: context.currentRepository.id,
+              includeScaffolds: true,
+              title: taskTitle, // Pass title for orchestrator to use
+              description: `Task created for PR: ${taskTitle}`, // Pass description for orchestrator
+            },
+            confidence: 0.8,
+          });
+        }
+      } else if (context.tasks?.length > 0) {
+        // If no specific task mentioned but we have tasks, suggest using the first task
+        const unassignedTasks = context.tasks.filter((task: any) => task.status === 'todo');
+        if (unassignedTasks.length > 0 && context.currentRepository) {
+          suggestions.push({
+            toolId: 'generate-pr-template',
+            parameters: {
+              taskId: unassignedTasks[0].id,
+              repositoryId: context.currentRepository.id,
+              includeScaffolds: true,
+            },
+            confidence: 0.75,
+          });
+        }
+      } else {
+        // If no tasks available, suggest creating one first
+        suggestions.push({
+          toolId: 'create-task',
+          parameters: {
+            title: 'New Task',
+            description: 'Task created for PR generation',
+            type: 'feature',
+            priority: 'medium',
+            estimatedEffort: 8,
+          },
+          confidence: 0.7,
+        });
+      }
+    }
+
     // Documentation queries
     if (lowerQuery.includes('doc') || lowerQuery.includes('documentation')) {
       // Try to find repository by name in the query
@@ -320,24 +404,6 @@ class ToolApi {
       }
     }
 
-    // PR queries
-    if (lowerQuery.includes('pr') || lowerQuery.includes('pull request')) {
-      if (context.tasks?.length > 0) {
-        const unassignedTasks = context.tasks.filter((task: any) => task.status === 'todo');
-        if (unassignedTasks.length > 0 && context.currentRepository) {
-          suggestions.push({
-            toolId: 'generate-pr-template',
-            parameters: {
-              taskId: unassignedTasks[0].id,
-              repositoryId: context.currentRepository.id,
-              includeScaffolds: true,
-            },
-            confidence: 0.85,
-          });
-        }
-      }
-    }
-
     // Repository listing
     if (lowerQuery.includes('list') && lowerQuery.includes('repo')) {
       suggestions.push({
@@ -407,6 +473,9 @@ class ToolApi {
       /create\s+(?:a\s+)?task\s+(?:to\s+)?(.*)/i,
       /add\s+(?:a\s+)?task\s+(?:to\s+)?(.*)/i,
       /new\s+task\s+(?:to\s+)?(.*)/i,
+      /generate\s+(?:a\s+)?pr\s+(?:for\s+)?(.*)/i,
+      /create\s+(?:a\s+)?pr\s+(?:for\s+)?(.*)/i,
+      /pull\s+request\s+(?:for\s+)?(.*)/i,
     ];
     
     for (const pattern of patterns) {

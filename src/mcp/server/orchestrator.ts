@@ -72,6 +72,31 @@ class MCPOrchestrator {
     );
 
     const steps: OrchestrationStep[] = [];
+    
+    // Special handling for PR template generation
+    if (primaryToolCall.toolId === 'generate-pr-template') {
+      // If taskId is missing, we need to create a task first
+      if (!resolvedParams.taskId) {
+        // Check if we have a title and description for creating a task
+        if (resolvedParams.title && resolvedParams.description) {
+          // Add step to create a task
+          steps.push({
+            toolId: 'create-task',
+            parameters: {
+              title: resolvedParams.title,
+              description: resolvedParams.description,
+              type: resolvedParams.type || 'feature',
+              priority: resolvedParams.priority || 'medium',
+              estimatedEffort: resolvedParams.estimatedEffort || 8,
+            },
+          });
+          
+          // The PR template generation will depend on the task creation
+          // We'll update the parameters after the task is created
+        }
+      }
+    }
+    
     const missingParams = this.identifyMissingParameters(resolvedParams, tool.parameters);
     
     // For each missing parameter, add a step to resolve it
@@ -141,6 +166,18 @@ class MCPOrchestrator {
               executedSteps,
               results
             );
+            
+            // Special handling for PR template after task creation
+            if (step.toolId === 'generate-pr-template' && !resolvedParameters.taskId) {
+              // Look for a create-task result in previous steps
+              for (let j = 0; j < i; j++) {
+                if (plan.steps[j].toolId === 'create-task' && results[j]?.success) {
+                  // Use the created task's ID
+                  resolvedParameters.taskId = results[j].data.id;
+                  break;
+                }
+              }
+            }
             
             // Execute the step
             const result = await mcpServer.executeTool(
@@ -496,6 +533,11 @@ class MCPOrchestrator {
           return resultData[0].id;
         }
       }
+    }
+    
+    // Special handling for create-task tool
+    if (toolId === 'create-task' && paramName === 'taskId' && resultData.id) {
+      return resultData.id;
     }
     
     return undefined;

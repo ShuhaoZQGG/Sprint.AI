@@ -167,6 +167,20 @@ class MCPRegistry {
             type: 'boolean',
             description: 'Whether to include file scaffolds',
           },
+          // Additional parameters for orchestration
+          title: {
+            type: 'string',
+            description: 'Task title (used when creating a task first)',
+          },
+          description: {
+            type: 'string',
+            description: 'Task description (used when creating a task first)',
+          },
+          type: {
+            type: 'string',
+            description: 'Task type (used when creating a task first)',
+            enum: ['feature', 'bug', 'refactor', 'docs', 'test', 'devops'],
+          },
         },
         required: ['taskId', 'repositoryId'],
       },
