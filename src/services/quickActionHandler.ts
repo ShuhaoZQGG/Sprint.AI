@@ -17,6 +17,12 @@ import { githubService } from './github';
 import { Repository, Task, BusinessSpec, Developer } from '../types';
 import toast from 'react-hot-toast';
 
+// MCP Integration
+import { mcpClient } from '../mcp/client';
+import { toolApi } from '../mcp/client/toolApi';
+import { contextMemory } from './contextMemory';
+import { MCPExecutionContext } from '../mcp/server/types';
+
 export interface QuickActionContext {
   repositories: Repository[];
   currentRepository?: Repository;
@@ -44,6 +50,7 @@ export interface QuickActionHandler {
 
 class QuickActionService {
   private handlers: Map<string, QuickActionHandler> = new Map();
+  private useMCP: boolean = true; // Flag to control MCP usage
 
   constructor() {
     this.registerDefaultHandlers();
@@ -204,6 +211,16 @@ class QuickActionService {
     return this.getAllHandlers().filter(handler => handler.category === category);
   }
 
+  /**
+   * Set whether to use MCP for action execution
+   */
+  setUseMCP(useMCP: boolean): void {
+    this.useMCP = useMCP;
+  }
+
+  /**
+   * Execute an action using either MCP or legacy handler
+   */
   async executeAction(
     actionId: string, 
     parameters: any, 
@@ -233,15 +250,20 @@ class QuickActionService {
     }
 
     try {
-      const result = await handler.handler(parameters, context);
-      
-      if (result.success) {
-        toast.success(result.message);
+      // Use MCP if enabled, otherwise use legacy handler
+      if (this.useMCP) {
+        return await this.executeMCPAction(actionId, parameters, context);
       } else {
-        toast.error(result.message);
+        const result = await handler.handler(parameters, context);
+        
+        if (result.success) {
+          toast.success(result.message);
+        } else {
+          toast.error(result.message);
+        }
+        
+        return result;
       }
-      
-      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       const result = {
@@ -252,6 +274,56 @@ class QuickActionService {
       
       toast.error(result.message);
       return result;
+    }
+  }
+
+  /**
+   * Execute action using MCP
+   */
+  private async executeMCPAction(
+    actionId: string,
+    parameters: any,
+    context: QuickActionContext
+  ): Promise<QuickActionResult> {
+    try {
+      // Create MCP execution context
+      const mcpContext: MCPExecutionContext = {
+        userId: 'user-id', // This would come from auth
+        teamId: 'team-id', // This would come from auth
+        repositories: context.repositories,
+        currentRepository: context.currentRepository,
+        developers: context.developers,
+        tasks: context.tasks,
+        businessSpecs: context.businessSpecs,
+        timestamp: new Date(),
+      };
+
+      // Call tool via MCP
+      const result = await toolApi.callTool(actionId, parameters, mcpContext);
+
+      if (result.success) {
+        toast.success(`Successfully executed ${actionId}`);
+        return {
+          success: true,
+          message: `Successfully executed ${actionId}`,
+          data: result.data,
+        };
+      } else {
+        toast.error(result.error || 'Failed to execute action');
+        return {
+          success: false,
+          message: result.error || 'Failed to execute action',
+          error: result.error,
+        };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(errorMessage);
+      return {
+        success: false,
+        message: `Failed to execute ${actionId}: ${errorMessage}`,
+        error: errorMessage,
+      };
     }
   }
 

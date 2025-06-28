@@ -6,6 +6,8 @@ import { GeneratedDocumentation } from './docGenerator';
 import { mcpClient } from '../mcp/client';
 import { toolApi } from '../mcp/client/toolApi';
 import { contextMemory } from './contextMemory';
+import { MCPToolCall, MCPToolResult } from '../types/mcp';
+import { MCPExecutionContext } from '../mcp/server/types';
 
 export interface QueryIntent {
   type: 'task_generation' | 'documentation' | 'team_assignment' | 'pr_generation' | 'analysis' | 'general';
@@ -116,9 +118,15 @@ class NLPProcessor {
 
   /**
    * Process a natural language query and return structured intent and response
+   * This method now supports both standard NLP processing and MCP-based processing
    */
-  async processQuery(query: string, context: QueryContext): Promise<ProcessedQuery> {
+  async processQuery(query: string, context: QueryContext, conversationId?: string): Promise<ProcessedQuery> {
     try {
+      // If conversationId is provided, use MCP-based processing
+      if (conversationId) {
+        return await this.processQueryWithMCP(query, context, conversationId);
+      }
+      
       // Extract intent and entities
       const intent = this.extractIntent(query, context);
       const entities = this.extractEntities(query);
@@ -152,19 +160,27 @@ class NLPProcessor {
 
   /**
    * Process query using MCP tools
+   * This method integrates with the MCP client for tool calling
    */
   async processQueryWithMCP(
     query: string, 
     context: QueryContext, 
     conversationId: string
-  ): Promise<{
-    response: string;
-    toolCalls: any[];
-    followUpQuestions: string[];
-  }> {
+  ): Promise<ProcessedQuery> {
     try {
+      // Update conversation context in memory
+      contextMemory.updateConversationContext(conversationId, {
+        userId: 'user-id', // This would come from auth
+        teamId: 'team-id', // This would come from auth
+        repositories: context.repositories,
+        currentRepository: context.currentRepository,
+        developers: context.developers,
+        tasks: context.tasks,
+        businessSpecs: context.businessSpecs,
+      });
+
       // Create MCP execution context
-      const mcpContext = {
+      const mcpContext: MCPExecutionContext = {
         userId: 'user-id', // This would come from auth
         teamId: 'team-id', // This would come from auth
         repositories: context.repositories,
@@ -175,35 +191,75 @@ class NLPProcessor {
         timestamp: new Date(),
       };
 
-      // Get conversation context from memory
-      const conversationContext = contextMemory.getConversationContext(conversationId);
-      
-      // Analyze query to determine intent
+      // Process user message through MCP client
+      const userMessage = await mcpClient.processMessage(
+        conversationId,
+        query,
+        mcpContext
+      );
+
+      // Extract intent and entities
       const intent = this.extractIntent(query, context);
       const entities = this.extractEntities(query);
-      
+      intent.entities = entities;
+
       // Suggest tools based on intent and entities
       const suggestedTools = this.suggestToolsForIntent(intent, entities, context);
       
-      // For now, we'll return a simple response with suggested tools
-      // In a real implementation, this would call the LLM to generate a response
-      // and determine which tools to call
-      
-      return {
-        response: `I understand you're asking about ${intent.type}. I can help with that.`,
-        toolCalls: suggestedTools.map(tool => ({
+      // Execute suggested tools if available
+      let toolResults: MCPToolResult[] = [];
+      if (suggestedTools.length > 0) {
+        const toolCalls: MCPToolCall[] = suggestedTools.map(tool => ({
+          id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           toolId: tool.id,
           parameters: tool.parameters || {},
-        })),
-        followUpQuestions: this.generateFollowUpQuestions(intent, context),
+          timestamp: new Date(),
+        }));
+        
+        const toolMessage = await mcpClient.executeToolsFromMessage(
+          conversationId,
+          toolCalls,
+          mcpContext
+        );
+        
+        if (toolMessage.toolResults) {
+          toolResults = toolMessage.toolResults;
+          
+          // Store tool results in context memory
+          toolResults.forEach(result => {
+            contextMemory.storeToolResult(conversationId, result.toolCallId, result);
+          });
+        }
+      }
+
+      // Generate response based on tool results
+      const response = this.generateResponseFromToolResults(query, intent, toolResults);
+      
+      // Convert tool suggestions to suggested actions
+      const suggestedActions = suggestedTools.map(tool => ({
+        id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        title: `Execute ${tool.id}`,
+        description: `Run the ${tool.id} tool with provided parameters`,
+        action: tool.id,
+        parameters: tool.parameters || {},
+      }));
+
+      // Determine if more information is needed
+      const needsMoreInfo = this.needsMoreInformation(intent, context);
+      
+      // Generate follow-up questions if needed
+      const followUpQuestions = needsMoreInfo ? this.generateFollowUpQuestions(intent, context) : [];
+
+      return {
+        intent,
+        response,
+        suggestedActions,
+        needsMoreInfo,
+        followUpQuestions,
       };
     } catch (error) {
       console.error('MCP query processing error:', error);
-      return {
-        response: 'I encountered an error processing your request.',
-        toolCalls: [],
-        followUpQuestions: ['Could you try rephrasing your question?'],
-      };
+      return this.createFallbackResponse(query, context);
     }
   }
 
@@ -220,15 +276,18 @@ class NLPProcessor {
     switch (intent.type) {
       case 'task_generation':
         if (context.businessSpecs.length > 0) {
-          tools.push({
-            id: 'generate-tasks-from-specs',
-            parameters: {},
-          });
-        } else {
-          tools.push({
-            id: 'create-business-spec',
-            parameters: {},
-          });
+          const approvedSpecs = context.businessSpecs.filter(spec => spec.status === 'approved');
+          if (approvedSpecs.length > 0) {
+            tools.push({
+              id: 'generate-tasks-from-specs',
+              parameters: { specId: approvedSpecs[0].id },
+            });
+          } else {
+            tools.push({
+              id: 'create-business-spec',
+              parameters: {},
+            });
+          }
         }
         break;
 
@@ -272,6 +331,52 @@ class NLPProcessor {
     }
 
     return tools;
+  }
+
+  /**
+   * Generate response from tool results
+   */
+  private generateResponseFromToolResults(
+    query: string,
+    intent: QueryIntent,
+    toolResults: MCPToolResult[]
+  ): string {
+    // If no tool results, generate a generic response
+    if (toolResults.length === 0) {
+      return this.generateStaticResponse(intent, intent.context);
+    }
+
+    // Check if all tools succeeded
+    const allSucceeded = toolResults.every(result => result.success);
+    
+    if (allSucceeded) {
+      // Generate response based on successful tool executions
+      switch (intent.type) {
+        case 'task_generation':
+          return 'I\'ve successfully generated tasks based on your requirements. You can review them now.';
+        
+        case 'documentation':
+          return 'Documentation has been generated successfully. You can view it in the documentation section.';
+        
+        case 'team_assignment':
+          return 'I\'ve analyzed the team performance and workload. Here are the insights and recommendations.';
+        
+        case 'pr_generation':
+          return 'PR template has been generated successfully. You can review and customize it before submission.';
+        
+        case 'analysis':
+          return 'Analysis completed successfully. I\'ve gathered insights about your codebase and team performance.';
+        
+        default:
+          return 'I\'ve completed the requested actions successfully.';
+      }
+    } else {
+      // Generate response for failed tool executions
+      const failedResults = toolResults.filter(result => !result.success);
+      const errorMessages = failedResults.map(result => result.error).join(', ');
+      
+      return `I encountered some issues while processing your request: ${errorMessages}. Please try again or modify your request.`;
+    }
   }
 
   /**
