@@ -35,7 +35,7 @@ import { Task } from '../../types';
 import toast from 'react-hot-toast';
 import { Modal } from '../ui/Modal';
 import { useDocumentation } from '../../hooks/useDocumentation';
-import { useAuth } from '../components/auth/AuthProvider';
+import { useAuth } from '../auth/AuthProvider';
 
 // MCP Integration
 import { mcpClient } from '../../mcp/client';
@@ -69,6 +69,7 @@ export const AIOverlay: React.FC = () => {
   const [availableTools, setAvailableTools] = useState<any[]>([]);
   const [toolExecutionHistory, setToolExecutionHistory] = useState<any[]>([]);
   const [suggestedTools, setSuggestedTools] = useState<Array<{ toolId: string; parameters: Record<string, any>; confidence: number }>>([]);
+  const [toolExecutionInProgress, setToolExecutionInProgress] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -172,26 +173,17 @@ export const AIOverlay: React.FC = () => {
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
-    if (!query.trim()) return;
+    if (!query.trim() || toolExecutionInProgress) return;
     
     setProcessing(true);
+    setToolExecutionInProgress(true);
     
     try {
       console.log('[AIOverlay] Processing query:', query);
-      await handleMCPQuery(query);
-    } catch (error) {
-      console.error('Error processing query:', error);
-      toast.error('Failed to process your request');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleMCPQuery = async (userQuery: string) => {
-    try {
+      const userQuery = query;
       const context = createMCPExecutionContext();
       
-      // Store the user message
+      // Process the user message first
       const userMessage = await mcpClient.processMessage(
         conversationId,
         userQuery,
@@ -209,7 +201,7 @@ export const AIOverlay: React.FC = () => {
       // Execute high confidence tools
       const highConfidenceSuggestions = enhancedSuggestions
         .filter(tool => tool.confidence > 0.8)
-        .slice(0, 3); // Limit to top 3 high confidence tools
+        .slice(0, 2); // Limit to top 2 high confidence tools to avoid duplicates
       
       if (highConfidenceSuggestions.length > 0) {
         console.log('[AIOverlay] Executing high confidence tools using callMultipleTools:', 
@@ -259,22 +251,7 @@ export const AIOverlay: React.FC = () => {
           });
         } catch (error) {
           console.error('[AIOverlay] Error in multiple tool execution:', error);
-          
-          // Fall back to orchestrator for more complex scenarios
-          const toolCalls: MCPToolCall[] = highConfidenceSuggestions.map(tool => ({
-            id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            toolId: tool.toolId,
-            parameters: tool.parameters || {},
-            timestamp: new Date(),
-          }));
-          
-          const toolMessage = await mcpClient.executeToolsFromMessage(
-            conversationId,
-            toolCalls,
-            context
-          );
-          
-          setMcpMessages(prev => [...prev, toolMessage]);
+          toast.error('Failed to execute tools');
         }
       }
       
@@ -285,13 +262,22 @@ export const AIOverlay: React.FC = () => {
       setQuery('');
       
     } catch (error) {
-      console.error('Error in MCP query processing:', error);
-      toast.error('Failed to process MCP query');
+      console.error('Error processing query:', error);
+      toast.error('Failed to process your request');
+    } finally {
+      setProcessing(false);
+      setToolExecutionInProgress(false);
     }
   };
 
   const handleMCPToolExecution = async (toolId: string, parameters: any = {}) => {
+    if (toolExecutionInProgress) {
+      toast.info('Please wait for the current operation to complete');
+      return;
+    }
+    
     setExecutingAction(toolId);
+    setToolExecutionInProgress(true);
     
     try {
       const context = createMCPExecutionContext();
@@ -330,6 +316,7 @@ export const AIOverlay: React.FC = () => {
       toast.error('Failed to execute tool');
     } finally {
       setExecutingAction(null);
+      setToolExecutionInProgress(false);
     }
   };
 
@@ -423,13 +410,14 @@ export const AIOverlay: React.FC = () => {
                   }}
                   icon={<Command size={16} />}
                   className="pr-10"
+                  disabled={toolExecutionInProgress}
                 />
                 <Button
                   type="submit"
                   variant="ghost"
                   size="sm"
                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white"
-                  disabled={processing || !query.trim()}
+                  disabled={processing || !query.trim() || toolExecutionInProgress}
                 >
                   {processing ? (
                     <Loader size={16} className="animate-spin" />
@@ -506,7 +494,7 @@ export const AIOverlay: React.FC = () => {
                 ))}
 
                 {/* Suggested Tools */}
-                {suggestedTools.length > 0 && (
+                {suggestedTools.length > 0 && !toolExecutionInProgress && (
                   <div className="space-y-2 mt-4">
                     <h3 className="text-sm font-medium text-dark-300">Suggested Actions</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -518,7 +506,7 @@ export const AIOverlay: React.FC = () => {
                           <div
                             key={tool.toolId}
                             onClick={() => {
-                              if (!isExecuting) {
+                              if (!isExecuting && !toolExecutionInProgress) {
                                 handleMCPToolExecution(tool.toolId, tool.parameters);
                               }
                             }}
@@ -556,55 +544,57 @@ export const AIOverlay: React.FC = () => {
                 )}
 
                 {/* Available Tools */}
-                <div className="space-y-2 mt-4">
-                  <h3 className="text-sm font-medium text-dark-300">Available Tools</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {getMCPTools().map((tool) => {
-                      const isExecuting = executingAction === tool.function.name;
-                      const isSuggested = tool.suggestion !== undefined;
-                      
-                      return (
-                        <div
-                          key={tool.function.name}
-                          onClick={() => {
-                            if (!isExecuting) {
-                              handleMCPToolExecution(
-                                tool.function.name, 
-                                tool.suggestion?.parameters || {}
-                              );
-                            }
-                          }}
-                        >
-                          <Card
-                            hover
-                            className={`cursor-pointer transition-all duration-200 hover:border-primary-500 ${
-                              isSuggested ? 'border-primary-700' : ''
-                            }`}
+                {!toolExecutionInProgress && (
+                  <div className="space-y-2 mt-4">
+                    <h3 className="text-sm font-medium text-dark-300">Available Tools</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {getMCPTools().map((tool) => {
+                        const isExecuting = executingAction === tool.function.name;
+                        const isSuggested = tool.suggestion !== undefined;
+                        
+                        return (
+                          <div
+                            key={tool.function.name}
+                            onClick={() => {
+                              if (!isExecuting && !toolExecutionInProgress) {
+                                handleMCPToolExecution(
+                                  tool.function.name, 
+                                  tool.suggestion?.parameters || {}
+                                );
+                              }
+                            }}
                           >
-                            <CardContent className="p-3 flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                                {isExecuting ? (
-                                  <LoadingSpinner size="sm" />
-                                ) : (
-                                  getMCPToolIcon(tool.function.name)
+                            <Card
+                              hover
+                              className={`cursor-pointer transition-all duration-200 hover:border-primary-500 ${
+                                isSuggested ? 'border-primary-700' : ''
+                              }`}
+                            >
+                              <CardContent className="p-3 flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                                  {isExecuting ? (
+                                    <LoadingSpinner size="sm" />
+                                  ) : (
+                                    getMCPToolIcon(tool.function.name)
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-white">{tool.function.name}</h4>
+                                  <p className="text-xs text-dark-400">
+                                    {tool.function.description}
+                                  </p>
+                                </div>
+                                {!isExecuting && (
+                                  <Play size={14} className="text-dark-400" />
                                 )}
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="text-sm font-medium text-white">{tool.function.name}</h4>
-                                <p className="text-xs text-dark-400">
-                                  {tool.function.description}
-                                </p>
-                              </div>
-                              {!isExecuting && (
-                                <Play size={14} className="text-dark-400" />
-                              )}
-                            </CardContent>
-                          </Card>
-                        </div>
-                      );
-                    })}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Tool Execution History */}
                 {toolExecutionHistory.length > 0 && (
@@ -647,7 +637,7 @@ export const AIOverlay: React.FC = () => {
                         <div
                           key={tool.function.name}
                           onClick={() => {
-                            if (!isExecuting) {
+                            if (!isExecuting && !toolExecutionInProgress) {
                               handleMCPToolExecution(tool.function.name, {});
                             }
                           }}

@@ -102,9 +102,19 @@ class NLPProcessor {
         mcpContext
       );
 
+      // Generate AI context for better tool selection
+      const aiContext = contextMemory.generateAIContext(conversationId);
+      
+      // Use the context to enhance tool suggestions
+      const enhancedContext = {
+        ...mcpContext,
+        aiContext,
+        recentActions: contextMemory.getConversationContext(conversationId).recentActions
+      };
+      
       // Suggest tools based on query using the enhanced tool suggestion system
-      console.log(`[NLPProcessor] Getting tool suggestions for query`);
-      const suggestedTools = toolApi.suggestTools(query, mcpContext);
+      console.log(`[NLPProcessor] Getting tool suggestions for query with enhanced context`);
+      const suggestedTools = toolApi.suggestTools(query, enhancedContext);
       console.log(`[NLPProcessor] Got ${suggestedTools.length} tool suggestions`);
       
       // Execute suggested tools if available
@@ -115,7 +125,7 @@ class NLPProcessor {
           // Filter to high confidence suggestions
           const highConfidenceSuggestions = suggestedTools
             .filter(tool => tool.confidence > 0.7)
-            .slice(0, 3); // Limit to top 3 high confidence suggestions
+            .slice(0, 2); // Limit to top 2 high confidence suggestions to avoid duplicates
           
           if (highConfidenceSuggestions.length > 0) {
             console.log(`[NLPProcessor] Executing ${highConfidenceSuggestions.length} high confidence tools using callMultipleTools`);
@@ -156,6 +166,7 @@ class NLPProcessor {
             // Create tool calls from suggestions
             const toolCalls: MCPToolCall[] = suggestedTools
               .filter(tool => tool.confidence > 0.7) // Only use high confidence suggestions
+              .slice(0, 2) // Limit to top 2 to avoid duplicates
               .map(tool => ({
                 id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 toolId: tool.toolId,
