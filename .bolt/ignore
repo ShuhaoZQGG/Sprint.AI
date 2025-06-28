@@ -38,7 +38,6 @@ docs/
 *.log
 
 # Ignore UI and layout components (non-core logic)
-src/components/overlay
 src/components/auth
 src/components/dashboard
 src/components/profile
@@ -50,12 +49,6 @@ src/components/tasks
 
 src/config
 
-# Ignore shortcut and animation hooks
-src/hooks/useKeyboardShortcuts.ts
-src/hooks/useGlobalShortcuts.ts
-src/hooks/useRealtime.ts
-src/hooks/useSprints.ts
-
 # Ignore utilities not directly tied to business logic
 src/utils/chartData.ts
 
@@ -63,6 +56,3 @@ src/utils/chartData.ts
 src/services/supabase.ts
 src/services/realtimeService.ts
 src/services/authService.ts
-src/services/sprintAutomation.ts
-src/services/sprintService.ts
-src/servicees/teamOptimizer.ts
