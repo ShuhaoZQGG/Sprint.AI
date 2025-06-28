@@ -4,21 +4,6 @@
 
 ## 🔍 Testing & Quality Assurance
 
-### PR Generation Improvements
-- [ ] **UI Consistency in TaskReviewModal**
-  - *Files to modify*: `src/components/overlay/TaskReviewModal.tsx`
-  - Update button labels to 'Create Task' and 'Generate PR' for each task in preview mode
-  - Ensure button actions match their labels
-
-- [ ] **Footer Action Handler in TaskReviewModal**
-  - *Files to modify*: `src/components/overlay/TaskReviewModal.tsx`
-  - Refactor the footer's 'Create & Continue to PRs' button to call a new handler (not handleCreateTasks)
-  - Implement correct logic for continuing to PRs after task creation
-
-- [ ] **Use Real Data in handleGeneratePR**
-  - *Files to modify*: `src/components/overlay/TaskReviewModal.tsx`
-  - Replace mockTask and mockRepository with actual task and repository data when generating PRs
-
 ### 17. Testing Infrastructure
 **Status**: Not Started  
 **Priority**: Medium  
@@ -95,6 +80,46 @@
   - Improve file organization and naming
   - Extract reusable logic into custom hooks
   - Standardize coding patterns and conventions
+
+## 🧠 AIOverlay Quick Actions Integration
+
+### 20. Enable Quick Actions to Interact with AI Services
+**Status**: Not Started  
+**Priority**: High  
+**Description**: Enhance AIOverlay so that quick actions (suggested by the AI) can directly invoke backend AI services (e.g., PR generation, codebase analysis, task generation, repository analysis, commit analysis).
+
+#### Subtasks:
+- [ ] **Design Quick Action Handler Architecture**
+  - *Files to modify*: `src/components/AIOverlay.tsx`, `src/services/nlpProcessor.ts`
+  - Define a mapping from quick action types to service calls
+  - Ensure type safety and extensibility
+
+- [ ] **Implement Service Invocation Logic**
+  - *Files to modify*: `src/components/AIOverlay.tsx`
+  - Call appropriate service (e.g., `prGenerator`, `codebaseAnalyzer`, `nlpProcessor`, `repositoryService`, `commitAnalyzer`, `docGenerator`, `documentationService`, `businessSpecService`, `teamOptimizer`, `sprintService`, `capacityPlanner`, `developerService`, `taskService`, `sprintAutomation`, `githubService`) based on quick action
+  - Handle async responses and errors
+
+- [ ] **Review and Map All Service Actions**
+  - *Files to review*: All in `src/services/`
+  - Identify all exported service singletons and their main methods that could be triggered by quick actions
+  - Document available actions and parameters for each service
+
+- [ ] **UI Feedback and Result Display**
+  - *Files to modify*: `src/components/AIOverlay.tsx`
+  - Show loading, success, and error states for quick actions
+  - Display results from service calls in the overlay
+
+- [ ] **Add/Update Types for Quick Actions**
+  - *Files to modify*: `src/types/index.ts` (or relevant types file)
+  - Ensure all quick actions and their parameters are strongly typed
+
+- [ ] **Testing**
+  - *Files to create*: `src/components/__tests__/AIOverlay.quickActions.test.tsx`
+  - Add unit and integration tests for quick action handling and service invocation
+
+- [ ] **Documentation**
+  - *Files to modify*: `README.md`, `src/components/AIOverlay.tsx` (inline docs)
+  - Document how to add new quick actions and connect them to services
 
 ---
 
