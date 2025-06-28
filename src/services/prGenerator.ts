@@ -39,6 +39,14 @@ class PRGenerator {
 
       const { task, repository, targetBranch = 'main', includeScaffolds = true } = request;
 
+      // Ensure we're using the repository from the task if available
+      let actualRepository = repository;
+      if (task.repositoryId && task.repositoryId !== repository.id) {
+        console.log(`[PRGenerator] Task has different repositoryId (${task.repositoryId}) than provided repository (${repository.id})`);
+        // In a real implementation, we would fetch the repository by ID
+        // For now, we'll just log the issue and continue with the provided repository
+      }
+
       // Analyze codebase context if not provided
       let codebaseContext = request.codebaseContext;
       if (!codebaseContext && repository.structure) {

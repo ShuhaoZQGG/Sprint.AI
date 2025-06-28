@@ -231,10 +231,10 @@ export const AIOverlay: React.FC = () => {
     setExecutingAction(toolId);
     
     try {
-      console.log('[AIOverlay] Executing tool:', toolId, parameters);
       const context = createMCPExecutionContext();
       
       // Use smart tool execution with parameter resolution
+      console.log('[AIOverlay] Executing tool:', toolId, parameters);
       const toolMessage = await mcpClient.executeSmartTool(
         conversationId,
         toolId,

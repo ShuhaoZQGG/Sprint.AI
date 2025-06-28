@@ -39,6 +39,9 @@ class MCPOrchestrator {
       dependsOn: this.inferDependencies(call, toolCalls),
     }));
 
+    // Special handling for PR template generation
+    this.handlePRTemplateGeneration(steps, context);
+
     const plan: OrchestrationPlan = {
       steps,
       context,
@@ -47,6 +50,7 @@ class MCPOrchestrator {
     };
 
     this.activePlans.set(planId, plan);
+    console.log(`[MCPOrchestrator] Created plan with ${steps.length} steps`);
     return { planId, plan };
   }
 
@@ -128,8 +132,8 @@ class MCPOrchestrator {
       status: 'pending',
     };
 
-    console.log(`[MCPOrchestrator] Created smart plan with ${steps.length} steps`);
     this.activePlans.set(planId, plan);
+    console.log(`[MCPOrchestrator] Created smart plan with ${steps.length} steps`);
     return { planId, plan };
   }
 
@@ -142,7 +146,6 @@ class MCPOrchestrator {
       throw new Error(`Plan not found: ${planId}`);
     }
 
-    console.log(`[MCPOrchestrator] Executing plan ${planId} with ${plan.steps.length} steps`);
     plan.status = 'in-progress';
     const results: MCPExecutionResult[] = [];
 
@@ -208,7 +211,6 @@ class MCPOrchestrator {
             results.push(result);
             executedSteps.add(i);
             executedAnyStep = true;
-            
             console.log(`[MCPOrchestrator] Step ${i} execution ${result.success ? 'succeeded' : 'failed'}`);
             
             // Update context with result data if successful
@@ -265,6 +267,47 @@ class MCPOrchestrator {
   // Private helper methods
 
   /**
+   * Special handling for PR template generation
+   */
+  private handlePRTemplateGeneration(steps: OrchestrationStep[], context: MCPExecutionContext): void {
+    // Check if we have a PR template generation step
+    const prTemplateIndex = steps.findIndex(step => step.toolId === 'generate-pr-template');
+    if (prTemplateIndex === -1) return;
+    
+    const prTemplateStep = steps[prTemplateIndex];
+    
+    // Check if we're missing taskId but have title/description
+    if (!prTemplateStep.parameters.taskId && 
+        (prTemplateStep.parameters.title || prTemplateStep.parameters.description)) {
+      console.log(`[MCPOrchestrator] PR template step is missing taskId but has title/description`);
+      
+      // Add a task creation step before PR template generation
+      const taskCreationStep: OrchestrationStep = {
+        toolId: 'create-task',
+        parameters: {
+          title: prTemplateStep.parameters.title || 'New Task',
+          description: prTemplateStep.parameters.description || 'Task created for PR generation',
+          type: prTemplateStep.parameters.type || 'feature',
+          priority: prTemplateStep.parameters.priority || 'medium',
+          estimatedEffort: prTemplateStep.parameters.estimatedEffort || 8,
+          repositoryId: prTemplateStep.parameters.repositoryId,
+        },
+      };
+      
+      // Insert the task creation step before PR template generation
+      steps.splice(prTemplateIndex, 0, taskCreationStep);
+      
+      // Update dependencies for PR template step
+      if (!prTemplateStep.dependsOn) {
+        prTemplateStep.dependsOn = [];
+      }
+      prTemplateStep.dependsOn.push(`step_${prTemplateIndex}`);
+      
+      console.log(`[MCPOrchestrator] Added task creation step before PR template generation`);
+    }
+  }
+
+  /**
    * Infer dependencies between tool calls
    */
   private inferDependencies(
@@ -276,6 +319,20 @@ class MCPOrchestrator {
     // Get the tool schema
     const tool = mcpRegistry.getTool(call.toolId);
     if (!tool) return dependencies;
+    
+    // Special handling for PR template generation
+    if (call.toolId === 'generate-pr-template') {
+      // Look for task creation calls that should come before PR generation
+      for (let i = 0; i < allCalls.length; i++) {
+        const otherCall = allCalls[i];
+        if (otherCall.id === call.id) continue;
+        
+        if (otherCall.toolId === 'create-task') {
+          console.log(`[MCPOrchestrator] Adding dependency from PR template to task creation: ${otherCall.id}`);
+          dependencies.push(otherCall.id);
+        }
+      }
+    }
     
     // Check if this tool requires outputs from other tools
     const requiredParams = tool.parameters.required || [];

@@ -522,7 +522,23 @@ class ToolApi {
     for (const pattern of patterns) {
       const match = query.match(pattern);
       if (match && match[1]) {
-        return match[1].trim();
+        // Clean up the extracted title
+        let title = match[1].trim();
+        
+        // Remove repository references if they exist
+        const repoPatterns = [
+          /\s+(?:in|for|on|to)\s+(?:the\s+)?(?:repo|repository)\s+["']?([a-zA-Z0-9_-]+)["']?/i,
+          /\s+(?:in|for|on|to)\s+["']?([a-zA-Z0-9_-]+)["']?\s+(?:repo|repository)/i,
+        ];
+        
+        for (const repoPattern of repoPatterns) {
+          const repoMatch = title.match(repoPattern);
+          if (repoMatch) {
+            title = title.replace(repoMatch[0], '');
+          }
+        }
+        
+        return title.trim();
       }
     }
     
@@ -574,6 +590,7 @@ class ToolApi {
     
     // Try to find repository name in the query
     if (context.repositories?.length > 0) {
+      // First try exact matches
       for (const repo of context.repositories) {
         if (lowerQuery.includes(repo.name.toLowerCase())) {
           console.log(`[MCP] Found exact repository name match: ${repo.name}`);
@@ -581,17 +598,23 @@ class ToolApi {
         }
       }
       
-      // Try to match partial names
-      const words = lowerQuery.split(/\s+/);
-      for (const word of words) {
-        if (word.length > 3) { // Only consider words with more than 3 characters
-          const matchingRepo = context.repositories.find(repo => 
-            repo.name.toLowerCase().includes(word.toLowerCase())
-          );
+      // Then try partial matches with longer names first (to avoid matching substrings)
+      const sortedRepos = [...context.repositories].sort((a, b) => b.name.length - a.name.length);
+      for (const repo of sortedRepos) {
+        // Only consider repo names with at least 3 characters to avoid false matches
+        if (repo.name.length >= 3) {
+          const repoNameLower = repo.name.toLowerCase();
+          const words = lowerQuery.split(/\s+/);
           
-          if (matchingRepo) {
-            console.log(`[MCP] Found partial repository name match: ${matchingRepo.name} (from word: ${word})`);
-            return matchingRepo.name;
+          for (const word of words) {
+            if (word.length >= 3 && (
+              word === repoNameLower || 
+              word.includes(repoNameLower) || 
+              repoNameLower.includes(word)
+            )) {
+              console.log(`[MCP] Found partial repository name match: ${repo.name} (from word: ${word})`);
+              return repo.name;
+            }
           }
         }
       }
@@ -603,6 +626,8 @@ class ToolApi {
       /(?:repo|repository)\s+(?:named\s+)?["']?([a-zA-Z0-9_-]+)["']?/i,
       /["']?([a-zA-Z0-9_-]+)["']?\s+(?:repo|repository)/i,
       /(?:generate|create)\s+(?:a\s+)?pr\s+(?:for\s+)?(?:the\s+)?(?:repo|repository)?\s*["']?([a-zA-Z0-9_-]+)["']?/i,
+      /(?:in|for|on|to)\s+(?:the\s+)?(?:repo|repository)\s+["']?([a-zA-Z0-9_-]+)["']?/i,
+      /(?:in|for|on|to)\s+["']?([a-zA-Z0-9_-]+)["']?\s+(?:repo|repository)/i,
     ];
     
     for (const pattern of patterns) {
