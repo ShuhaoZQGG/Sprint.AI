@@ -180,42 +180,75 @@ export const AIOverlay: React.FC = () => {
       updateSuggestedTools(userQuery);
       
       // Execute suggested tools if confidence is high
-      const highConfidenceTools = suggestedTools.filter(tool => tool.confidence > 0.8);
+      const highConfidenceSuggestions = suggestedTools
+        .filter(tool => tool.confidence > 0.8)
+        .slice(0, 3); // Limit to top 3 high confidence tools
       
-      if (highConfidenceTools.length > 0) {
-        console.log('[AIOverlay] Executing high confidence tools:', highConfidenceTools.map(t => t.toolId));
-        // Execute suggested tools
-        const toolCalls: MCPToolCall[] = highConfidenceTools.map(tool => ({
-          id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          toolId: tool.toolId,
-          parameters: tool.parameters,
-          timestamp: new Date(),
-        }));
+      if (highConfidenceSuggestions.length > 0) {
+        console.log('[AIOverlay] Executing high confidence tools using callMultipleTools:', 
+          highConfidenceSuggestions.map(t => t.toolId));
         
-        const toolMessage = await mcpClient.executeToolsFromMessage(
-          conversationId,
-          toolCalls,
-          context
-        );
-        
-        setMcpMessages(prev => [...prev, toolMessage]);
-        
-        // Store tool results in context memory
-        if (toolMessage.toolResults) {
-          toolMessage.toolResults.forEach(result => {
-            contextMemory.storeToolResult(conversationId, result.toolCallId, result);
+        try {
+          // Use callMultipleTools to execute all high confidence tools in one go
+          const toolResults = await toolApi.callMultipleTools(
+            highConfidenceSuggestions,
+            context
+          );
+          
+          console.log('[AIOverlay] Multiple tool execution completed with results:', toolResults);
+          
+          // Create tool message
+          const toolCalls = highConfidenceSuggestions.map((suggestion, index) => ({
+            id: toolResults[index]?.toolCallId || `call_${Date.now()}_${index}`,
+            toolId: suggestion.toolId,
+            parameters: suggestion.parameters,
+            timestamp: new Date(),
+          }));
+          
+          const toolMessage = await mcpClient.processMessage(
+            conversationId,
+            '',
+            context,
+            toolCalls
+          );
+          
+          setMcpMessages(prev => [...prev, toolMessage]);
+          
+          // Store tool results in context memory
+          if (toolMessage.toolResults) {
+            toolMessage.toolResults.forEach(result => {
+              contextMemory.storeToolResult(conversationId, result.toolCallId, result);
+            });
+          }
+          
+          // Update tool execution history
+          if (toolMessage.toolCalls) {
+            setToolExecutionHistory(prev => [...prev, ...toolMessage.toolCalls]);
+          }
+          
+          // Add to recent actions
+          toolCalls.forEach(call => {
+            contextMemory.addRecentAction(conversationId, `Executed tool: ${call.toolId}`);
           });
+        } catch (error) {
+          console.error('[AIOverlay] Error in multiple tool execution:', error);
+          
+          // Fall back to orchestrator for more complex scenarios
+          const toolCalls: MCPToolCall[] = highConfidenceSuggestions.map(tool => ({
+            id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            toolId: tool.toolId,
+            parameters: tool.parameters || {},
+            timestamp: new Date(),
+          }));
+          
+          const toolMessage = await mcpClient.executeToolsFromMessage(
+            conversationId,
+            toolCalls,
+            context
+          );
+          
+          setMcpMessages(prev => [...prev, toolMessage]);
         }
-        
-        // Update tool execution history
-        if (toolMessage.toolCalls) {
-          setToolExecutionHistory(prev => [...prev, ...toolMessage.toolCalls]);
-        }
-        
-        // Add to recent actions
-        toolCalls.forEach(call => {
-          contextMemory.addRecentAction(conversationId, `Executed tool: ${call.toolId}`);
-        });
       }
       
       // Clear query after processing

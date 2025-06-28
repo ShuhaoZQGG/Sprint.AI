@@ -40,11 +40,131 @@ class MCPClient {
     // Process tool calls if provided
     if (toolCalls && toolCalls.length > 0) {
       console.log(`[MCPClient] Processing ${toolCalls.length} tool calls`);
-      const toolResults = [];
+      
+      // Use callMultipleTools for better orchestration
+      try {
+        console.log(`[MCPClient] Using callMultipleTools for ${toolCalls.length} tools`);
+        const toolResults = await toolApi.callMultipleTools(
+          toolCalls.map(call => ({
+            toolId: call.toolId,
+            parameters: call.parameters
+          })),
+          context
+        );
+        
+        console.log(`[MCPClient] callMultipleTools completed with ${toolResults.length} results`);
+        
+        // Add tool results to conversation
+        const toolMessage: MCPMessage = {
+          id: this.generateId(),
+          role: 'tool',
+          content: this.generateUserFriendlyResponse(toolResults, message),
+          toolCalls,
+          toolResults,
+          timestamp: new Date(),
+        };
+        
+        conversation.messages.push(toolMessage);
+        conversation.updatedAt = new Date();
+        
+        console.log(`[MCPClient] Added tool message to conversation`);
+        return toolMessage;
+      } catch (error) {
+        console.error(`[MCPClient] callMultipleTools failed, falling back to individual execution: ${error}`);
+        
+        // Fall back to individual tool execution
+        const toolResults: MCPToolResult[] = [];
+        for (const toolCall of toolCalls) {
+          try {
+            console.log(`[MCPClient] Executing individual tool: ${toolCall.toolId}`);
+            const result = await toolApi.callTool(
+              toolCall.toolId,
+              toolCall.parameters,
+              context
+            );
+            toolResults.push(result);
+          } catch (error) {
+            console.error(`[MCPClient] Individual tool execution failed: ${error}`);
+            toolResults.push({
+              id: this.generateId(),
+              toolCallId: toolCall.id,
+              success: false,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              timestamp: new Date(),
+            });
+          }
+        }
+        
+        // Add tool results to conversation
+        const toolMessage: MCPMessage = {
+          id: this.generateId(),
+          role: 'tool',
+          content: this.generateUserFriendlyResponse(toolResults, message),
+          toolCalls,
+          toolResults,
+          timestamp: new Date(),
+        };
+        
+        conversation.messages.push(toolMessage);
+        conversation.updatedAt = new Date();
+        
+        console.log(`[MCPClient] Added tool message to conversation`);
+        return toolMessage;
+      }
+    }
+
+    // Return the user message if no tool calls
+    conversation.updatedAt = new Date();
+    return userMessage;
+  }
+
+  async executeToolsFromMessage(
+    conversationId: string,
+    toolCalls: MCPToolCall[],
+    context: MCPExecutionContext
+  ): Promise<MCPMessage> {
+    console.log(`[MCPClient] Executing ${toolCalls.length} tools from message in conversation ${conversationId}`);
+    const conversation = this.getOrCreateConversation(conversationId, context);
+    
+    // Use callMultipleTools for better orchestration
+    try {
+      console.log(`[MCPClient] Using callMultipleTools for ${toolCalls.length} tools`);
+      const toolResults = await toolApi.callMultipleTools(
+        toolCalls.map(call => ({
+          toolId: call.toolId,
+          parameters: call.parameters
+        })),
+        context
+      );
+      
+      console.log(`[MCPClient] callMultipleTools completed with ${toolResults.length} results`);
+      
+      // Generate a user-friendly response based on the tool results
+      const responseContent = this.generateUserFriendlyResponse(toolResults);
+      
+      const toolMessage: MCPMessage = {
+        id: this.generateId(),
+        role: 'tool',
+        content: responseContent,
+        toolCalls,
+        toolResults,
+        timestamp: new Date(),
+      };
+      
+      conversation.messages.push(toolMessage);
+      conversation.updatedAt = new Date();
+      
+      console.log(`[MCPClient] Added tool message to conversation with content: "${responseContent.substring(0, 100)}..."`);
+      return toolMessage;
+    } catch (error) {
+      console.error(`[MCPClient] callMultipleTools failed, falling back to orchestration: ${error}`);
+      
+      // Fall back to orchestration
+      let toolResults: MCPToolResult[] = [];
       
       // Use orchestrator for multi-step tool execution
       try {
-        console.log(`[MCPClient] Creating orchestration plan for tool calls`);
+        console.log(`[MCPClient] Creating orchestration plan for tools`);
         const { planId } = await mcpOrchestrator.createPlan(toolCalls, context);
         console.log(`[MCPClient] Executing plan ${planId}`);
         const executionResults = await mcpOrchestrator.executePlan(planId);
@@ -91,11 +211,13 @@ class MCPClient {
         }
       }
 
-      // Add tool results to conversation
+      // Generate a user-friendly response based on the tool results
+      const responseContent = this.generateUserFriendlyResponse(toolResults);
+
       const toolMessage: MCPMessage = {
         id: this.generateId(),
         role: 'tool',
-        content: this.generateUserFriendlyResponse(toolResults, message),
+        content: responseContent,
         toolCalls,
         toolResults,
         timestamp: new Date(),
@@ -104,91 +226,9 @@ class MCPClient {
       conversation.messages.push(toolMessage);
       conversation.updatedAt = new Date();
       
-      console.log(`[MCPClient] Added tool message to conversation`);
+      console.log(`[MCPClient] Added tool message to conversation with content: "${responseContent.substring(0, 100)}..."`);
       return toolMessage;
     }
-
-    // Return the user message if no tool calls
-    conversation.updatedAt = new Date();
-    return userMessage;
-  }
-
-  async executeToolsFromMessage(
-    conversationId: string,
-    toolCalls: MCPToolCall[],
-    context: MCPExecutionContext
-  ): Promise<MCPMessage> {
-    console.log(`[MCPClient] Executing ${toolCalls.length} tools from message in conversation ${conversationId}`);
-    const conversation = this.getOrCreateConversation(conversationId, context);
-    
-    let toolResults: MCPToolResult[] = [];
-    
-    // Use orchestrator for multi-step tool execution
-    try {
-      console.log(`[MCPClient] Creating orchestration plan for tools`);
-      const { planId } = await mcpOrchestrator.createPlan(toolCalls, context);
-      console.log(`[MCPClient] Executing plan ${planId}`);
-      const executionResults = await mcpOrchestrator.executePlan(planId);
-      console.log(`[MCPClient] Plan execution completed with ${executionResults.length} results`);
-      
-      // Map execution results to tool results
-      for (let i = 0; i < toolCalls.length; i++) {
-        const result = executionResults[i] || {
-          success: false,
-          error: 'Tool execution failed',
-        };
-        
-        toolResults.push({
-          id: this.generateId(),
-          toolCallId: toolCalls[i].id,
-          success: result.success,
-          data: result.data,
-          error: result.error,
-          timestamp: new Date(),
-        });
-      }
-    } catch (error) {
-      console.error(`[MCPClient] Orchestration failed, falling back to individual tool execution: ${error}`);
-      // Fall back to individual tool execution if orchestration fails
-      for (const toolCall of toolCalls) {
-        try {
-          console.log(`[MCPClient] Executing individual tool: ${toolCall.toolId}`);
-          const result = await toolApi.callTool(
-            toolCall.toolId,
-            toolCall.parameters,
-            context
-          );
-          toolResults.push(result);
-        } catch (error) {
-          console.error(`[MCPClient] Individual tool execution failed: ${error}`);
-          toolResults.push({
-            id: this.generateId(),
-            toolCallId: toolCall.id,
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: new Date(),
-          });
-        }
-      }
-    }
-
-    // Generate a user-friendly response based on the tool results
-    const responseContent = this.generateUserFriendlyResponse(toolResults);
-
-    const toolMessage: MCPMessage = {
-      id: this.generateId(),
-      role: 'tool',
-      content: responseContent,
-      toolCalls,
-      toolResults,
-      timestamp: new Date(),
-    };
-    
-    conversation.messages.push(toolMessage);
-    conversation.updatedAt = new Date();
-    
-    console.log(`[MCPClient] Added tool message to conversation with content: "${responseContent.substring(0, 100)}..."`);
-    return toolMessage;
   }
 
   /**

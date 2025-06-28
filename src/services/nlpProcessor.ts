@@ -110,47 +110,31 @@ class NLPProcessor {
       // Execute suggested tools if available
       let toolResults: MCPToolResult[] = [];
       if (suggestedTools.length > 0) {
-        // Use orchestrator for intelligent tool execution
+        // Use callMultipleTools for better orchestration
         try {
-          // Create tool calls from suggestions
-          const toolCalls: MCPToolCall[] = suggestedTools
-            .filter(tool => tool.confidence > 0.7) // Only use high confidence suggestions
-            .map(tool => ({
-              id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              toolId: tool.toolId,
-              parameters: tool.parameters || {},
-              timestamp: new Date(),
-            }));
+          // Filter to high confidence suggestions
+          const highConfidenceSuggestions = suggestedTools
+            .filter(tool => tool.confidence > 0.7)
+            .slice(0, 3); // Limit to top 3 high confidence suggestions
           
-          if (toolCalls.length > 0) {
-            console.log(`[NLPProcessor] Creating orchestration plan for ${toolCalls.length} tools`);
-            // Create an orchestration plan
-            const { planId } = await mcpOrchestrator.createPlan(toolCalls, mcpContext);
+          if (highConfidenceSuggestions.length > 0) {
+            console.log(`[NLPProcessor] Executing ${highConfidenceSuggestions.length} high confidence tools using callMultipleTools`);
             
-            // Execute the plan
-            console.log(`[NLPProcessor] Executing plan ${planId}`);
-            const executionResults = await mcpOrchestrator.executePlan(planId);
-            console.log(`[NLPProcessor] Plan execution completed with ${executionResults.length} results`);
+            // Use callMultipleTools to execute all high confidence tools in one go
+            toolResults = await toolApi.callMultipleTools(
+              highConfidenceSuggestions,
+              mcpContext
+            );
             
-            // Map execution results to tool results
-            toolResults = toolCalls.map((call, index) => ({
-              id: `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              toolCallId: call.id,
-              success: executionResults[index]?.success || false,
-              data: executionResults[index]?.data,
-              error: executionResults[index]?.error,
-              timestamp: new Date(),
-            }));
+            console.log(`[NLPProcessor] Multiple tool execution completed with ${toolResults.length} results`);
             
             // Create tool message
-            const toolMessage = {
-              id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              role: 'tool' as const,
-              content: this.generateUserFriendlyResponse(query, toolResults),
-              toolCalls,
-              toolResults,
+            const toolCalls = highConfidenceSuggestions.map((suggestion, index) => ({
+              id: toolResults[index]?.toolCallId || `call_${Date.now()}_${index}`,
+              toolId: suggestion.toolId,
+              parameters: suggestion.parameters || {},
               timestamp: new Date(),
-            };
+            }));
             
             // Store in conversation
             await mcpClient.processMessage(
@@ -166,16 +150,74 @@ class NLPProcessor {
             });
           }
         } catch (error) {
-          console.error('Error in orchestrated tool execution:', error);
-          // Fall back to individual tool execution
-          for (const suggestion of suggestedTools.filter(s => s.confidence > 0.8).slice(0, 1)) {
-            console.log(`[NLPProcessor] Falling back to individual tool execution: ${suggestion.toolId}`);
-            const result = await toolApi.callTool(
-              suggestion.toolId,
-              suggestion.parameters,
-              mcpContext
-            );
-            toolResults.push(result);
+          console.error('Error in multiple tool execution:', error);
+          // Fall back to orchestrator for more complex scenarios
+          try {
+            // Create tool calls from suggestions
+            const toolCalls: MCPToolCall[] = suggestedTools
+              .filter(tool => tool.confidence > 0.7) // Only use high confidence suggestions
+              .map(tool => ({
+                id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                toolId: tool.toolId,
+                parameters: tool.parameters || {},
+                timestamp: new Date(),
+              }));
+            
+            if (toolCalls.length > 0) {
+              console.log(`[NLPProcessor] Creating orchestration plan for ${toolCalls.length} tools`);
+              // Create an orchestration plan
+              const { planId } = await mcpOrchestrator.createPlan(toolCalls, mcpContext);
+              
+              // Execute the plan
+              console.log(`[NLPProcessor] Executing plan ${planId}`);
+              const executionResults = await mcpOrchestrator.executePlan(planId);
+              console.log(`[NLPProcessor] Plan execution completed with ${executionResults.length} results`);
+              
+              // Map execution results to tool results
+              toolResults = toolCalls.map((call, index) => ({
+                id: `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                toolCallId: call.id,
+                success: executionResults[index]?.success || false,
+                data: executionResults[index]?.data,
+                error: executionResults[index]?.error,
+                timestamp: new Date(),
+              }));
+              
+              // Create tool message
+              const toolMessage = {
+                id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                role: 'tool' as const,
+                content: this.generateUserFriendlyResponse(query, toolResults),
+                toolCalls,
+                toolResults,
+                timestamp: new Date(),
+              };
+              
+              // Store in conversation
+              await mcpClient.processMessage(
+                conversationId,
+                '',
+                mcpContext,
+                toolCalls
+              );
+              
+              // Store tool results in context memory
+              toolResults.forEach(result => {
+                contextMemory.storeToolResult(conversationId, result.toolCallId, result);
+              });
+            }
+          } catch (error) {
+            console.error('Error in orchestrated tool execution:', error);
+            // Fall back to individual tool execution
+            for (const suggestion of suggestedTools.filter(s => s.confidence > 0.8).slice(0, 1)) {
+              console.log(`[NLPProcessor] Falling back to individual tool execution: ${suggestion.toolId}`);
+              const result = await toolApi.callTool(
+                suggestion.toolId,
+                suggestion.parameters,
+                mcpContext
+              );
+              toolResults.push(result);
+            }
           }
         }
       }
@@ -415,6 +457,24 @@ class NLPProcessor {
             response += repos.map((repo: any) => `"${repo.name}"`).join(', ');
           } else {
             response += "No repositories found.";
+          }
+          
+          if (result.data.message) {
+            response += ` ${result.data.message}`;
+          }
+        }
+      }
+      // Handle task listing
+      else if (toolResults.some(r => r.toolCallId.includes('list-tasks'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('list-tasks'));
+        if (result && result.data && result.data.tasks) {
+          const tasks = result.data.tasks;
+          response = `I found ${tasks.length} tasks: `;
+          
+          if (tasks.length > 0) {
+            response += tasks.map((task: any) => `"${task.title}"`).join(', ');
+          } else {
+            response += "No tasks found.";
           }
           
           if (result.data.message) {
