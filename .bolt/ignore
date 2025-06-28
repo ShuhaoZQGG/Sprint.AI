@@ -39,6 +39,8 @@ docs/
 
 # Ignore UI and layout components (non-core logic)
 src/components/auth
+src/components/business
+src/components/docs
 src/components/dashboard
 src/components/profile
 src/components/charts
