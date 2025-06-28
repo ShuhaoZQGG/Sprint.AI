@@ -26,9 +26,9 @@ export class CodebaseAnalyzer {
     try {
       const analysis = await githubService.analyzeRepository(owner, repo);
       
-      const modules = await this.extractModules(analysis.structure, owner, repo);
-      const services = this.identifyServices(analysis.structure, modules);
-      const dependencies = await this.extractDependencies(analysis.structure, owner, repo);
+      const modules = await this.extractModules([analysis.structure], owner, repo);
+      const services = this.identifyServices([analysis.structure], modules);
+      const dependencies = await this.extractDependencies([analysis.structure], owner, repo);
       const summary = this.generateSummary(analysis, modules, services);
 
       return {

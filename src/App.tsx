@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { AIOverlay } from './components/overlay/AIOverlay';
@@ -20,6 +20,54 @@ function App() {
   const { user, loading, error, clearError } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { ShortcutHelperModal } = useKeyboardShortcuts();
+
+  // GitHub OAuth callback handler (no react-router-dom)
+  // if (window.location.pathname === '/auth/github/callback') {
+  //   const [status, setStatus] = React.useState<'loading' | 'success' | 'error'>(
+  //     'loading'
+  //   );
+  //   const [error, setError] = React.useState<string | null>(null);
+  //   useEffect(() => {
+  //     const urlParams = new URLSearchParams(window.location.search);
+  //     const code = urlParams.get('code');
+  //     const state = urlParams.get('state'); // repoId
+  //     if (code && state) {
+  //       fetch('/api/github/oauth/callback', {
+  //         method: 'POST',
+  //         headers: { 'Content-Type': 'application/json' },
+  //         body: JSON.stringify({ code }),
+  //       })
+  //         .then((res) => res.json())
+  //         .then((data) => {
+  //           if (data.access_token) {
+  //             localStorage.setItem(`github_oauth_token_${state}`, data.access_token);
+  //             setStatus('success');
+  //             setTimeout(() => {
+  //               window.location.href = '/';
+  //             }, 1200);
+  //           } else {
+  //             setStatus('error');
+  //             setError(data.error || 'Failed to get access token');
+  //           }
+  //         })
+  //         .catch(() => {
+  //           setStatus('error');
+  //           setError('Failed to exchange code for token');
+  //         });
+  //     } else {
+  //       setStatus('error');
+  //       setError('Missing code or state in callback URL');
+  //     }
+  //   }, []);
+  //   return (
+  //     <div className="flex flex-col items-center justify-center min-h-screen">
+  //       <h2 className="text-lg font-semibold mb-4">Authorizing with GitHub...</h2>
+  //       {status === 'loading' && <div>Exchanging code for access token...</div>}
+  //       {status === 'success' && <div className="text-green-500">GitHub access granted! Redirecting...</div>}
+  //       {status === 'error' && <div className="text-red-500">{error}</div>}
+  //     </div>
+  //   );
+  // }
 
   // Show loading spinner while checking authentication
   if (loading) {

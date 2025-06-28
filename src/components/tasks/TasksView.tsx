@@ -224,7 +224,7 @@ export const TasksView: React.FC = () => {
       return;
     }
     try {
-      await prGenerator.generatePRTemplate({
+      const { template } = await prGenerator.generatePRTemplate({
         task: {
           ...task,
           id: (task as any).id || `temp-task`,
@@ -234,10 +234,15 @@ export const TasksView: React.FC = () => {
         repository: currentRepository,
         includeScaffolds: true,
       });
-      toast.success(`PR template generated for "${task.title}"`);
+      const { prUrl } = await prGenerator.submitPRToGitHub(template, currentRepository);
+      toast.success((
+        <span>
+          PR created for "{task.title}" <a href={prUrl} target="_blank" rel="noopener noreferrer" className="underline text-primary-400">View PR</a>
+        </span>
+      ));
     } catch (error) {
       console.error('Error generating PR:', error);
-      toast.error('Failed to generate PR template');
+      toast.error('Failed to generate PR template or submit PR');
     }
   };
 

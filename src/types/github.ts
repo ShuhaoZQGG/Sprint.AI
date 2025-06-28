@@ -70,7 +70,7 @@ export interface GitHubLanguages {
 
 export interface RepositoryAnalysis {
   repository: GitHubRepository;
-  structure: FileStructure;
+  structure: FileStructure[];
   contributors: GitHubContributor[];
   languages: GitHubLanguages;
   recentCommits: GitHubCommit[];

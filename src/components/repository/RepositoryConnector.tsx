@@ -20,6 +20,7 @@ import { codebaseAnalyzer } from '../../services/codebaseAnalyzer';
 import { GitHubRepository, RepositoryAnalysis } from '../../types/github';
 import { useRepositories } from '../../hooks/useRepositories';
 import toast from 'react-hot-toast';
+import { Modal as UIModal } from '../ui/Modal';
 
 interface RepositoryConnectorProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { addRepository, storeAnalysis, updateRepository } = useRepositories();
+  const { addRepository, storeAnalysis, updateRepository, repositories } = useRepositories();
   const [step, setStep] = useState<'input' | 'search' | 'analyze' | 'complete'>('input');
   const [repoUrl, setRepoUrl] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +40,13 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
   const [analysis, setAnalysis] = useState<RepositoryAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [githubTokenInput, setGithubTokenInput] = useState('');
+  const [githubTokenSaved, setGithubTokenSaved] = useState(!!localStorage.getItem('github_token'));
+  const [tokenRepoId, setTokenRepoId] = useState<string | null>(null);
+  const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID;
+  const GITHUB_OAUTH_REDIRECT_URI = import.meta.env.VITE_GITHUB_OAUTH_REDIRECT_URI || window.location.origin + '/auth/github/callback';
+  console.log('GITHUB_CLIENT_ID', GITHUB_CLIENT_ID);
 
   const handleUrlSubmit = async () => {
     if (!repoUrl.trim()) return;
@@ -135,6 +143,29 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
     setError(null);
     onClose();
   };
+
+  const handleOpenTokenModal = (repoId: string) => {
+    setTokenRepoId(repoId);
+    setShowTokenModal(true);
+    setGithubTokenInput('');
+  };
+
+  const handleSaveGithubToken = () => {
+    if (!tokenRepoId) return;
+    if (githubTokenInput.trim().length < 20) {
+      toast.error('Please enter a valid GitHub token');
+      return;
+    }
+    localStorage.setItem(`github_token_${tokenRepoId}`, githubTokenInput.trim());
+    setGithubTokenSaved(true);
+    setGithubTokenInput('');
+    setShowTokenModal(false);
+    toast.success('GitHub token saved!');
+  };
+
+  const isTokenSavedForRepo = (repoId: string) => !!localStorage.getItem(`github_token_${repoId}`);
+
+  const isOAuthTokenSavedForRepo = (repoId: string) => !!localStorage.getItem(`github_oauth_token_${repoId}`);
 
   const renderInputStep = () => (
     <div className="space-y-6">
@@ -382,7 +413,51 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
         <Button variant="ghost" onClick={() => setStep('input')}>
           Add Another
         </Button>
+        <Button
+          variant={githubTokenSaved ? 'secondary' : 'primary'}
+          onClick={() => setShowTokenModal(true)}
+        >
+          {githubTokenSaved ? 'Token Saved' : 'Get GitHub Access'}
+        </Button>
       </div>
+
+      {/* GitHub Token Modal */}
+      <UIModal isOpen={showTokenModal} onClose={() => setShowTokenModal(false)} title="GitHub Access Token">
+        <div className="space-y-4">
+          <div className="p-4 bg-primary-900/20 rounded-lg border border-primary-500">
+            <h4 className="text-sm font-medium text-primary-400 mb-2">GitHub Access Token</h4>
+            <p className="text-sm text-dark-300 mb-2">
+              Enter your GitHub Personal Access Token (PAT) to enable PR creation and repository integration.
+            </p>
+            <a
+              href="https://github.com/settings/tokens/new?scopes=repo,workflow"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-400 underline text-xs"
+            >
+              Create a new GitHub token
+            </a>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-dark-400 mb-1">GitHub Token</label>
+            <input
+              type="password"
+              value={githubTokenInput}
+              onChange={e => setGithubTokenInput(e.target.value)}
+              className="w-full px-3 py-2 rounded border border-dark-600 bg-dark-800 text-white"
+              placeholder="Paste your GitHub PAT here"
+            />
+            <div className="flex items-center space-x-2 mt-2">
+              <Button onClick={handleSaveGithubToken} disabled={githubTokenInput.length < 20}>
+                Save Token
+              </Button>
+            </div>
+          </div>
+          <div className="text-xs text-dark-400 mt-4">
+            Your token is stored locally in your browser and never sent to our servers.
+          </div>
+        </div>
+      </UIModal>
     </div>
   );
 
@@ -396,6 +471,48 @@ export const RepositoryConnector: React.FC<RepositoryConnectorProps> = ({
         >
           <X size={20} />
         </button>
+
+        {/* Connected Repositories Section */}
+        {repositories.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-white mb-4">Connected Repositories</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {repositories.map(repo => (
+                <Card key={repo.id}>
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-white">{repo.name}</h4>
+                      <p className="text-sm text-dark-400 mb-1">{repo.description}</p>
+                      <div className="text-xs text-dark-500">{repo.language}</div>
+                    </div>
+                    <Button
+                      variant={isOAuthTokenSavedForRepo(repo.id) ? 'secondary' : 'primary'}
+                      onClick={() => {
+                        if (!isOAuthTokenSavedForRepo(repo.id)) {
+                          // Store the repo ID before redirecting for GitHub OAuth
+                          localStorage.setItem('pending_github_app_repo_id', repo.id);
+                          // Redirect to GitHub OAuth (not installation URL)
+                          const state = repo.id;
+                          const url = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(GITHUB_OAUTH_REDIRECT_URI)}&state=${state}&scope=repo`;
+                          window.location.href = url;
+                        }
+                      }}
+                      disabled={isOAuthTokenSavedForRepo(repo.id)}
+                    >
+                      {isOAuthTokenSavedForRepo(repo.id) ? 'Connected' : 'Connect with GitHub'}
+                    </Button>
+                    {!isOAuthTokenSavedForRepo(repo.id) && (
+                      <div className="text-xs text-dark-400 mt-2 max-w-xs">
+                        <b>Note:</b> You must grant the <code>repo</code> scope and have write access to this repository to enable PR creation and branch management.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {step === 'input' && renderInputStep()}
         {step === 'search' && renderSearchStep()}
         {step === 'analyze' && renderAnalyzeStep()}

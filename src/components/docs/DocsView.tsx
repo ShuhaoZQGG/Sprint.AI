@@ -248,7 +248,7 @@ export const DocsView: React.FC = () => {
       const codebase = await codebaseAnalyzer.analyzeCodebase(parsed.owner, parsed.repo);
       const pushedAt = repo.lastUpdated instanceof Date ? repo.lastUpdated.toISOString() : String(repo.lastUpdated);
       // Build a minimal FileStructure root node with modules as children
-      const structure: FileStructure = {
+      const structure: FileStructure[] = [{
         name: repo.name,
         path: '',
         type: 'directory',
@@ -260,7 +260,7 @@ export const DocsView: React.FC = () => {
           language: repo.language,
           isImportant: true,
         })),
-      };
+      }];
       const lastActivity = repo.lastUpdated instanceof Date ? repo.lastUpdated.toISOString() : String(repo.lastUpdated);
       const repoAnalysis: RepositoryAnalysis = {
         repository: {
@@ -281,7 +281,7 @@ export const DocsView: React.FC = () => {
           size: 0,
           owner: { login: '', avatar_url: '', html_url: '' },
         },
-        structure,
+        structure: structure,
         contributors: [],
         languages: {},
         recentCommits: [],

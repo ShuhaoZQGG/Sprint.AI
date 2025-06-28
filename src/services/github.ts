@@ -8,6 +8,7 @@ import {
   RepositoryAnalysis,
   FileStructure
 } from '../types/github';
+import toast from 'react-hot-toast';
 
 class GitHubService {
   private octokit: Octokit;
@@ -31,7 +32,16 @@ class GitHubService {
         per_page: limit,
       });
 
-      return response.data.items;
+      return response.data.items
+        .filter(item => item.owner && item.owner.login && item.owner.avatar_url && item.owner.html_url)
+        .map(item => ({
+          ...item,
+          owner: {
+            login: item.owner!.login,
+            avatar_url: item.owner!.avatar_url,
+            html_url: item.owner!.html_url,
+          },
+        })) as GitHubRepository[];
     } catch (error) {
       console.error('Error searching repositories:', error);
       throw new Error('Failed to search repositories');
@@ -119,7 +129,17 @@ class GitHubService {
         per_page: limit,
       });
 
-      return response.data;
+      return response.data.map(commit => ({
+        ...commit,
+        commit: {
+          ...commit.commit,
+          author: commit.commit.author ? {
+            name: commit.commit.author.name || '',
+            email: commit.commit.author.email || '',
+            date: commit.commit.author.date || '',
+          } : { name: '', email: '', date: '' },
+        },
+      })) as GitHubCommit[];
     } catch (error) {
       console.error('Error fetching commits:', error);
       throw new Error('Failed to fetch repository commits');
@@ -151,7 +171,17 @@ class GitHubService {
         per_page: 100,
       });
 
-      return response.data;
+      return response.data.map(commit => ({
+        ...commit,
+        commit: {
+          ...commit.commit,
+          author: commit.commit.author ? {
+            name: commit.commit.author.name || '',
+            email: commit.commit.author.email || '',
+            date: commit.commit.author.date || '',
+          } : { name: '', email: '', date: '' },
+        },
+      })) as GitHubCommit[];
     } catch (error) {
       console.error('Error fetching commits with options:', error);
       throw new Error('Failed to fetch commits');
@@ -169,7 +199,12 @@ class GitHubService {
         per_page: 100,
       });
 
-      return response.data;
+      return response.data
+        .filter(contributor => typeof contributor.login === 'string')
+        .map(contributor => ({
+          ...contributor,
+          login: contributor.login || '',
+        })) as GitHubContributor[];
     } catch (error) {
       console.error('Error fetching contributors:', error);
       throw new Error('Failed to fetch repository contributors');
@@ -220,15 +255,32 @@ class GitHubService {
   }
 
   /**
+   * Helper to get the OAuth token for a repository (by repo id or url)
+   * Returns the token from localStorage if available, otherwise undefined.
+   */
+  getRepoOAuthToken(repoUrlOrId: string): string | undefined {
+    // Try by repo id
+    let token = localStorage.getItem(`github_oauth_token_${repoUrlOrId}`);
+    if (token) return token;
+    // Try by repo url
+    token = localStorage.getItem(`github_oauth_token_${btoa(repoUrlOrId)}`);
+    return token || undefined;
+  }
+
+  /**
    * Create a new branch
    */
   async createBranch(owner: string, repo: string, branchName: string, fromBranch: string = 'main'): Promise<void> {
     try {
+      // Get the OAuth token for this repo
+      const repoKey = `${owner}/${repo}`;
+      const token = this.getRepoOAuthToken(repoKey) || import.meta.env.VITE_GITHUB_TOKEN;
       // Get the SHA of the source branch
       const { data: refData } = await this.octokit.rest.git.getRef({
         owner,
         repo,
         ref: `heads/${fromBranch}`,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
       // Create new branch
@@ -237,8 +289,12 @@ class GitHubService {
         repo,
         ref: `refs/heads/${branchName}`,
         sha: refData.object.sha,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error.status === 403) {
+        toast.error('GitHub token does not have write access. Please re-authorize with the repo scope and ensure you have write access to this repository.');
+      }
       console.error('Error creating branch:', error);
       throw new Error('Failed to create branch');
     }
@@ -256,6 +312,8 @@ class GitHubService {
     base: string = 'main'
   ): Promise<{ prUrl: string; prNumber: number }> {
     try {
+      const repoKey = `${owner}/${repo}`;
+      const token = this.getRepoOAuthToken(repoKey) || import.meta.env.VITE_GITHUB_TOKEN;
       const response = await this.octokit.rest.pulls.create({
         owner,
         repo,
@@ -263,8 +321,8 @@ class GitHubService {
         body,
         head,
         base,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-
       return {
         prUrl: response.data.html_url,
         prNumber: response.data.number,
@@ -287,32 +345,32 @@ class GitHubService {
     branch?: string
   ): Promise<void> {
     try {
-      // Check if file exists
       let sha: string | undefined;
+      const repoKey = `${owner}/${repo}`;
+      const token = this.getRepoOAuthToken(repoKey) || import.meta.env.VITE_GITHUB_TOKEN;
       try {
         const { data: fileData } = await this.octokit.rest.repos.getContent({
           owner,
           repo,
           path,
           ref: branch,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
-        
         if (!Array.isArray(fileData) && fileData.type === 'file') {
           sha = fileData.sha;
         }
       } catch (error) {
         // File doesn't exist, that's okay
       }
-
-      // Create or update file
       await this.octokit.rest.repos.createOrUpdateFileContents({
         owner,
         repo,
         path,
         message,
-        content: btoa(content), // Base64 encode content
+        content: btoa(content),
         sha,
         branch,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
     } catch (error) {
       console.error('Error creating/updating file:', error);
@@ -346,12 +404,19 @@ class GitHubService {
         commitFrequency,
       };
 
+      let structureArr = Array.isArray(structure) ? structure : [structure];
+      const rootStructure: FileStructure = {
+        name: repository.name,
+        path: '',
+        type: 'directory',
+        children: structureArr,
+      };
       return {
         repository,
-        structure,
+        structure: [rootStructure],
         contributors,
         languages,
-        recentCommits: recentCommits.slice(0, 20), // Limit to recent 20
+        recentCommits: recentCommits.slice(0, 20),
         summary,
       };
     } catch (error) {
@@ -514,3 +579,41 @@ class GitHubService {
 }
 
 export const githubService = new GitHubService();
+
+/**
+ * Generate the GitHub App OAuth URL for user access token flow
+ */
+export function getGitHubAppOAuthUrl(clientId: string, redirectUri: string, state: string) {
+  return `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+}
+
+/**
+ * Exchange code for a GitHub App user access token (user-to-server)
+ * See: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app
+ * This should be called from your backend for security.
+ */
+export async function exchangeOAuthCodeForToken(
+  code: string,
+  clientId: string,
+  clientSecret: string,
+  redirectUri: string
+): Promise<string> {
+  const response = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      redirect_uri: redirectUri,
+    }),
+  });
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error_description || 'Failed to exchange code for token');
+  }
+  return data.access_token; // This is a user access token (starts with ghu_)
+}

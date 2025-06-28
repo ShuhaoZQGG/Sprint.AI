@@ -327,6 +327,7 @@ class PRGenerator {
 
         IMPORTANT: Only output a valid JSON object. Do NOT include any Markdown formatting, triple quotes, or extra text. The output must be a single JSON object matching this schema:
 
+        Format as JSON:
         {
           "path": "relative/file/path",
           "content": "file content with TODO comments",
@@ -631,6 +632,46 @@ class PRGenerator {
       console.error('GitHub PR creation error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Actually create a branch, commit files, and open a PR on GitHub using the generated PRTemplate.
+   * Returns the PR URL and branch URL.
+   */
+  async submitPRToGitHub(
+    template: PRTemplate,
+    repository: Repository,
+    targetBranch: string = 'main'
+  ): Promise<{ prUrl: string; branchUrl: string }> {
+    const parsed = githubService.parseRepositoryUrl(repository.url);
+    if (!parsed) throw new Error('Invalid repository URL');
+
+    // 1. Create branch (if it doesn't exist)
+    await githubService.createBranch(parsed.owner, parsed.repo, template.branchName, targetBranch);
+
+    // 2. Create or update files in the new branch
+    for (const file of template.fileScaffolds) {
+      await githubService.createOrUpdateFile(
+        parsed.owner,
+        parsed.repo,
+        file.path,
+        file.content,
+        `chore: scaffold ${file.path}`,
+        template.branchName
+      );
+    }
+
+    // 3. Create PR
+    const { prUrl, prNumber } = await githubService.createPullRequest(
+      parsed.owner,
+      parsed.repo,
+      template.title,
+      template.description,
+      template.branchName,
+      targetBranch
+    );
+
+    return { prUrl, branchUrl: `${repository.url}/tree/${template.branchName}` };
   }
 }
 
