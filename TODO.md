@@ -41,6 +41,29 @@
 - [ ] Update/add tests for MCP-only flows
 - [ ] Update documentation to reflect MCP-only architecture
 
+## 🧠 Enhance MCP Reasoning & Tool Orchestration
+
+### 8. Expand Tool Coverage and Intelligent Orchestration
+- [ ] Incorporate more tools from all service modules (`src/services/*`) into MCP tool registry (`src/mcp/server/registry.ts` and `src/mcp/server/index.ts`)
+- [ ] Update MCP tool schemas to cover all available actions (e.g., repository listing, task creation, etc.)
+- [ ] Refactor MCP server/client to support multi-step tool orchestration (e.g., if a required parameter is missing, call a tool to fetch or create it, then proceed)
+- [ ] Implement reasoning logic in MCP to:
+    - Detect missing parameters and resolve them by calling prerequisite tools (e.g., fetch repositories if repositoryId is missing)
+    - Chain tool calls (e.g., create a task before generating a PR template)
+    - Select the most relevant entity (e.g., repository or task) based on user input/context
+- [ ] Add robust error handling and fallback strategies for tool orchestration
+- [ ] Update tool documentation to reflect new orchestration capabilities
+- [ ] Add tests for multi-step tool orchestration, error recovery, and reasoning
+
+#### Main files to modify:
+- `src/mcp/server/index.ts` (tool orchestration, reasoning logic)
+- `src/mcp/server/registry.ts` (register more tools from all services)
+- `src/services/*` (ensure all service tools are exportable and have clear schemas)
+- `src/mcp/client/toolApi.ts`, `src/mcp/client/index.ts` (client-side orchestration support)
+- `src/types/mcp.ts` (update types for multi-step tool calls if needed)
+- (Optional) `src/mcp/server/orchestrator.ts` (new file for orchestration logic, if separation is desired)
+- (Optional) New/updated tests: `src/mcp/server/index.test.ts`, `src/mcp/server/orchestrator.test.ts`
+
 ## 🔍 Testing & Quality Assurance
 
 ### 17. Testing Infrastructure
