@@ -3,7 +3,6 @@ import { githubService } from './github';
 import { codebaseAnalyzer, CodebaseContext } from './codebaseAnalyzer';
 import { Task, Repository, PRTemplate, FileScaffold } from '../types';
 import { RepositoryAnalysis } from '../types/github';
-
 export interface PRGenerationRequest {
   task: Task;
   repository: Repository;
@@ -300,10 +299,6 @@ class PRGenerator {
     codebaseContext?: CodebaseContext
   ): Promise<FileScaffold | null> {
     try {
-      console.log('[PRGenerator] generateFileScaffoldWithAI called with task:', task);
-      console.log('[PRGenerator] generateFileScaffoldWithAI called with fileType:', fileType);
-      console.log('[PRGenerator] generateFileScaffoldWithAI called with repository:', repository);
-      console.log('[PRGenerator] generateFileScaffoldWithAI called with codebaseContext:', codebaseContext);
       const prompt = `
         Generate a file scaffold for the following task.
 
@@ -330,14 +325,25 @@ class PRGenerator {
         Format as JSON:
         {
           "path": "relative/file/path",
-          "content": "file content with TODO comments",
+          "content": "file content with TODO comments, as a single JSON string with newlines escaped as \\n. Do NOT use triple quotes or Markdown formatting.",
           "todos": ["TODO item 1", "TODO item 2"]
+        }
+        The content field must be a single JSON string, with newlines escaped as \\n. Do NOT use triple quotes or Markdown formatting. Do NOT use Python-style multi-line strings. Only use standard JSON string formatting.
+
+        Example:
+        {
+          "path": "src/components/MyComponent.tsx",
+          "content": "import React from \\"react\\";\\n\\n// TODO: Implement component\\nexport const MyComponent = () => {\\n  return <div>TODO</div>;\\n};",
+          "todos": ["Implement component", "Add tests"]
         }
       `;
 
       const response = await groqService.makeCompletion(prompt, 1024, {
         type: 'json_object',
       });
+
+      // save response to file
+      console.log('[PRGenerator] response:', response);
       const parsed = JSON.parse(response);
       
       return {

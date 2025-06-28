@@ -234,6 +234,7 @@ export const TasksView: React.FC = () => {
         repository: currentRepository,
         includeScaffolds: true,
       });
+      template.branchName = template.branchName + '-' + Math.random().toString(36).substring(2, 12);
       const { prUrl } = await prGenerator.submitPRToGitHub(template, currentRepository);
       toast.success((
         <span>
