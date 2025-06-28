@@ -64,8 +64,15 @@ class MCPOrchestrator {
       throw new Error(`Tool not found: ${primaryToolCall.toolId}`);
     }
 
+    // First, try to resolve parameters from context
+    const resolvedParams = await this.resolveParametersFromContext(
+      primaryToolCall.parameters,
+      primaryToolCall.toolId,
+      context
+    );
+
     const steps: OrchestrationStep[] = [];
-    const missingParams = this.identifyMissingParameters(primaryToolCall.parameters, tool.parameters);
+    const missingParams = this.identifyMissingParameters(resolvedParams, tool.parameters);
     
     // For each missing parameter, add a step to resolve it
     for (const param of missingParams) {
@@ -78,7 +85,7 @@ class MCPOrchestrator {
     // Add the primary tool call as the final step
     steps.push({
       toolId: primaryToolCall.toolId,
-      parameters: primaryToolCall.parameters,
+      parameters: resolvedParams,
       dependsOn: steps.map((_, index) => `step_${index}`),
     });
 
@@ -363,6 +370,66 @@ class MCPOrchestrator {
   }
 
   /**
+   * Resolve parameters from context before creating steps
+   */
+  private async resolveParametersFromContext(
+    parameters: Record<string, any>,
+    toolId: string,
+    context: MCPExecutionContext
+  ): Promise<Record<string, any>> {
+    const resolvedParams = { ...parameters };
+    
+    // Get the tool schema
+    const tool = mcpRegistry.getTool(toolId);
+    if (!tool) return resolvedParams;
+    
+    // Check for missing repository ID but with context
+    if (
+      ('repositoryId' in tool.parameters.properties) && 
+      !resolvedParams.repositoryId && 
+      context.currentRepository
+    ) {
+      resolvedParams.repositoryId = context.currentRepository.id;
+    }
+    
+    // Check for repository name in parameters that could be matched to a repository ID
+    if (
+      ('repositoryId' in tool.parameters.properties) && 
+      !resolvedParams.repositoryId && 
+      resolvedParams.repositoryName && 
+      context.repositories?.length > 0
+    ) {
+      const matchingRepo = context.repositories.find(repo => 
+        repo.name.toLowerCase() === resolvedParams.repositoryName.toLowerCase()
+      );
+      
+      if (matchingRepo) {
+        resolvedParams.repositoryId = matchingRepo.id;
+        delete resolvedParams.repositoryName; // Remove the name parameter as we've resolved the ID
+      }
+    }
+    
+    // Similar logic for other entity types
+    if (
+      ('taskId' in tool.parameters.properties) && 
+      !resolvedParams.taskId && 
+      resolvedParams.taskName && 
+      context.tasks?.length > 0
+    ) {
+      const matchingTask = context.tasks.find(task => 
+        task.title.toLowerCase().includes(resolvedParams.taskName.toLowerCase())
+      );
+      
+      if (matchingTask) {
+        resolvedParams.taskId = matchingTask.id;
+        delete resolvedParams.taskName;
+      }
+    }
+    
+    return resolvedParams;
+  }
+
+  /**
    * Resolve parameters using results from previous steps
    */
   private async resolveParametersFromPreviousSteps(
@@ -446,20 +513,20 @@ class MCPOrchestrator {
     
     // Update context based on tool type
     if (toolId === 'list-repositories' && resultData.repositories) {
-      updatedContext.repositories = [
-        ...(updatedContext.repositories || []),
-        ...resultData.repositories,
-      ];
+      updatedContext.repositories = this.mergeArraysById(
+        updatedContext.repositories || [],
+        resultData.repositories
+      );
     } else if (toolId === 'list-tasks' && resultData.tasks) {
-      updatedContext.tasks = [
-        ...(updatedContext.tasks || []),
-        ...resultData.tasks,
-      ];
+      updatedContext.tasks = this.mergeArraysById(
+        updatedContext.tasks || [],
+        resultData.tasks
+      );
     } else if (toolId === 'list-business-specs' && resultData.specs) {
-      updatedContext.businessSpecs = [
-        ...(updatedContext.businessSpecs || []),
-        ...resultData.specs,
-      ];
+      updatedContext.businessSpecs = this.mergeArraysById(
+        updatedContext.businessSpecs || [],
+        resultData.specs
+      );
     } else if (toolId === 'create-task' && resultData) {
       updatedContext.tasks = [
         resultData,
@@ -478,6 +545,26 @@ class MCPOrchestrator {
     }
     
     return updatedContext;
+  }
+
+  /**
+   * Merge arrays by ID to avoid duplicates
+   */
+  private mergeArraysById(existing: any[], newItems: any[]): any[] {
+    if (!existing || existing.length === 0) return newItems;
+    if (!newItems || newItems.length === 0) return existing;
+    
+    const merged = [...existing];
+    const existingIds = new Set(existing.map(item => item.id));
+    
+    for (const item of newItems) {
+      if (item.id && !existingIds.has(item.id)) {
+        merged.push(item);
+        existingIds.add(item.id);
+      }
+    }
+    
+    return merged;
   }
 }
 

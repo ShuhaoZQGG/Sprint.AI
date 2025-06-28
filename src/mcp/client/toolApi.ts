@@ -161,6 +161,64 @@ class ToolApi {
     const lowerQuery = query.toLowerCase();
     const suggestions = [];
 
+    // Repository analysis queries
+    if (lowerQuery.includes('analyze') && (lowerQuery.includes('repo') || lowerQuery.includes('code'))) {
+      // Try to find repository by name in the query
+      const repoName = this.extractRepositoryName(query, context);
+      
+      if (repoName && context.repositories?.length > 0) {
+        const matchingRepo = context.repositories.find(repo => 
+          repo.name.toLowerCase() === repoName.toLowerCase() ||
+          repo.name.toLowerCase().includes(repoName.toLowerCase())
+        );
+        
+        if (matchingRepo) {
+          suggestions.push({
+            toolId: 'analyze-codebase',
+            parameters: { 
+              repositoryId: matchingRepo.id,
+              analysisType: 'all'
+            },
+            confidence: 0.9,
+          });
+        } else {
+          // If no exact match, list repositories first
+          suggestions.push({
+            toolId: 'list-repositories',
+            parameters: { limit: 5 },
+            confidence: 0.8,
+          });
+        }
+      } else if (context.currentRepository) {
+        // Use current repository if available
+        suggestions.push({
+          toolId: 'analyze-codebase',
+          parameters: { 
+            repositoryId: context.currentRepository.id,
+            analysisType: 'all'
+          },
+          confidence: 0.85,
+        });
+      } else if (context.repositories?.length > 0) {
+        // Use first repository if no specific one mentioned
+        suggestions.push({
+          toolId: 'analyze-codebase',
+          parameters: { 
+            repositoryId: context.repositories[0].id,
+            analysisType: 'all'
+          },
+          confidence: 0.7,
+        });
+      } else {
+        // List repositories if none available
+        suggestions.push({
+          toolId: 'list-repositories',
+          parameters: { limit: 5 },
+          confidence: 0.8,
+        });
+      }
+    }
+
     // Task-related queries
     if (lowerQuery.includes('task') || lowerQuery.includes('create') || lowerQuery.includes('todo')) {
       if (lowerQuery.includes('from spec') && context.businessSpecs?.length > 0) {
@@ -191,7 +249,23 @@ class ToolApi {
 
     // Documentation queries
     if (lowerQuery.includes('doc') || lowerQuery.includes('documentation')) {
-      if (context.currentRepository) {
+      // Try to find repository by name in the query
+      const repoName = this.extractRepositoryName(query, context);
+      
+      if (repoName && context.repositories?.length > 0) {
+        const matchingRepo = context.repositories.find(repo => 
+          repo.name.toLowerCase() === repoName.toLowerCase() ||
+          repo.name.toLowerCase().includes(repoName.toLowerCase())
+        );
+        
+        if (matchingRepo) {
+          suggestions.push({
+            toolId: 'generate-documentation',
+            parameters: { repositoryId: matchingRepo.id },
+            confidence: 0.9,
+          });
+        }
+      } else if (context.currentRepository) {
         suggestions.push({
           toolId: 'generate-documentation',
           parameters: { repositoryId: context.currentRepository.id },
@@ -377,6 +451,52 @@ class ToolApi {
     if (lowerQuery.includes('in progress') || lowerQuery.includes('in-progress')) return 'in-progress';
     if (lowerQuery.includes('review')) return 'review';
     if (lowerQuery.includes('done') || lowerQuery.includes('completed')) return 'done';
+    
+    return null;
+  }
+
+  /**
+   * Extract repository name from query
+   */
+  private extractRepositoryName(query: string, context: MCPExecutionContext): string | null {
+    const lowerQuery = query.toLowerCase();
+    
+    // Try to find repository name in the query
+    if (context.repositories?.length > 0) {
+      for (const repo of context.repositories) {
+        if (lowerQuery.includes(repo.name.toLowerCase())) {
+          return repo.name;
+        }
+      }
+      
+      // Try to match partial names
+      const words = lowerQuery.split(/\s+/);
+      for (const word of words) {
+        if (word.length > 3) { // Only consider words with more than 3 characters
+          const matchingRepo = context.repositories.find(repo => 
+            repo.name.toLowerCase().includes(word.toLowerCase())
+          );
+          
+          if (matchingRepo) {
+            return matchingRepo.name;
+          }
+        }
+      }
+    }
+    
+    // Try to extract repository name using patterns
+    const patterns = [
+      /(?:analyze|check|review)\s+(?:the\s+)?(?:repo|repository)\s+(?:named\s+)?["']?([a-zA-Z0-9_-]+)["']?/i,
+      /(?:repo|repository)\s+(?:named\s+)?["']?([a-zA-Z0-9_-]+)["']?/i,
+      /["']?([a-zA-Z0-9_-]+)["']?\s+(?:repo|repository)/i,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = query.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
     
     return null;
   }
