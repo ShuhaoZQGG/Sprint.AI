@@ -32,10 +32,13 @@ import { quickActionService, QuickActionHandler, QuickActionResult } from '../..
 import { TaskReviewModal } from './TaskReviewModal';
 import { Task } from '../../types';
 import toast from 'react-hot-toast';
+import { Modal } from '../ui/Modal';
+import { useDocumentation } from '../../hooks/useDocumentation';
 
 export const AIOverlay: React.FC = () => {
   const { overlayOpen, setOverlayOpen } = useAppStore();
   const { repositories, currentRepository } = useRepositories();
+  const { documentation } = useDocumentation();
   const { businessSpecs } = useBusinessSpecs();
   const { developers } = useDevelopers();
   const { tasks } = useTasks();
@@ -48,6 +51,9 @@ export const AIOverlay: React.FC = () => {
   const [selectedSpecTitle, setSelectedSpecTitle] = useState('');
   const [executingAction, setExecutingAction] = useState<string | null>(null);
   const [actionResults, setActionResults] = useState<Map<string, QuickActionResult>>(new Map());
+  const [showSpecModal, setShowSpecModal] = useState(false);
+  const [specForm, setSpecForm] = useState({ title: '', description: '' });
+  const [pendingAction, setPendingAction] = useState<{ id: string, parameters: any } | null>(null);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -90,7 +96,8 @@ export const AIOverlay: React.FC = () => {
         repositories,
         developers,
         tasks,
-        currentRepository,
+        documentation,
+        currentRepository: currentRepository || undefined,
         businessSpecs,
       };
       
@@ -107,12 +114,17 @@ export const AIOverlay: React.FC = () => {
   };
 
   const handleQuickActionClick = async (actionId: string, parameters: any = {}) => {
+    if (actionId === 'create-business-spec' && (!parameters.title || !parameters.description)) {
+      setPendingAction({ id: actionId, parameters });
+      setShowSpecModal(true);
+      return;
+    }
     setExecutingAction(actionId);
     
     try {
       const context = {
         repositories,
-        currentRepository,
+        currentRepository: currentRepository || undefined,
         developers,
         tasks,
         businessSpecs,
@@ -238,7 +250,6 @@ export const AIOverlay: React.FC = () => {
             <form onSubmit={handleSubmit}>
               <div className="relative">
                 <Input
-                  ref={inputRef}
                   placeholder="Ask me anything about your project..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -284,49 +295,55 @@ export const AIOverlay: React.FC = () => {
                       {processedQuery.suggestedActions.map((action) => {
                         const isExecuting = executingAction === action.action;
                         const result = actionResults.get(action.action);
-                        
+                        console.log('[AIOverlay] result:', isExecuting, result);
                         return (
-                          <Card
-                            key={action.id}
-                            hover
-                            className={`cursor-pointer transition-all duration-200 ${
-                              result?.success ? 'border-success-500 bg-success-900/10' :
-                              result?.success === false ? 'border-error-500 bg-error-900/10' :
-                              'hover:border-primary-500'
-                            }`}
-                            onClick={() => !isExecuting && handleQuickActionClick(action.action, action.parameters)}
+                          <div
+                            onClick={() => {
+                              console.log('[AIOverlay] handleQuickActionClick called with action:', action);
+                              !isExecuting && handleQuickActionClick(action.action, action.parameters);
+                              setOverlayOpen(false);
+                            }}
                           >
-                            <CardContent className="p-3 flex items-center space-x-3">
-                              <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                                {isExecuting ? (
-                                  <LoadingSpinner size="sm" />
-                                ) : result?.success ? (
-                                  <CheckSquare size={16} className="text-success-400" />
-                                ) : result?.success === false ? (
-                                  <X size={16} className="text-error-400" />
-                                ) : action.action.includes('task') ? (
-                                  <CheckSquare size={16} className="text-primary-400" />
-                                ) : action.action.includes('doc') ? (
-                                  <FileText size={16} className="text-secondary-400" />
-                                ) : action.action.includes('pr') ? (
-                                  <GitBranch size={16} className="text-accent-400" />
-                                ) : action.action.includes('assign') ? (
-                                  <Users size={16} className="text-warning-400" />
-                                ) : (
-                                  <Lightbulb size={16} className="text-primary-400" />
+                            <Card
+                              hover
+                              className={`cursor-pointer transition-all duration-200 ${
+                                result?.success ? 'border-success-500 bg-success-900/10' :
+                                result?.success === false ? 'border-error-500 bg-error-900/10' :
+                                'hover:border-primary-500'
+                              }`}
+                            >
+                              <CardContent className="p-3 flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                                  {isExecuting ? (
+                                    <LoadingSpinner size="sm" />
+                                  ) : result?.success ? (
+                                    <CheckSquare size={16} className="text-success-400" />
+                                  ) : result?.success === false ? (
+                                    <X size={16} className="text-error-400" />
+                                  ) : action.action.includes('task') ? (
+                                    <CheckSquare size={16} className="text-primary-400" />
+                                  ) : action.action.includes('doc') ? (
+                                    <FileText size={16} className="text-secondary-400" />
+                                  ) : action.action.includes('pr') ? (
+                                    <GitBranch size={16} className="text-accent-400" />
+                                  ) : action.action.includes('assign') ? (
+                                    <Users size={16} className="text-warning-400" />
+                                  ) : (
+                                    <Lightbulb size={16} className="text-primary-400" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-white">{action.title}</h4>
+                                  <p className="text-xs text-dark-400">
+                                    {result?.message || action.description}
+                                  </p>
+                                </div>
+                                {!isExecuting && !result && (
+                                  <ArrowRight size={14} className="text-dark-400" />
                                 )}
-                              </div>
-                              <div className="flex-1">
-                                <h4 className="text-sm font-medium text-white">{action.title}</h4>
-                                <p className="text-xs text-dark-400">
-                                  {result?.message || action.description}
-                                </p>
-                              </div>
-                              {!isExecuting && !result && (
-                                <ArrowRight size={14} className="text-dark-400" />
-                              )}
-                            </CardContent>
-                          </Card>
+                              </CardContent>
+                            </Card>
+                          </div>
                         );
                       })}
                     </div>
@@ -372,39 +389,45 @@ export const AIOverlay: React.FC = () => {
                       const result = actionResults.get(handler.id);
                       
                       return (
-                        <Card 
-                          key={handler.id}
-                          hover 
-                          className={`cursor-pointer transition-all duration-200 ${
-                            result?.success ? 'border-success-500 bg-success-900/10' :
-                            result?.success === false ? 'border-error-500 bg-error-900/10' :
-                            'hover:border-primary-500'
-                          }`}
-                          onClick={() => !isExecuting && handleQuickActionClick(handler.id)}
+                        <div
+                          onClick={() => {
+                            console.log('[AIOverlay] handleQuickActionClick called with action:', handler);
+                            !isExecuting && handleQuickActionClick(handler.id);
+                            setOverlayOpen(false);
+                          }}
                         >
-                          <CardContent className="p-3 flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                              {isExecuting ? (
-                                <LoadingSpinner size="sm" />
-                              ) : result?.success ? (
-                                <CheckSquare size={16} className="text-success-400" />
-                              ) : result?.success === false ? (
-                                <X size={16} className="text-error-400" />
-                              ) : (
-                                getActionIcon(handler.category)
+                          <Card 
+                            hover 
+                            className={`cursor-pointer transition-all duration-200 ${
+                              result?.success ? 'border-success-500 bg-success-900/10' :
+                              result?.success === false ? 'border-error-500 bg-error-900/10' :
+                              'hover:border-primary-500'
+                            }`}
+                          >
+                            <CardContent className="p-3 flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                                {isExecuting ? (
+                                  <LoadingSpinner size="sm" />
+                                ) : result?.success ? (
+                                  <CheckSquare size={16} className="text-success-400" />
+                                ) : result?.success === false ? (
+                                  <X size={16} className="text-error-400" />
+                                ) : (
+                                  getActionIcon(handler.category)
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-sm font-medium text-white">{handler.title}</h4>
+                                <p className="text-xs text-dark-400">
+                                  {result?.message || handler.description}
+                                </p>
+                              </div>
+                              {!isExecuting && !result && (
+                                <Play size={14} className="text-dark-400" />
                               )}
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="text-sm font-medium text-white">{handler.title}</h4>
-                              <p className="text-xs text-dark-400">
-                                {result?.message || handler.description}
-                              </p>
-                            </div>
-                            {!isExecuting && !result && (
-                              <Play size={14} className="text-dark-400" />
-                            )}
-                          </CardContent>
-                        </Card>
+                            </CardContent>
+                          </Card>
+                        </div>
                       );
                     })}
                   </div>
@@ -423,21 +446,27 @@ export const AIOverlay: React.FC = () => {
                         </h4>
                         <div className="grid grid-cols-1 gap-1">
                           {categoryHandlers.slice(0, 3).map((handler) => (
-                            <Button
-                              key={handler.id}
-                              variant="ghost"
-                              size="sm"
-                              className="justify-start text-dark-300 hover:text-white"
-                              onClick={() => handleQuickActionClick(handler.id)}
-                              disabled={executingAction === handler.id}
+                            <div
+                              onClick={() => {
+                                console.log('[AIOverlay] handleQuickActionClick called with action:', handler);
+                                !executingAction && handleQuickActionClick(handler.id);
+                                setOverlayOpen(false);
+                              }}
                             >
-                              {executingAction === handler.id ? (
-                                <LoadingSpinner size="sm" className="mr-2" />
-                              ) : (
-                                getActionIcon(handler.category)
-                              )}
-                              <span className="ml-2 truncate">{handler.title}</span>
-                            </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="justify-start text-dark-300 hover:text-white"
+                                disabled={executingAction === handler.id}
+                              >
+                                {executingAction === handler.id ? (
+                                  <LoadingSpinner size="sm" className="mr-2" />
+                                ) : (
+                                  getActionIcon(handler.category)
+                                )}
+                                <span className="ml-2 truncate">{handler.title}</span>
+                              </Button>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -471,6 +500,46 @@ export const AIOverlay: React.FC = () => {
         businessSpecTitle={selectedSpecTitle}
         onTasksCreated={handleTasksCreated}
       />
+
+      {showSpecModal && (
+        <Modal isOpen={true} onClose={() => setShowSpecModal(false)} title="Create New Specification">
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              setShowSpecModal(false);
+              if (pendingAction) {
+                handleQuickActionClick(pendingAction.id, {
+                  ...pendingAction.parameters,
+                  ...specForm,
+                });
+                setPendingAction(null);
+                setSpecForm({ title: '', description: '' });
+              }
+            }}
+          >
+            <Input
+              label="Title"
+              value={specForm.title}
+              onChange={e => setSpecForm(f => ({ ...f, title: e.target.value }))}
+              required
+            />
+            <Input
+              label="Description"
+              value={specForm.description}
+              onChange={e => setSpecForm(f => ({ ...f, description: e.target.value }))}
+              required
+            />
+            <div className="flex justify-end mt-4">
+              <Button type="button" variant="ghost" onClick={() => setShowSpecModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="ml-2">
+                Create
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 };

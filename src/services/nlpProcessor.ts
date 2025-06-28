@@ -2,6 +2,7 @@ import { groqService } from './groq';
 import { useAppStore } from '../stores/useAppStore';
 import { Repository, Developer, Task, BusinessSpec } from '../types';
 import { RepositoryAnalysis } from '../types/github';
+import { GeneratedDocumentation } from './docGenerator';
 
 export interface QueryIntent {
   type: 'task_generation' | 'documentation' | 'team_assignment' | 'pr_generation' | 'analysis' | 'general';
@@ -20,6 +21,7 @@ export interface QueryContext {
   repositories: Repository[];
   developers: Developer[];
   tasks: Task[];
+  documentation: GeneratedDocumentation[];
   currentRepository?: Repository;
   businessSpecs: BusinessSpec[];
 }
@@ -402,7 +404,7 @@ class NLPProcessor {
 
     try {
       const contextPrompt = this.buildContextPrompt(query, intent, context);
-      const response = await groqService.makeCompletion(contextPrompt, 512);
+      const response = await groqService.makeCompletion(contextPrompt);
       return response;
     } catch (error) {
       console.error('AI response generation failed:', error);
@@ -415,12 +417,15 @@ class NLPProcessor {
    */
   private buildContextPrompt(query: string, intent: QueryIntent, context: QueryContext): string {
     const contextInfo = {
-      repositories: context.repositories.length,
-      developers: context.developers.length,
-      tasks: context.tasks.length,
-      currentRepo: context.currentRepository?.name || 'none',
-      businessSpecs: context.businessSpecs.length,
+      repositories: context.repositories,
+      developers: context.developers,
+      tasks: context.tasks,
+      currentRepo: context.currentRepository,
+      documentation: context.documentation,
+      businessSpecs: context.businessSpecs,
     };
+
+    console.log('[NLPProcessor] contextInfo:', contextInfo);
 
     return `
 You are an AI assistant for a development platform. A user asked: "${query}"
@@ -432,6 +437,7 @@ Context:
 - Active tasks: ${contextInfo.tasks}
 - Current repository: ${contextInfo.currentRepo}
 - Business specifications: ${contextInfo.businessSpecs}
+- Current documentation: ${contextInfo.documentation}
 
 Entities found: ${intent.entities.map(e => `${e.type}: ${e.value}`).join(', ') || 'none'}
 
