@@ -3,6 +3,9 @@ import { useAppStore } from '../stores/useAppStore';
 import { Repository, Developer, Task, BusinessSpec } from '../types';
 import { RepositoryAnalysis } from '../types/github';
 import { GeneratedDocumentation } from './docGenerator';
+import { mcpClient } from '../mcp/client';
+import { toolApi } from '../mcp/client/toolApi';
+import { contextMemory } from './contextMemory';
 
 export interface QueryIntent {
   type: 'task_generation' | 'documentation' | 'team_assignment' | 'pr_generation' | 'analysis' | 'general';
@@ -145,6 +148,130 @@ class NLPProcessor {
       console.error('NLP processing error:', error);
       return this.createFallbackResponse(query, context);
     }
+  }
+
+  /**
+   * Process query using MCP tools
+   */
+  async processQueryWithMCP(
+    query: string, 
+    context: QueryContext, 
+    conversationId: string
+  ): Promise<{
+    response: string;
+    toolCalls: any[];
+    followUpQuestions: string[];
+  }> {
+    try {
+      // Create MCP execution context
+      const mcpContext = {
+        userId: 'user-id', // This would come from auth
+        teamId: 'team-id', // This would come from auth
+        repositories: context.repositories,
+        currentRepository: context.currentRepository,
+        developers: context.developers,
+        tasks: context.tasks,
+        businessSpecs: context.businessSpecs,
+        timestamp: new Date(),
+      };
+
+      // Get conversation context from memory
+      const conversationContext = contextMemory.getConversationContext(conversationId);
+      
+      // Analyze query to determine intent
+      const intent = this.extractIntent(query, context);
+      const entities = this.extractEntities(query);
+      
+      // Suggest tools based on intent and entities
+      const suggestedTools = this.suggestToolsForIntent(intent, entities, context);
+      
+      // For now, we'll return a simple response with suggested tools
+      // In a real implementation, this would call the LLM to generate a response
+      // and determine which tools to call
+      
+      return {
+        response: `I understand you're asking about ${intent.type}. I can help with that.`,
+        toolCalls: suggestedTools.map(tool => ({
+          toolId: tool.id,
+          parameters: tool.parameters || {},
+        })),
+        followUpQuestions: this.generateFollowUpQuestions(intent, context),
+      };
+    } catch (error) {
+      console.error('MCP query processing error:', error);
+      return {
+        response: 'I encountered an error processing your request.',
+        toolCalls: [],
+        followUpQuestions: ['Could you try rephrasing your question?'],
+      };
+    }
+  }
+
+  /**
+   * Suggest tools based on intent and entities
+   */
+  private suggestToolsForIntent(
+    intent: QueryIntent,
+    entities: QueryEntity[],
+    context: QueryContext
+  ): Array<{ id: string; parameters: Record<string, any> }> {
+    const tools = [];
+
+    switch (intent.type) {
+      case 'task_generation':
+        if (context.businessSpecs.length > 0) {
+          tools.push({
+            id: 'generate-tasks-from-specs',
+            parameters: {},
+          });
+        } else {
+          tools.push({
+            id: 'create-business-spec',
+            parameters: {},
+          });
+        }
+        break;
+
+      case 'documentation':
+        if (context.currentRepository) {
+          tools.push({
+            id: 'generate-documentation',
+            parameters: { repositoryId: context.currentRepository.id },
+          });
+        }
+        break;
+
+      case 'team_assignment':
+        tools.push({
+          id: 'analyze-team-performance',
+          parameters: { timeframe: 'month', includeRecommendations: true },
+        });
+        break;
+
+      case 'pr_generation':
+        if (context.tasks.length > 0) {
+          const task = context.tasks[0];
+          tools.push({
+            id: 'generate-pr-template',
+            parameters: { 
+              taskId: task.id,
+              repositoryId: context.currentRepository?.id || '',
+            },
+          });
+        }
+        break;
+
+      case 'analysis':
+        if (context.currentRepository) {
+          tools.push({
+            id: 'analyze-codebase',
+            parameters: { repositoryId: context.currentRepository.id },
+          });
+        }
+        break;
+    }
+
+    return tools;
   }
 
   /**
@@ -417,15 +544,13 @@ class NLPProcessor {
    */
   private buildContextPrompt(query: string, intent: QueryIntent, context: QueryContext): string {
     const contextInfo = {
-      repositories: context.repositories,
-      developers: context.developers,
-      tasks: context.tasks,
-      currentRepo: context.currentRepository,
-      documentation: context.documentation,
-      businessSpecs: context.businessSpecs,
+      repositories: context.repositories.length,
+      developers: context.developers.length,
+      tasks: context.tasks.length,
+      currentRepo: context.currentRepository?.name || 'none',
+      documentation: context.documentation.length,
+      businessSpecs: context.businessSpecs.length,
     };
-
-    console.log('[NLPProcessor] contextInfo:', contextInfo);
 
     return `
 You are an AI assistant for a development platform. A user asked: "${query}"

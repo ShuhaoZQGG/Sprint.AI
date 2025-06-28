@@ -3,71 +3,126 @@
 ## MCP Server/Client & AI Overlay Tool-Calling
 
 ### 1. Design MCP Architecture
-- [ ] Create: src/mcp/server/index.ts
-- [ ] Create: src/mcp/server/services/*.ts
-- [ ] Create: src/mcp/client/index.ts
-- [ ] Create: src/types/mcp.ts
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Design the Model Context Protocol architecture for structured AI tool calling
+
+#### Subtasks:
+- [x] Create: src/mcp/server/index.ts
+- [x] Create: src/mcp/server/services/*.ts
+- [x] Create: src/mcp/client/index.ts
+- [x] Create: src/types/mcp.ts
 
 ### 2. Implement MCP Server
-- [ ] Create: src/mcp/server/registry.ts
-- [ ] Create: src/mcp/server/types.ts
-- [ ] Modify: src/mcp/server/index.ts
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Implement the MCP server with tool registry and execution
+
+#### Subtasks:
+- [x] Create: src/mcp/server/registry.ts
+- [x] Create: src/mcp/server/types.ts
+- [x] Modify: src/mcp/server/index.ts
 
 ### 3. Implement MCP Client
-- [ ] Create: src/mcp/client/toolApi.ts
-- [ ] Modify: src/mcp/client/index.ts
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Implement the MCP client for tool calling and conversation management
+
+#### Subtasks:
+- [x] Create: src/mcp/client/toolApi.ts
+- [x] Modify: src/mcp/client/index.ts
 
 ### 4. Integrate MCP Tool-Calling into AIOverlay
-- [ ] Modify: src/components/overlay/AIOverlay.tsx
-- [ ] Modify: src/services/quickActionHandler.ts
-- [ ] Modify: src/services/nlpProcessor.ts
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Enhance AIOverlay with MCP tool-calling capabilities
+
+#### Subtasks:
+- [x] Modify: src/components/overlay/AIOverlay.tsx
+- [x] Modify: src/services/quickActionHandler.ts
+- [x] Modify: src/services/nlpProcessor.ts
 
 ### 5. Implement Conversation Context Memory
-- [ ] Create: src/services/contextMemory.ts
-- [ ] Modify: src/components/overlay/AIOverlay.tsx
-- [ ] Modify: src/services/nlpProcessor.ts
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Description**: Add conversation memory for context-aware AI interactions
+
+#### Subtasks:
+- [x] Create: src/services/contextMemory.ts
+- [x] Modify: src/components/overlay/AIOverlay.tsx
+- [x] Modify: src/services/nlpProcessor.ts
 
 ### 6. Update Types and Documentation
-- [ ] Modify: src/types/index.ts
-- [ ] Modify: TODO.md
+**Status**: ✅ Completed  
+**Priority**: Low  
+**Description**: Update types and documentation for MCP integration
+
+#### Subtasks:
+- [x] Modify: src/types/index.ts
+- [x] Modify: TODO.md
 
 ### 7. Update .bolt/ignore
+**Status**: Not Started  
+**Priority**: Low  
+**Description**: Update .bolt/ignore to exclude unrelated files
+
+#### Subtasks:
 - [ ] Modify: .bolt/ignore (add all unrelated files)
 
 ## MCP Server Integration Plan
 
 ### 1. Services to Expose via MCP
-- [ ] Expose docGenerator (doc generation)
-- [ ] Expose codebaseAnalyzer (code analysis)
-- [ ] Expose prGenerator (PR/template generation)
-- [ ] Expose taskService (task CRUD)
-- [ ] Expose businessSpecService (spec CRUD)
-- [ ] Expose repositoryService (repo info/connect)
-- [ ] Expose developerService (developer info/assignment)
-- [ ] Expose sprintService (sprint management)
-- [ ] Expose sprintAutomation (sprint optimization)
-- [ ] Expose teamOptimizer (workload/team analysis)
-- [ ] Expose capacityPlanner (capacity analysis)
-- [ ] Expose commitAnalyzer (commit/PR analysis)
-- [ ] Expose documentationService (doc CRUD)
-- [ ] Optionally: Expose nlpProcessor (AI query)
-- [ ] Optionally: Expose groq (raw LLM)
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Expose core services through MCP for AI tool calling
+
+#### Subtasks:
+- [x] Expose docGenerator (doc generation)
+- [x] Expose codebaseAnalyzer (code analysis)
+- [x] Expose prGenerator (PR/template generation)
+- [x] Expose taskService (task CRUD)
+- [x] Expose businessSpecService (spec CRUD)
+- [x] Expose repositoryService (repo info/connect)
+- [x] Expose developerService (developer info/assignment)
+- [x] Expose sprintService (sprint management)
+- [x] Expose sprintAutomation (sprint optimization)
+- [x] Expose teamOptimizer (workload/team analysis)
+- [x] Expose capacityPlanner (capacity analysis)
+- [x] Expose commitAnalyzer (commit/PR analysis)
+- [x] Expose documentationService (doc CRUD)
+- [x] Expose nlpProcessor (AI query)
+- [x] Expose groq (raw LLM)
 
 ### 2. Adjustments for MCP
-- [ ] Refactor each service to export stateless, MCP-compatible functions
-- [ ] Add metadata (name, description, params, returns) for each tool
-- [ ] Wrap stateful/context-dependent logic to accept all context as arguments
-- [ ] Avoid singleton usage in MCP-exposed functions
-- [ ] Add/extend JSDoc or TypeScript types for tool schemas
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Description**: Refactor services for MCP compatibility
+
+#### Subtasks:
+- [x] Refactor each service to export stateless, MCP-compatible functions
+- [x] Add metadata (name, description, params, returns) for each tool
+- [x] Wrap stateful/context-dependent logic to accept all context as arguments
+- [x] Avoid singleton usage in MCP-exposed functions
+- [x] Add/extend JSDoc or TypeScript types for tool schemas
 
 ### 3. MCP Server Registry
-- [ ] Create src/mcp/server/registry.ts to register all tools/services
-- [ ] Register each tool with id, handler, description, parameters, returns
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Create registry for all MCP tools and services
+
+#### Subtasks:
+- [x] Create src/mcp/server/registry.ts to register all tools/services
+- [x] Register each tool with id, handler, description, parameters, returns
 
 ### 4. Backward Compatibility
-- [ ] Do not delete or break old service code
-- [ ] Export MCP-compatible functions in addition to legacy exports
-- [ ] Mark legacy exports as deprecated in comments if needed
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Description**: Maintain backward compatibility with existing code
+
+#### Subtasks:
+- [x] Do not delete or break old service code
+- [x] Export MCP-compatible functions in addition to legacy exports
+- [x] Mark legacy exports as deprecated in comments if needed
 
 ## 🔍 Testing & Quality Assurance
 
@@ -156,4 +211,4 @@
 18. **Production Readiness** - Launch preparation
 19. **Technical Debt** - Maintenance
 
-**Sprint.AI now features a fully functional AI Assistant with comprehensive quick actions integration! 🎉**
+**Sprint.AI now features a fully functional AI Assistant with comprehensive quick actions integration and advanced MCP tool-calling capabilities! 🎉**
