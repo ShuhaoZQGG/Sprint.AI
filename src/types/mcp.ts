@@ -78,3 +78,39 @@ export interface MCPServiceExport {
   returns: MCPTool['returns'];
   category: 'generation' | 'analysis' | 'automation' | 'management';
 }
+
+export interface MCPOrchestrationPlan {
+  id: string;
+  steps: MCPOrchestrationStep[];
+  context: Record<string, any>;
+  startedAt: Date;
+  completedAt?: Date;
+  status: 'pending' | 'in-progress' | 'completed' | 'failed';
+  error?: string;
+}
+
+export interface MCPOrchestrationStep {
+  id: string;
+  toolId: string;
+  parameters: Record<string, any>;
+  dependsOn?: string[];
+  result?: any;
+  status: 'pending' | 'in-progress' | 'completed' | 'failed';
+  error?: string;
+  startedAt?: Date;
+  completedAt?: Date;
+}
+
+export interface MCPParameterResolution {
+  parameterName: string;
+  value: any;
+  source: 'user' | 'context' | 'tool' | 'default';
+  confidence: number;
+}
+
+export interface MCPToolSuggestion {
+  toolId: string;
+  parameters: Record<string, any>;
+  confidence: number;
+  reasoning?: string;
+}

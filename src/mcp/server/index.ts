@@ -1,6 +1,7 @@
 import { MCPServerConfig, MCPToolCall, MCPToolResult } from '../../types/mcp';
 import { MCPExecutionContext, MCPExecutionResult } from './types';
 import { mcpRegistry } from './registry';
+import { mcpOrchestrator } from './orchestrator';
 
 class MCPServer {
   private config: MCPServerConfig;
@@ -42,6 +43,23 @@ class MCPServer {
 
       // Validate parameters
       this.validateParameters(tool.parameters, toolCall.parameters);
+
+      // Check for missing required parameters and try to resolve them
+      const missingParams = this.getMissingRequiredParameters(tool.parameters, toolCall.parameters);
+      if (missingParams.length > 0) {
+        // Try to resolve missing parameters using orchestrator
+        const { planId, plan } = await mcpOrchestrator.createSmartPlan(toolCall, context);
+        const results = await mcpOrchestrator.executePlan(planId);
+        
+        // If the plan failed, return the error
+        if (plan.status === 'failed') {
+          throw new Error(`Failed to resolve missing parameters: ${plan.error}`);
+        }
+        
+        // Get the final result (last step in the plan)
+        const finalResult = results[results.length - 1];
+        return finalResult;
+      }
 
       // Execute the tool
       const result = await tool.handler(toolCall.parameters, context);
@@ -90,18 +108,37 @@ class MCPServer {
     }
   }
 
+  private getMissingRequiredParameters(schema: any, parameters: Record<string, any>): string[] {
+    if (!schema.required) return [];
+    
+    return schema.required.filter(param => 
+      !(param in parameters) || parameters[param] === undefined
+    );
+  }
+
   async executeMultipleTools(
     toolCalls: MCPToolCall[],
     context: MCPExecutionContext
   ): Promise<MCPExecutionResult[]> {
-    const results: MCPExecutionResult[] = [];
+    // Create an orchestration plan
+    const { planId } = await mcpOrchestrator.createPlan(toolCalls, context);
     
-    for (const toolCall of toolCalls) {
-      const result = await this.executeTool(toolCall, context);
-      results.push(result);
-    }
+    // Execute the plan
+    return await mcpOrchestrator.executePlan(planId);
+  }
+
+  async executeToolWithDependencyResolution(
+    toolCall: MCPToolCall,
+    context: MCPExecutionContext
+  ): Promise<MCPExecutionResult> {
+    // Create a smart plan that resolves dependencies
+    const { planId } = await mcpOrchestrator.createSmartPlan(toolCall, context);
     
-    return results;
+    // Execute the plan
+    const results = await mcpOrchestrator.executePlan(planId);
+    
+    // Return the final result (the original tool call)
+    return results[results.length - 1];
   }
 
   getToolDocumentation(): string {

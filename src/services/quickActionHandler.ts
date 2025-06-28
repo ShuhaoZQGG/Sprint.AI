@@ -6,6 +6,7 @@ import { mcpClient } from '../mcp/client';
 import { toolApi } from '../mcp/client/toolApi';
 import { contextMemory } from './contextMemory';
 import { MCPExecutionContext } from '../mcp/server/types';
+import { mcpOrchestrator } from '../mcp/server/orchestrator';
 
 export interface QuickActionContext {
   repositories: Repository[];
@@ -226,7 +227,7 @@ class QuickActionService {
   }
 
   /**
-   * Execute action using MCP
+   * Execute action using MCP with orchestration
    */
   private async executeMCPAction(
     actionId: string,
@@ -246,8 +247,18 @@ class QuickActionService {
         timestamp: new Date(),
       };
 
-      // Call tool via MCP
-      const result = await toolApi.callTool(actionId, parameters, mcpContext);
+      // Create tool call
+      const toolCall = {
+        id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        toolId: actionId,
+        parameters,
+        timestamp: new Date(),
+      };
+
+      // Use orchestrator for intelligent parameter resolution
+      const { planId } = await mcpOrchestrator.createSmartPlan(toolCall, mcpContext);
+      const results = await mcpOrchestrator.executePlan(planId);
+      const result = results[results.length - 1];
 
       if (result.success) {
         toast.success(`Successfully executed ${actionId}`);

@@ -5,6 +5,7 @@ import { toolApi } from '../mcp/client/toolApi';
 import { contextMemory } from './contextMemory';
 import { MCPToolCall, MCPToolResult } from '../types/mcp';
 import { MCPExecutionContext } from '../mcp/server/types';
+import { mcpOrchestrator } from '../mcp/server/orchestrator';
 
 export interface QueryContext {
   repositories: Repository[];
@@ -98,32 +99,75 @@ class NLPProcessor {
         mcpContext
       );
 
-      // Suggest tools based on query
-      const suggestedTools = this.suggestToolsForQuery(query, context);
+      // Suggest tools based on query using the enhanced tool suggestion system
+      const suggestedTools = toolApi.suggestTools(query, mcpContext);
       
       // Execute suggested tools if available
       let toolResults: MCPToolResult[] = [];
       if (suggestedTools.length > 0) {
-        const toolCalls: MCPToolCall[] = suggestedTools.map(tool => ({
-          id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          toolId: tool.id,
-          parameters: tool.parameters || {},
-          timestamp: new Date(),
-        }));
-        
-        const toolMessage = await mcpClient.executeToolsFromMessage(
-          conversationId,
-          toolCalls,
-          mcpContext
-        );
-        
-        if (toolMessage.toolResults) {
-          toolResults = toolMessage.toolResults;
+        // Use orchestrator for intelligent tool execution
+        try {
+          // Create tool calls from suggestions
+          const toolCalls: MCPToolCall[] = suggestedTools
+            .filter(tool => tool.confidence > 0.7) // Only use high confidence suggestions
+            .map(tool => ({
+              id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              toolId: tool.toolId,
+              parameters: tool.parameters || {},
+              timestamp: new Date(),
+            }));
           
-          // Store tool results in context memory
-          toolResults.forEach(result => {
-            contextMemory.storeToolResult(conversationId, result.toolCallId, result);
-          });
+          if (toolCalls.length > 0) {
+            // Create an orchestration plan
+            const { planId } = await mcpOrchestrator.createPlan(toolCalls, mcpContext);
+            
+            // Execute the plan
+            const executionResults = await mcpOrchestrator.executePlan(planId);
+            
+            // Map execution results to tool results
+            toolResults = toolCalls.map((call, index) => ({
+              id: `result_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              toolCallId: call.id,
+              success: executionResults[index]?.success || false,
+              data: executionResults[index]?.data,
+              error: executionResults[index]?.error,
+              timestamp: new Date(),
+            }));
+            
+            // Create tool message
+            const toolMessage = {
+              id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              role: 'tool' as const,
+              content: 'Tool execution completed',
+              toolCalls,
+              toolResults,
+              timestamp: new Date(),
+            };
+            
+            // Store in conversation
+            await mcpClient.processMessage(
+              conversationId,
+              '',
+              mcpContext,
+              toolCalls
+            );
+            
+            // Store tool results in context memory
+            toolResults.forEach(result => {
+              contextMemory.storeToolResult(conversationId, result.toolCallId, result);
+            });
+          }
+        } catch (error) {
+          console.error('Error in orchestrated tool execution:', error);
+          // Fall back to individual tool execution
+          for (const suggestion of suggestedTools.filter(s => s.confidence > 0.8).slice(0, 1)) {
+            const result = await toolApi.callTool(
+              suggestion.toolId,
+              suggestion.parameters,
+              mcpContext
+            );
+            toolResults.push(result);
+          }
         }
       }
 
@@ -133,9 +177,9 @@ class NLPProcessor {
       // Convert tool suggestions to suggested actions
       const suggestedActions = suggestedTools.map(tool => ({
         id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        title: `Execute ${tool.id}`,
-        description: `Run the ${tool.id} tool with provided parameters`,
-        action: tool.id,
+        title: `Execute ${tool.toolId}`,
+        description: `Run the ${tool.toolId} tool with provided parameters`,
+        action: tool.toolId,
         parameters: tool.parameters || {},
       }));
 
@@ -158,155 +202,6 @@ class NLPProcessor {
   }
 
   /**
-   * Suggest tools based on query content
-   */
-  private suggestToolsForQuery(
-    query: string,
-    context: QueryContext
-  ): Array<{ id: string; parameters: Record<string, any> }> {
-    const lowerQuery = query.toLowerCase();
-    const tools = [];
-
-    // Task-related queries
-    if (lowerQuery.includes('task') || lowerQuery.includes('create') || lowerQuery.includes('todo')) {
-      if (lowerQuery.includes('from spec') && context.businessSpecs.length > 0) {
-        // Suggest generating tasks from business specs
-        const approvedSpecs = context.businessSpecs.filter(spec => spec.status === 'approved');
-        if (approvedSpecs.length > 0) {
-          tools.push({
-            id: 'generate-tasks-from-specs',
-            parameters: { specId: approvedSpecs[0].id },
-          });
-        }
-      } else {
-        // Suggest creating a new task
-        tools.push({
-          id: 'create-task',
-          parameters: {
-            title: 'New Task',
-            description: 'Task created from AI query',
-            type: 'feature',
-            priority: 'medium',
-            estimatedEffort: 8,
-          },
-        });
-      }
-    }
-
-    // Documentation queries
-    if (lowerQuery.includes('doc') || lowerQuery.includes('documentation')) {
-      if (context.currentRepository) {
-        tools.push({
-          id: 'generate-documentation',
-          parameters: { repositoryId: context.currentRepository.id },
-        });
-      }
-    }
-
-    // Analysis queries
-    if (lowerQuery.includes('analyze') || lowerQuery.includes('performance') || lowerQuery.includes('team')) {
-      tools.push({
-        id: 'analyze-team-performance',
-        parameters: { timeframe: 'month', includeRecommendations: true },
-      });
-    }
-
-    // Sprint queries
-    if (lowerQuery.includes('sprint') || lowerQuery.includes('capacity')) {
-      if (lowerQuery.includes('create') || lowerQuery.includes('new')) {
-        const startDate = new Date();
-        const endDate = new Date(startDate.getTime() + 14 * 24 * 60 * 60 * 1000);
-        
-        tools.push({
-          id: 'create-optimized-sprint',
-          parameters: {
-            name: 'AI Generated Sprint',
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            autoAssign: true,
-          },
-        });
-      } else {
-        tools.push({
-          id: 'analyze-sprint-capacity',
-          parameters: { duration: 14, bufferPercentage: 20 },
-        });
-      }
-    }
-
-    // PR queries
-    if (lowerQuery.includes('pr') || lowerQuery.includes('pull request')) {
-      if (context.tasks.length > 0) {
-        const unassignedTasks = context.tasks.filter(task => task.status === 'todo');
-        if (unassignedTasks.length > 0 && context.currentRepository) {
-          tools.push({
-            id: 'generate-pr-template',
-            parameters: {
-              taskId: unassignedTasks[0].id,
-              repositoryId: context.currentRepository.id,
-              includeScaffolds: true,
-            },
-          });
-        }
-      }
-    }
-
-    // Repository listing
-    if (lowerQuery.includes('list') && lowerQuery.includes('repo')) {
-      tools.push({
-        id: 'list-repositories',
-        parameters: { limit: 5 },
-      });
-    }
-
-    // Task listing
-    if (lowerQuery.includes('list') && lowerQuery.includes('task')) {
-      tools.push({
-        id: 'list-tasks',
-        parameters: { limit: 5 },
-      });
-    }
-
-    // Business spec listing
-    if (lowerQuery.includes('list') && lowerQuery.includes('spec')) {
-      tools.push({
-        id: 'list-business-specs',
-        parameters: { limit: 5 },
-      });
-    }
-
-    return tools;
-  }
-
-  /**
-   * Generate response from tool results
-   */
-  private generateResponseFromToolResults(
-    query: string,
-    toolResults: MCPToolResult[]
-  ): string {
-    // If no tool results, generate a generic response
-    if (toolResults.length === 0) {
-      return "I'm here to help with your development workflow! I can generate tasks, update documentation, assign team members, create PR templates, and provide project insights. What would you like to work on?";
-    }
-
-    // Check if all tools succeeded
-    const allSucceeded = toolResults.every(result => result.success);
-    
-    if (allSucceeded) {
-      // Generate response based on successful tool executions
-      const toolTypes = toolResults.map(result => result.toolCallId.split('_')[0]).join(', ');
-      return `I've successfully processed your request using ${toolTypes}. You can review the results and take further actions based on the suggestions.`;
-    } else {
-      // Generate response for failed tool executions
-      const failedResults = toolResults.filter(result => !result.success);
-      const errorMessages = failedResults.map(result => result.error).join(', ');
-      
-      return `I encountered some issues while processing your request: ${errorMessages}. Please try again or modify your request.`;
-    }
-  }
-
-  /**
    * Generate tasks from business specification using MCP
    */
   async generateTasksFromBusinessSpec(request: TaskGenerationRequest): Promise<TaskGenerationResponse> {
@@ -321,11 +216,21 @@ class NLPProcessor {
         timestamp: new Date(),
       };
 
-      const result = await toolApi.callTool(
-        'generate-tasks-from-specs',
-        { specId: request.businessSpec.id },
-        mcpContext
-      );
+      // Use orchestrator for more robust execution
+      const toolCall: MCPToolCall = {
+        id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        toolId: 'generate-tasks-from-specs',
+        parameters: { 
+          specId: request.businessSpec.id,
+          includeReasoning: true,
+          teamSkills: request.teamSkills,
+        },
+        timestamp: new Date(),
+      };
+
+      const { planId } = await mcpOrchestrator.createSmartPlan(toolCall, mcpContext);
+      const results = await mcpOrchestrator.executePlan(planId);
+      const result = results[results.length - 1];
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate tasks');
@@ -365,15 +270,22 @@ class NLPProcessor {
         timestamp: new Date(),
       };
 
-      const result = await toolApi.callTool(
-        'analyze-documentation-changes',
-        {
+      const toolCall: MCPToolCall = {
+        id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        toolId: 'analyze-documentation-changes',
+        parameters: {
           oldContent,
           newContent,
           sectionTitle,
+          generateSpec: true,
         },
-        mcpContext
-      );
+        timestamp: new Date(),
+      };
+
+      // Use orchestrator for more robust execution
+      const { planId } = await mcpOrchestrator.createSmartPlan(toolCall, mcpContext);
+      const results = await mcpOrchestrator.executePlan(planId);
+      const result = results[results.length - 1];
 
       if (!result.success) {
         return {
@@ -393,6 +305,34 @@ class NLPProcessor {
         hasSignificantChanges: false,
         changeAnalysis: 'Error analyzing changes',
       };
+    }
+  }
+
+  /**
+   * Generate response from tool results
+   */
+  private generateResponseFromToolResults(
+    query: string,
+    toolResults: MCPToolResult[]
+  ): string {
+    // If no tool results, generate a generic response
+    if (toolResults.length === 0) {
+      return "I'm here to help with your development workflow! I can generate tasks, update documentation, assign team members, create PR templates, and provide project insights. What would you like to work on?";
+    }
+
+    // Check if all tools succeeded
+    const allSucceeded = toolResults.every(result => result.success);
+    
+    if (allSucceeded) {
+      // Generate response based on successful tool executions
+      const toolTypes = toolResults.map(result => result.toolCallId.split('_')[0]).join(', ');
+      return `I've successfully processed your request using ${toolTypes}. You can review the results and take further actions based on the suggestions.`;
+    } else {
+      // Generate response for failed tool executions
+      const failedResults = toolResults.filter(result => !result.success);
+      const errorMessages = failedResults.map(result => result.error).join(', ');
+      
+      return `I encountered some issues while processing your request: ${errorMessages}. Please try again or modify your request.`;
     }
   }
 

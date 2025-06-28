@@ -1,6 +1,7 @@
-import { MCPClientConfig, MCPConversation, MCPMessage, MCPToolCall } from '../../types/mcp';
+import { MCPClientConfig, MCPConversation, MCPMessage, MCPToolCall, MCPToolResult } from '../../types/mcp';
 import { MCPExecutionContext } from '../server/types';
 import { toolApi } from './toolApi';
+import { mcpOrchestrator } from '../server/orchestrator';
 
 class MCPClient {
   private config: MCPClientConfig;
@@ -39,13 +40,47 @@ class MCPClient {
     if (toolCalls && toolCalls.length > 0) {
       const toolResults = [];
       
-      for (const toolCall of toolCalls) {
-        const result = await toolApi.callTool(
-          toolCall.toolId,
-          toolCall.parameters,
-          context
-        );
-        toolResults.push(result);
+      // Use orchestrator for multi-step tool execution
+      try {
+        const { planId } = await mcpOrchestrator.createPlan(toolCalls, context);
+        const executionResults = await mcpOrchestrator.executePlan(planId);
+        
+        // Map execution results to tool results
+        for (let i = 0; i < toolCalls.length; i++) {
+          const result = executionResults[i] || {
+            success: false,
+            error: 'Tool execution failed',
+          };
+          
+          toolResults.push({
+            id: this.generateId(),
+            toolCallId: toolCalls[i].id,
+            success: result.success,
+            data: result.data,
+            error: result.error,
+            timestamp: new Date(),
+          });
+        }
+      } catch (error) {
+        // Fall back to individual tool execution if orchestration fails
+        for (const toolCall of toolCalls) {
+          try {
+            const result = await toolApi.callTool(
+              toolCall.toolId,
+              toolCall.parameters,
+              context
+            );
+            toolResults.push(result);
+          } catch (error) {
+            toolResults.push({
+              id: this.generateId(),
+              toolCallId: toolCall.id,
+              success: false,
+              error: error instanceof Error ? error.message : 'Unknown error',
+              timestamp: new Date(),
+            });
+          }
+        }
       }
 
       // Add tool results to conversation
@@ -76,15 +111,49 @@ class MCPClient {
   ): Promise<MCPMessage> {
     const conversation = this.getOrCreateConversation(conversationId, context);
     
-    const toolResults = [];
+    let toolResults: MCPToolResult[] = [];
     
-    for (const toolCall of toolCalls) {
-      const result = await toolApi.callTool(
-        toolCall.toolId,
-        toolCall.parameters,
-        context
-      );
-      toolResults.push(result);
+    // Use orchestrator for multi-step tool execution
+    try {
+      const { planId } = await mcpOrchestrator.createPlan(toolCalls, context);
+      const executionResults = await mcpOrchestrator.executePlan(planId);
+      
+      // Map execution results to tool results
+      for (let i = 0; i < toolCalls.length; i++) {
+        const result = executionResults[i] || {
+          success: false,
+          error: 'Tool execution failed',
+        };
+        
+        toolResults.push({
+          id: this.generateId(),
+          toolCallId: toolCalls[i].id,
+          success: result.success,
+          data: result.data,
+          error: result.error,
+          timestamp: new Date(),
+        });
+      }
+    } catch (error) {
+      // Fall back to individual tool execution if orchestration fails
+      for (const toolCall of toolCalls) {
+        try {
+          const result = await toolApi.callTool(
+            toolCall.toolId,
+            toolCall.parameters,
+            context
+          );
+          toolResults.push(result);
+        } catch (error) {
+          toolResults.push({
+            id: this.generateId(),
+            toolCallId: toolCall.id,
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: new Date(),
+          });
+        }
+      }
     }
 
     const toolMessage: MCPMessage = {
@@ -93,6 +162,65 @@ class MCPClient {
       content: `Executed ${toolCalls.length} tool(s)`,
       toolCalls,
       toolResults,
+      timestamp: new Date(),
+    };
+    
+    conversation.messages.push(toolMessage);
+    conversation.updatedAt = new Date();
+    
+    return toolMessage;
+  }
+
+  /**
+   * Execute a single tool with automatic parameter resolution
+   */
+  async executeSmartTool(
+    conversationId: string,
+    toolId: string,
+    parameters: Record<string, any>,
+    context: MCPExecutionContext
+  ): Promise<MCPMessage> {
+    const conversation = this.getOrCreateConversation(conversationId, context);
+    
+    const toolCall: MCPToolCall = {
+      id: this.generateId(),
+      toolId,
+      parameters,
+      timestamp: new Date(),
+    };
+    
+    let toolResult: MCPToolResult;
+    
+    try {
+      // Use orchestrator for smart parameter resolution
+      const result = await mcpOrchestrator.createSmartPlan(toolCall, context)
+        .then(({ planId }) => mcpOrchestrator.executePlan(planId))
+        .then(results => results[results.length - 1]);
+      
+      toolResult = {
+        id: this.generateId(),
+        toolCallId: toolCall.id,
+        success: result.success,
+        data: result.data,
+        error: result.error,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      toolResult = {
+        id: this.generateId(),
+        toolCallId: toolCall.id,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date(),
+      };
+    }
+    
+    const toolMessage: MCPMessage = {
+      id: this.generateId(),
+      role: 'tool',
+      content: `Executed tool: ${toolId}`,
+      toolCalls: [toolCall],
+      toolResults: [toolResult],
       timestamp: new Date(),
     };
     

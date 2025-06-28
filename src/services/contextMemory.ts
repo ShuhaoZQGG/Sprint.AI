@@ -130,7 +130,31 @@ class ContextMemoryService {
     updates: Partial<ConversationContext>
   ): void {
     const context = this.getConversationContext(conversationId);
-    Object.assign(context, updates);
+    
+    // Deep merge arrays to avoid duplicates
+    if (updates.repositories) {
+      context.repositories = this.mergeArraysById(context.repositories, updates.repositories);
+    }
+    
+    if (updates.developers) {
+      context.developers = this.mergeArraysById(context.developers, updates.developers);
+    }
+    
+    if (updates.tasks) {
+      context.tasks = this.mergeArraysById(context.tasks, updates.tasks);
+    }
+    
+    if (updates.businessSpecs) {
+      context.businessSpecs = this.mergeArraysById(context.businessSpecs, updates.businessSpecs);
+    }
+    
+    // Simple updates
+    if (updates.userId) context.userId = updates.userId;
+    if (updates.teamId) context.teamId = updates.teamId;
+    if (updates.currentRepository) context.currentRepository = updates.currentRepository;
+    if (updates.recentActions) context.recentActions = updates.recentActions;
+    if (updates.preferences) context.preferences = { ...context.preferences, ...updates.preferences };
+    
     this.conversationContexts.set(conversationId, context);
   }
 
@@ -163,6 +187,39 @@ class ContextMemoryService {
       tags: ['tool_result', `tool:${toolId}`, `conversation:${conversationId}`],
       ttl: 60 * 60 * 1000, // 1 hour
     });
+    
+    // Update conversation context with result data if applicable
+    this.updateContextWithToolResult(conversationId, toolId, result);
+  }
+
+  /**
+   * Update conversation context with tool result data
+   */
+  private updateContextWithToolResult(
+    conversationId: string,
+    toolId: string,
+    result: MCPToolResult
+  ): void {
+    if (!result.success || !result.data) return;
+    
+    const context = this.getConversationContext(conversationId);
+    
+    // Update context based on tool type and result data
+    if (toolId.includes('list-repositories') && result.data.repositories) {
+      context.repositories = this.mergeArraysById(context.repositories, result.data.repositories);
+    } else if (toolId.includes('list-tasks') && result.data.tasks) {
+      context.tasks = this.mergeArraysById(context.tasks, result.data.tasks);
+    } else if (toolId.includes('list-business-specs') && result.data.specs) {
+      context.businessSpecs = this.mergeArraysById(context.businessSpecs, result.data.specs);
+    } else if (toolId.includes('create-task') && result.data) {
+      context.tasks = [result.data, ...context.tasks];
+    } else if (toolId.includes('create-business-spec') && result.data) {
+      context.businessSpecs = [result.data, ...context.businessSpecs];
+    } else if (toolId.includes('connect-repository') && result.data.repository) {
+      context.repositories = [result.data.repository, ...context.repositories];
+    }
+    
+    this.conversationContexts.set(conversationId, context);
   }
 
   /**
@@ -325,6 +382,26 @@ class ContextMemoryService {
       conversationCount: this.conversationContexts.size,
       memoryUsage: `${this.memory.size}/${this.maxMemorySize}`,
     };
+  }
+
+  /**
+   * Merge arrays by ID to avoid duplicates
+   */
+  private mergeArraysById(existing: any[], newItems: any[]): any[] {
+    if (!existing || existing.length === 0) return newItems;
+    if (!newItems || newItems.length === 0) return existing;
+    
+    const merged = [...existing];
+    const existingIds = new Set(existing.map(item => item.id));
+    
+    for (const item of newItems) {
+      if (item.id && !existingIds.has(item.id)) {
+        merged.push(item);
+        existingIds.add(item.id);
+      }
+    }
+    
+    return merged;
   }
 }
 

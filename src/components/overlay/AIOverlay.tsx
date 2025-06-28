@@ -68,6 +68,7 @@ export const AIOverlay: React.FC = () => {
   const [mcpMessages, setMcpMessages] = useState<MCPMessage[]>([]);
   const [availableTools, setAvailableTools] = useState<any[]>([]);
   const [toolExecutionHistory, setToolExecutionHistory] = useState<any[]>([]);
+  const [suggestedTools, setSuggestedTools] = useState<Array<{ toolId: string; parameters: Record<string, any>; confidence: number }>>([]);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -88,8 +89,13 @@ export const AIOverlay: React.FC = () => {
       // Load available tools
       const tools = toolApi.getAvailableTools();
       setAvailableTools(tools);
+
+      // Generate suggested tools based on context
+      if (query) {
+        updateSuggestedTools(query);
+      }
     }
-  }, [overlayOpen, conversationId, user, repositories, currentRepository, developers, tasks, businessSpecs]);
+  }, [overlayOpen, conversationId, user, repositories, currentRepository, developers, tasks, businessSpecs, query]);
 
   // Focus input when overlay opens
   useEffect(() => {
@@ -128,6 +134,12 @@ export const AIOverlay: React.FC = () => {
     timestamp: new Date(),
   });
 
+  const updateSuggestedTools = (userQuery: string) => {
+    const context = createMCPExecutionContext();
+    const suggestions = toolApi.suggestTools(userQuery, context);
+    setSuggestedTools(suggestions);
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -161,12 +173,15 @@ export const AIOverlay: React.FC = () => {
       // Generate AI context for better tool selection
       const aiContext = contextMemory.generateAIContext(conversationId);
       
-      // Suggest tools based on query content
-      const suggestedTools = suggestToolsForQuery(userQuery, context);
+      // Update suggested tools based on query
+      updateSuggestedTools(userQuery);
       
-      if (suggestedTools.length > 0) {
+      // Execute suggested tools if confidence is high
+      const highConfidenceTools = suggestedTools.filter(tool => tool.confidence > 0.8);
+      
+      if (highConfidenceTools.length > 0) {
         // Execute suggested tools
-        const toolCalls: MCPToolCall[] = suggestedTools.map(tool => ({
+        const toolCalls: MCPToolCall[] = highConfidenceTools.map(tool => ({
           id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           toolId: tool.toolId,
           parameters: tool.parameters,
@@ -206,129 +221,39 @@ export const AIOverlay: React.FC = () => {
     }
   };
 
-  const suggestToolsForQuery = (query: string, context: MCPExecutionContext) => {
-    const lowerQuery = query.toLowerCase();
-    const suggestions = [];
-
-    // Task-related queries
-    if (lowerQuery.includes('task') || lowerQuery.includes('create') || lowerQuery.includes('todo')) {
-      if (lowerQuery.includes('from spec') && context.businessSpecs.length > 0) {
-        // Suggest generating tasks from business specs
-        const approvedSpecs = context.businessSpecs.filter((spec: any) => spec.status === 'approved');
-        if (approvedSpecs.length > 0) {
-          suggestions.push({
-            toolId: 'generate-tasks-from-specs',
-            parameters: { specId: approvedSpecs[0].id },
-          });
-        }
-      } else {
-        // Suggest creating a new task
-        suggestions.push({
-          toolId: 'create-task',
-          parameters: {
-            title: 'New Task',
-            description: 'Task created from AI query',
-            type: 'feature',
-            priority: 'medium',
-            estimatedEffort: 8,
-          },
-        });
-      }
-    }
-
-    // Documentation queries
-    if (lowerQuery.includes('doc') || lowerQuery.includes('documentation')) {
-      if (context.currentRepository) {
-        suggestions.push({
-          toolId: 'generate-documentation',
-          parameters: { repositoryId: context.currentRepository.id },
-        });
-      }
-    }
-
-    // Analysis queries
-    if (lowerQuery.includes('analyze') || lowerQuery.includes('performance') || lowerQuery.includes('team')) {
-      suggestions.push({
-        toolId: 'analyze-team-performance',
-        parameters: { timeframe: 'month', includeRecommendations: true },
-      });
-    }
-
-    // Sprint queries
-    if (lowerQuery.includes('sprint') || lowerQuery.includes('capacity')) {
-      if (lowerQuery.includes('create') || lowerQuery.includes('new')) {
-        const startDate = new Date();
-        const endDate = new Date(startDate.getTime() + 14 * 24 * 60 * 60 * 1000);
-        
-        suggestions.push({
-          toolId: 'create-optimized-sprint',
-          parameters: {
-            name: 'AI Generated Sprint',
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            autoAssign: true,
-          },
-        });
-      } else {
-        suggestions.push({
-          toolId: 'analyze-sprint-capacity',
-          parameters: { duration: 14, bufferPercentage: 20 },
-        });
-      }
-    }
-
-    // PR queries
-    if (lowerQuery.includes('pr') || lowerQuery.includes('pull request')) {
-      if (context.tasks.length > 0) {
-        const unassignedTasks = context.tasks.filter((task: any) => task.status === 'todo');
-        if (unassignedTasks.length > 0 && context.currentRepository) {
-          suggestions.push({
-            toolId: 'generate-pr-template',
-            parameters: {
-              taskId: unassignedTasks[0].id,
-              repositoryId: context.currentRepository.id,
-              includeScaffolds: true,
-            },
-          });
-        }
-      }
-    }
-
-    return suggestions;
-  };
-
   const handleMCPToolExecution = async (toolId: string, parameters: any = {}) => {
     setExecutingAction(toolId);
     
     try {
       const context = createMCPExecutionContext();
-      const result = await toolApi.callTool(toolId, parameters, context);
       
-      if (result.success) {
-        toast.success(`Tool ${toolId} executed successfully`);
+      // Use smart tool execution with parameter resolution
+      const toolMessage = await mcpClient.executeSmartTool(
+        conversationId,
+        toolId,
+        parameters,
+        context
+      );
+      
+      setMcpMessages(prev => [...prev, toolMessage]);
+      
+      if (toolMessage.toolResults && toolMessage.toolResults.length > 0) {
+        const result = toolMessage.toolResults[0];
         
-        // Add to conversation
-        const toolCall: MCPToolCall = {
-          id: `call_${Date.now()}`,
-          toolId,
-          parameters,
-          timestamp: new Date(),
-        };
-        
-        const toolMessage = await mcpClient.executeToolsFromMessage(
-          conversationId,
-          [toolCall],
-          context
-        );
-        
-        setMcpMessages(prev => [...prev, toolMessage]);
-        setToolExecutionHistory(prev => [...prev, toolCall]);
-        
-        // Store in context memory
-        contextMemory.storeToolResult(conversationId, toolCall.id, result);
-        contextMemory.addRecentAction(conversationId, `Executed tool: ${toolId}`);
-      } else {
-        toast.error(`Tool execution failed: ${result.error}`);
+        if (result.success) {
+          toast.success(`Tool ${toolId} executed successfully`);
+          
+          // Store in context memory
+          contextMemory.storeToolResult(conversationId, result.toolCallId, result);
+          contextMemory.addRecentAction(conversationId, `Executed tool: ${toolId}`);
+          
+          // Update tool execution history
+          if (toolMessage.toolCalls) {
+            setToolExecutionHistory(prev => [...prev, ...toolMessage.toolCalls]);
+          }
+        } else {
+          toast.error(`Tool execution failed: ${result.error}`);
+        }
       }
     } catch (error) {
       console.error('Error executing MCP tool:', error);
@@ -350,11 +275,27 @@ export const AIOverlay: React.FC = () => {
     if (toolId.includes('analyze')) return <BarChart3 size={16} className="text-secondary-400" />;
     if (toolId.includes('create')) return <Plus size={16} className="text-accent-400" />;
     if (toolId.includes('connect')) return <Settings size={16} className="text-warning-400" />;
+    if (toolId.includes('list')) return <CheckSquare size={16} className="text-success-400" />;
     return <Wrench size={16} className="text-primary-400" />;
   };
 
   const getMCPTools = () => {
-    return availableTools.slice(0, 8); // Show top 8 MCP tools
+    // Show suggested tools first, then other available tools
+    const suggestedToolIds = suggestedTools.map(tool => tool.toolId);
+    const otherTools = availableTools.filter(tool => 
+      !suggestedToolIds.includes(tool.function.name)
+    );
+    
+    return [
+      ...suggestedTools.map(suggestion => {
+        const tool = availableTools.find(t => t.function.name === suggestion.toolId);
+        return {
+          ...tool,
+          suggestion,
+        };
+      }),
+      ...otherTools.slice(0, 8 - Math.min(suggestedTools.length, 4)),
+    ].slice(0, 8); // Show max 8 tools
   };
 
   if (!overlayOpen) return null;
@@ -404,7 +345,12 @@ export const AIOverlay: React.FC = () => {
                   ref={inputRef}
                   placeholder="Ask me anything - I can use advanced tools..."
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    if (e.target.value) {
+                      updateSuggestedTools(e.target.value);
+                    }
+                  }}
                   icon={<Command size={16} />}
                   className="pr-10"
                 />
@@ -489,25 +435,81 @@ export const AIOverlay: React.FC = () => {
                   </div>
                 ))}
 
+                {/* Suggested Tools */}
+                {suggestedTools.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    <h3 className="text-sm font-medium text-dark-300">Suggested Actions</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {suggestedTools.slice(0, 4).map((tool) => {
+                        const isExecuting = executingAction === tool.toolId;
+                        const toolInfo = availableTools.find(t => t.function.name === tool.toolId);
+                        
+                        return (
+                          <div
+                            key={tool.toolId}
+                            onClick={() => {
+                              if (!isExecuting) {
+                                handleMCPToolExecution(tool.toolId, tool.parameters);
+                              }
+                            }}
+                          >
+                            <Card
+                              hover
+                              className={`cursor-pointer transition-all duration-200 hover:border-primary-500 ${
+                                tool.confidence > 0.8 ? 'border-primary-700' : ''
+                              }`}
+                            >
+                              <CardContent className="p-3 flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                                  {isExecuting ? (
+                                    <LoadingSpinner size="sm" />
+                                  ) : (
+                                    getMCPToolIcon(tool.toolId)
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-white">{toolInfo?.function.name || tool.toolId}</h4>
+                                  <p className="text-xs text-dark-400">
+                                    {toolInfo?.function.description || 'Execute this tool'}
+                                  </p>
+                                </div>
+                                {!isExecuting && (
+                                  <ArrowRight size={14} className="text-dark-400" />
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Available Tools */}
                 <div className="space-y-2 mt-4">
                   <h3 className="text-sm font-medium text-dark-300">Available Tools</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {getMCPTools().map((tool) => {
                       const isExecuting = executingAction === tool.function.name;
+                      const isSuggested = tool.suggestion !== undefined;
                       
                       return (
                         <div
                           key={tool.function.name}
                           onClick={() => {
                             if (!isExecuting) {
-                              handleMCPToolExecution(tool.function.name, {});
+                              handleMCPToolExecution(
+                                tool.function.name, 
+                                tool.suggestion?.parameters || {}
+                              );
                             }
                           }}
                         >
                           <Card
                             hover
-                            className={`cursor-pointer transition-all duration-200 hover:border-primary-500`}
+                            className={`cursor-pointer transition-all duration-200 hover:border-primary-500 ${
+                              isSuggested ? 'border-primary-700' : ''
+                            }`}
                           >
                             <CardContent className="p-3 flex items-center space-x-3">
                               <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
@@ -524,7 +526,7 @@ export const AIOverlay: React.FC = () => {
                                 </p>
                               </div>
                               {!isExecuting && (
-                                <ArrowRight size={14} className="text-dark-400" />
+                                <Play size={14} className="text-dark-400" />
                               )}
                             </CardContent>
                           </Card>
