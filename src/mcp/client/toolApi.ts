@@ -41,8 +41,11 @@ class ToolApi {
       // Try to use the orchestrator for smart parameter resolution
       let result;
       try {
+        console.log(`[MCP] Creating smart plan for tool: ${toolId}`, parameters);
         const { planId, plan } = await mcpOrchestrator.createSmartPlan(toolCall, context);
+        console.log(`[MCP] Executing plan ${planId} with ${plan.steps.length} steps`);
         const results = await mcpOrchestrator.executePlan(planId);
+        console.log(`[MCP] Plan execution completed with ${results.length} results`);
         result = results[results.length - 1];
       } catch (orchestratorError) {
         // Fall back to direct execution if orchestration fails
@@ -69,6 +72,7 @@ class ToolApi {
 
       return toolResult;
     } catch (error) {
+      console.error(`[MCP] Tool execution error for ${toolId}:`, error);
       const toolResult: MCPToolResult = {
         id: this.generateId(),
         toolCallId: toolCall.id,
@@ -98,9 +102,12 @@ class ToolApi {
     }));
 
     try {
+      console.log(`[MCP] Calling multiple tools:`, toolCalls.map(t => t.toolId));
       // Use the orchestrator for multi-step execution
       const { planId } = await mcpOrchestrator.createPlan(formattedToolCalls, context);
+      console.log(`[MCP] Created plan ${planId} for multiple tools`);
       const results = await mcpOrchestrator.executePlan(planId);
+      console.log(`[MCP] Multiple tool execution completed with ${results.length} results`);
       
       // Map results to MCPToolResult format
       return formattedToolCalls.map((call, index) => ({
@@ -112,11 +119,13 @@ class ToolApi {
         timestamp: new Date(),
       }));
     } catch (error) {
+      console.error('[MCP] Error in multiple tool execution:', error);
       // Fall back to sequential execution
       console.warn(`[MCP] Orchestration failed, falling back to sequential execution: ${error}`);
       const results: MCPToolResult[] = [];
 
       for (const suggestion of toolCalls) {
+        console.log(`[MCP] Sequential execution of tool: ${suggestion.toolId}`);
         const result = await this.callTool(
           suggestion.toolId,
           suggestion.parameters,
@@ -163,6 +172,7 @@ class ToolApi {
     query: string,
     context: MCPExecutionContext
   ): Array<{ toolId: string; parameters: Record<string, any>; confidence: number }> {
+    console.log(`[MCP] Suggesting tools for query: "${query}"`);
     const lowerQuery = query.toLowerCase();
     const suggestions = [];
 
@@ -170,6 +180,7 @@ class ToolApi {
     if (lowerQuery.includes('analyze') && (lowerQuery.includes('repo') || lowerQuery.includes('code'))) {
       // Try to find repository by name in the query
       const repoName = this.extractRepositoryName(query, context);
+      console.log(`[MCP] Extracted repository name: "${repoName}"`);
       
       if (repoName && context.repositories?.length > 0) {
         const matchingRepo = context.repositories.find(repo => 
@@ -178,6 +189,7 @@ class ToolApi {
         );
         
         if (matchingRepo) {
+          console.log(`[MCP] Found matching repository: ${matchingRepo.name} (${matchingRepo.id})`);
           suggestions.push({
             toolId: 'analyze-codebase',
             parameters: { 
@@ -187,6 +199,7 @@ class ToolApi {
             confidence: 0.9,
           });
         } else {
+          console.log(`[MCP] No exact repository match found, suggesting repository listing`);
           // If no exact match, list repositories first
           suggestions.push({
             toolId: 'list-repositories',
@@ -195,6 +208,7 @@ class ToolApi {
           });
         }
       } else if (context.currentRepository) {
+        console.log(`[MCP] Using current repository: ${context.currentRepository.name}`);
         // Use current repository if available
         suggestions.push({
           toolId: 'analyze-codebase',
@@ -205,6 +219,7 @@ class ToolApi {
           confidence: 0.85,
         });
       } else if (context.repositories?.length > 0) {
+        console.log(`[MCP] No specific repository mentioned, using first available: ${context.repositories[0].name}`);
         // Use first repository if no specific one mentioned
         suggestions.push({
           toolId: 'analyze-codebase',
@@ -215,6 +230,7 @@ class ToolApi {
           confidence: 0.7,
         });
       } else {
+        console.log(`[MCP] No repositories available, suggesting repository listing`);
         // List repositories if none available
         suggestions.push({
           toolId: 'list-repositories',
@@ -256,25 +272,47 @@ class ToolApi {
     if (lowerQuery.includes('pr') || lowerQuery.includes('pull request') || lowerQuery.includes('template')) {
       // If we have a specific task mentioned
       const taskTitle = this.extractTaskTitle(query);
+      console.log(`[MCP] Extracted task title for PR: "${taskTitle}"`);
       
-      if (taskTitle && context.currentRepository) {
+      // Try to extract repository name
+      const repoName = this.extractRepositoryName(query, context);
+      console.log(`[MCP] Extracted repository name for PR: "${repoName}"`);
+      
+      let repositoryId = context.currentRepository?.id;
+      
+      // If repository name was mentioned, try to find it
+      if (repoName && context.repositories?.length > 0) {
+        const matchingRepo = context.repositories.find(repo => 
+          repo.name.toLowerCase() === repoName.toLowerCase() ||
+          repo.name.toLowerCase().includes(repoName.toLowerCase())
+        );
+        
+        if (matchingRepo) {
+          console.log(`[MCP] Found matching repository for PR: ${matchingRepo.name} (${matchingRepo.id})`);
+          repositoryId = matchingRepo.id;
+        }
+      }
+      
+      if (taskTitle && repositoryId) {
         // First check if we have an existing task with this title
         const matchingTask = context.tasks?.find((task: any) => 
           task.title.toLowerCase().includes(taskTitle.toLowerCase())
         );
         
         if (matchingTask) {
+          console.log(`[MCP] Found matching task for PR: ${matchingTask.title} (${matchingTask.id})`);
           // Use existing task
           suggestions.push({
             toolId: 'generate-pr-template',
             parameters: {
               taskId: matchingTask.id,
-              repositoryId: context.currentRepository.id,
+              repositoryId: repositoryId,
               includeScaffolds: true,
             },
             confidence: 0.9,
           });
         } else {
+          console.log(`[MCP] No matching task found, suggesting task creation followed by PR generation`);
           // Suggest creating a task first, then generating PR
           suggestions.push({
             toolId: 'create-task',
@@ -284,6 +322,7 @@ class ToolApi {
               type: this.inferTaskType(query) || 'feature',
               priority: this.inferPriority(query) || 'medium',
               estimatedEffort: 8,
+              repositoryId: repositoryId,
             },
             confidence: 0.85,
           });
@@ -293,7 +332,7 @@ class ToolApi {
             toolId: 'generate-pr-template',
             parameters: {
               // taskId will be filled in by orchestrator after task creation
-              repositoryId: context.currentRepository.id,
+              repositoryId: repositoryId,
               includeScaffolds: true,
               title: taskTitle, // Pass title for orchestrator to use
               description: `Task created for PR: ${taskTitle}`, // Pass description for orchestrator
@@ -436,7 +475,9 @@ class ToolApi {
     }
 
     // Sort by confidence
-    return suggestions.sort((a, b) => b.confidence - a.confidence);
+    const sortedSuggestions = suggestions.sort((a, b) => b.confidence - a.confidence);
+    console.log(`[MCP] Generated ${sortedSuggestions.length} tool suggestions`);
+    return sortedSuggestions;
   }
 
   getAvailableTools(): any[] {
@@ -529,11 +570,13 @@ class ToolApi {
    */
   private extractRepositoryName(query: string, context: MCPExecutionContext): string | null {
     const lowerQuery = query.toLowerCase();
+    console.log(`[MCP] Extracting repository name from: "${query}"`);
     
     // Try to find repository name in the query
     if (context.repositories?.length > 0) {
       for (const repo of context.repositories) {
         if (lowerQuery.includes(repo.name.toLowerCase())) {
+          console.log(`[MCP] Found exact repository name match: ${repo.name}`);
           return repo.name;
         }
       }
@@ -547,6 +590,7 @@ class ToolApi {
           );
           
           if (matchingRepo) {
+            console.log(`[MCP] Found partial repository name match: ${matchingRepo.name} (from word: ${word})`);
             return matchingRepo.name;
           }
         }
@@ -558,15 +602,18 @@ class ToolApi {
       /(?:analyze|check|review)\s+(?:the\s+)?(?:repo|repository)\s+(?:named\s+)?["']?([a-zA-Z0-9_-]+)["']?/i,
       /(?:repo|repository)\s+(?:named\s+)?["']?([a-zA-Z0-9_-]+)["']?/i,
       /["']?([a-zA-Z0-9_-]+)["']?\s+(?:repo|repository)/i,
+      /(?:generate|create)\s+(?:a\s+)?pr\s+(?:for\s+)?(?:the\s+)?(?:repo|repository)?\s*["']?([a-zA-Z0-9_-]+)["']?/i,
     ];
     
     for (const pattern of patterns) {
       const match = query.match(pattern);
       if (match && match[1]) {
+        console.log(`[MCP] Extracted repository name via pattern: ${match[1]}`);
         return match[1].trim();
       }
     }
     
+    console.log(`[MCP] No repository name found in query`);
     return null;
   }
 }

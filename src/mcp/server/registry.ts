@@ -55,6 +55,7 @@ class MCPRegistry {
         description: 'Generated documentation with sections and metadata',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing generate-documentation with params:`, params);
         const { repositoryId, sections } = params;
         const repository = context.repositories?.find((r: any) => r.id === repositoryId);
         
@@ -99,7 +100,9 @@ class MCPRegistry {
           },
         };
 
-        return await docGenerator.generateDocumentation(repository, mockAnalysis);
+        const result = await docGenerator.generateDocumentation(repository, mockAnalysis);
+        console.log(`[MCPRegistry] Documentation generated successfully for ${repository.name}`);
+        return result;
       },
       category: 'generation',
     });
@@ -129,20 +132,25 @@ class MCPRegistry {
         description: 'Codebase analysis results with metrics and insights',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing analyze-codebase with params:`, params);
         const { repositoryId, analysisType = 'all' } = params;
         const repository = context.repositories?.find((r: any) => r.id === repositoryId);
-        const url = repository?.url;
-        const parsed = githubService.parseRepositoryUrl(url);
-
+        
         if (!repository) {
           throw new Error('Repository not found');
         }
 
-        if (!repository.structure) {
-          throw new Error('Repository structure not available. Please analyze the repository first.');
+        const url = repository?.url;
+        const parsed = githubService.parseRepositoryUrl(url);
+
+        if (!parsed) {
+          throw new Error('Invalid repository URL');
         }
 
-        return await codebaseAnalyzer.analyzeCodebase(parsed?.owner || '', parsed?.repo || '');
+        console.log(`[MCPRegistry] Analyzing repository: ${parsed.owner}/${parsed.repo}`);
+        const result = await codebaseAnalyzer.analyzeCodebase(parsed.owner, parsed.repo);
+        console.log(`[MCPRegistry] Codebase analysis completed for ${repository.name}`);
+        return result;
       },
       category: 'analysis',
     });
@@ -189,6 +197,7 @@ class MCPRegistry {
         description: 'Generated PR template with branch name, description, and scaffolds',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing generate-pr-template with params:`, params);
         const { taskId, repositoryId, includeScaffolds = true } = params;
         const task = context.tasks?.find((t: any) => t.id === taskId);
         const repository = context.repositories?.find((r: any) => r.id === repositoryId);
@@ -200,13 +209,20 @@ class MCPRegistry {
           throw new Error('Repository not found');
         }
 
+        console.log(`[MCPRegistry] Generating PR template for task: ${task.title} in repo: ${repository.name}`);
         const response = await prGenerator.generatePRTemplate({
           task,
           repository,
           includeScaffolds,
         });
 
-        return response.template;
+        console.log(`[MCPRegistry] PR template generated successfully with ${response.template.fileScaffolds.length} scaffolds`);
+        return {
+          template: response.template,
+          task: task,
+          repository: repository,
+          message: `Generated PR template for "${task.title}" in repository "${repository.name}"`,
+        };
       },
       category: 'generation',
     });
@@ -245,6 +261,10 @@ class MCPRegistry {
             type: 'string',
             description: 'ID of the developer to assign to (optional)',
           },
+          repositoryId: {
+            type: 'string',
+            description: 'ID of the repository this task belongs to (optional)',
+          },
         },
         required: ['title', 'description', 'type', 'priority'],
       },
@@ -253,15 +273,24 @@ class MCPRegistry {
         description: 'Created task object',
       },
       handler: async (params, context) => {
-        const { assigneeId, ...taskData } = params;
+        console.log(`[MCPRegistry] Executing create-task with params:`, params);
+        const { assigneeId, repositoryId, ...taskData } = params;
         
         const task = {
           ...taskData,
           status: 'backlog' as const,
           assignee: assigneeId ? context.developers?.find((d: any) => d.id === assigneeId) : undefined,
+          repositoryId: repositoryId,
         };
 
-        return await taskService.createTask(task);
+        console.log(`[MCPRegistry] Creating task: ${task.title}`);
+        const createdTask = await taskService.createTask(task);
+        console.log(`[MCPRegistry] Task created successfully with ID: ${createdTask.id}`);
+        
+        return {
+          ...createdTask,
+          message: `Created task "${createdTask.title}" successfully`,
+        };
       },
       category: 'management',
     });
@@ -303,6 +332,7 @@ class MCPRegistry {
         description: 'Created business specification',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing create-business-spec with params:`, params);
         const spec = {
           ...params,
           acceptanceCriteria: params.acceptanceCriteria || [],
@@ -313,7 +343,14 @@ class MCPRegistry {
           createdAt: new Date(),
         };
 
-        return await businessSpecService.createBusinessSpec(spec);
+        console.log(`[MCPRegistry] Creating business spec: ${spec.title}`);
+        const result = await businessSpecService.createBusinessSpec(spec);
+        console.log(`[MCPRegistry] Business spec created successfully with ID: ${result.id}`);
+        
+        return {
+          ...result,
+          message: `Created business specification "${result.title}" successfully`,
+        };
       },
       category: 'generation',
     });
@@ -342,22 +379,26 @@ class MCPRegistry {
         description: 'Team performance analysis with metrics and insights',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing analyze-team-performance with params:`, params);
         const { timeframe = 'month', includeRecommendations = true } = params;
         
         if (!context.developers || context.developers.length === 0) {
           throw new Error('No team members found');
         }
 
+        console.log(`[MCPRegistry] Analyzing team performance for ${context.developers.length} developers`);
         const analysis = await teamOptimizer.analyzeTeam(
           context.developers,
           context.tasks || [],
           ['React', 'TypeScript', 'Node.js', 'Python']
         );
 
+        console.log(`[MCPRegistry] Team performance analysis completed`);
         return {
           ...analysis,
           timeframe,
           timestamp: new Date(),
+          message: `Analyzed team performance across ${context.developers.length} developers`,
         };
       },
       category: 'analysis',
@@ -399,8 +440,10 @@ class MCPRegistry {
         description: 'Created sprint with optimization results',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing create-optimized-sprint with params:`, params);
         const { name, startDate, endDate, autoAssign = true, bufferPercentage = 20 } = params;
         
+        console.log(`[MCPRegistry] Creating optimized sprint: ${name}`);
         const result = await sprintAutomation.createOptimizedSprint(
           name,
           new Date(startDate),
@@ -411,7 +454,11 @@ class MCPRegistry {
           }
         );
 
-        return result;
+        console.log(`[MCPRegistry] Sprint created successfully with ID: ${result.sprint.id}`);
+        return {
+          ...result,
+          message: `Created optimized sprint "${name}" with ${result.assigned} assigned tasks`,
+        };
       },
       category: 'automation',
     });
@@ -443,8 +490,10 @@ class MCPRegistry {
         description: 'Capacity analysis with recommendations',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing analyze-sprint-capacity with params:`, params);
         const { sprintId, duration = 14, bufferPercentage = 20 } = params;
         
+        console.log(`[MCPRegistry] Analyzing sprint capacity for ${sprintId || 'new sprint'}`);
         const capacity = await capacityPlanner.calculateSprintCapacity(sprintId, {
           sprintDuration: duration,
           bufferPercentage,
@@ -452,7 +501,11 @@ class MCPRegistry {
           skillWeighting: true,
         });
 
-        return capacity;
+        console.log(`[MCPRegistry] Sprint capacity analysis completed`);
+        return {
+          ...capacity,
+          message: `Analyzed sprint capacity with ${capacity.recommendations.length} recommendations`,
+        };
       },
       category: 'analysis',
     });
@@ -481,10 +534,12 @@ class MCPRegistry {
         description: 'Connected repository with analysis results',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing connect-repository with params:`, params);
         const { url, analyze = true } = params;
         
         // This would integrate with the actual GitHub service
         // For now, return a mock response
+        console.log(`[MCPRegistry] Connecting repository: ${url}`);
         return {
           success: true,
           message: `Repository ${url} connected successfully`,
@@ -523,6 +578,7 @@ class MCPRegistry {
         description: 'Processed query with intent and suggested actions',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing process-natural-language with params:`, params);
         const { query, includeActions = true } = params;
         
         const queryContext = {
@@ -534,7 +590,14 @@ class MCPRegistry {
           businessSpecs: context.businessSpecs || [],
         };
 
-        return await nlpProcessor.processQuery(query, queryContext);
+        console.log(`[MCPRegistry] Processing natural language query: "${query}"`);
+        const result = await nlpProcessor.processQuery(query, queryContext);
+        console.log(`[MCPRegistry] Query processed with ${result.suggestedActions.length} suggested actions`);
+        
+        return {
+          ...result,
+          message: `Processed query: "${query}"`,
+        };
       },
       category: 'analysis',
     });
@@ -558,15 +621,18 @@ class MCPRegistry {
         description: 'List of repositories',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing list-repositories with params:`, params);
         const { limit = 10 } = params;
         
         if (!context.repositories || context.repositories.length === 0) {
           return { repositories: [], message: 'No repositories found' };
         }
         
+        console.log(`[MCPRegistry] Listing ${Math.min(limit, context.repositories.length)} of ${context.repositories.length} repositories`);
         return { 
           repositories: context.repositories.slice(0, limit),
-          count: context.repositories.length
+          count: context.repositories.length,
+          message: `Found ${context.repositories.length} repositories`,
         };
       },
       category: 'management',
@@ -600,6 +666,7 @@ class MCPRegistry {
         description: 'List of tasks',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing list-tasks with params:`, params);
         const { status, assigneeId, limit = 10 } = params;
         
         if (!context.tasks || context.tasks.length === 0) {
@@ -616,9 +683,11 @@ class MCPRegistry {
           filteredTasks = filteredTasks.filter(task => task.assignee?.id === assigneeId);
         }
         
+        console.log(`[MCPRegistry] Listing ${Math.min(limit, filteredTasks.length)} of ${filteredTasks.length} tasks`);
         return { 
           tasks: filteredTasks.slice(0, limit),
-          count: filteredTasks.length
+          count: filteredTasks.length,
+          message: `Found ${filteredTasks.length} tasks${status ? ` with status "${status}"` : ''}`,
         };
       },
       category: 'management',
@@ -648,6 +717,7 @@ class MCPRegistry {
         description: 'List of business specifications',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing list-business-specs with params:`, params);
         const { status, limit = 10 } = params;
         
         if (!context.businessSpecs || context.businessSpecs.length === 0) {
@@ -660,9 +730,11 @@ class MCPRegistry {
           filteredSpecs = filteredSpecs.filter(spec => spec.status === status);
         }
         
+        console.log(`[MCPRegistry] Listing ${Math.min(limit, filteredSpecs.length)} of ${filteredSpecs.length} business specs`);
         return { 
           specs: filteredSpecs.slice(0, limit),
-          count: filteredSpecs.length
+          count: filteredSpecs.length,
+          message: `Found ${filteredSpecs.length} business specifications${status ? ` with status "${status}"` : ''}`,
         };
       },
       category: 'management',
@@ -688,6 +760,7 @@ class MCPRegistry {
         description: 'Generated tasks with reasoning',
       },
       handler: async (params, context) => {
+        console.log(`[MCPRegistry] Executing generate-tasks-from-specs with params:`, params);
         const { specId } = params;
         
         const spec = context.businessSpecs?.find((s: any) => s.id === specId);
@@ -695,6 +768,7 @@ class MCPRegistry {
           throw new Error('Business specification not found');
         }
         
+        console.log(`[MCPRegistry] Generating tasks from business spec: ${spec.title}`);
         // This would normally call the AI service to generate tasks
         // For now, return mock tasks
         return {
@@ -718,6 +792,7 @@ class MCPRegistry {
           ],
           reasoning: 'Generated tasks based on business specification',
           confidence: 0.8,
+          message: `Generated 2 tasks from business specification "${spec.title}"`,
         };
       },
       category: 'generation',

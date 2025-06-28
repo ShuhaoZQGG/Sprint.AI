@@ -51,6 +51,7 @@ class NLPProcessor {
    */
   async processQuery(query: string, context: QueryContext, conversationId?: string): Promise<ProcessedQuery> {
     try {
+      console.log(`[NLPProcessor] Processing query: "${query}"`);
       // If no conversationId is provided, generate one
       const convId = conversationId || `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       return await this.processQueryWithMCP(query, context, convId);
@@ -69,6 +70,7 @@ class NLPProcessor {
     conversationId: string
   ): Promise<ProcessedQuery> {
     try {
+      console.log(`[NLPProcessor] Processing query with MCP: "${query}"`);
       // Update conversation context in memory
       contextMemory.updateConversationContext(conversationId, {
         userId: 'user-id', // This would come from auth
@@ -93,6 +95,7 @@ class NLPProcessor {
       };
 
       // Process user message through MCP client
+      console.log(`[NLPProcessor] Processing user message through MCP client`);
       const userMessage = await mcpClient.processMessage(
         conversationId,
         query,
@@ -100,7 +103,9 @@ class NLPProcessor {
       );
 
       // Suggest tools based on query using the enhanced tool suggestion system
+      console.log(`[NLPProcessor] Getting tool suggestions for query`);
       const suggestedTools = toolApi.suggestTools(query, mcpContext);
+      console.log(`[NLPProcessor] Got ${suggestedTools.length} tool suggestions`);
       
       // Execute suggested tools if available
       let toolResults: MCPToolResult[] = [];
@@ -118,11 +123,14 @@ class NLPProcessor {
             }));
           
           if (toolCalls.length > 0) {
+            console.log(`[NLPProcessor] Creating orchestration plan for ${toolCalls.length} tools`);
             // Create an orchestration plan
             const { planId } = await mcpOrchestrator.createPlan(toolCalls, mcpContext);
             
             // Execute the plan
+            console.log(`[NLPProcessor] Executing plan ${planId}`);
             const executionResults = await mcpOrchestrator.executePlan(planId);
+            console.log(`[NLPProcessor] Plan execution completed with ${executionResults.length} results`);
             
             // Map execution results to tool results
             toolResults = toolCalls.map((call, index) => ({
@@ -138,7 +146,7 @@ class NLPProcessor {
             const toolMessage = {
               id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               role: 'tool' as const,
-              content: 'Tool execution completed',
+              content: this.generateUserFriendlyResponse(query, toolResults),
               toolCalls,
               toolResults,
               timestamp: new Date(),
@@ -161,6 +169,7 @@ class NLPProcessor {
           console.error('Error in orchestrated tool execution:', error);
           // Fall back to individual tool execution
           for (const suggestion of suggestedTools.filter(s => s.confidence > 0.8).slice(0, 1)) {
+            console.log(`[NLPProcessor] Falling back to individual tool execution: ${suggestion.toolId}`);
             const result = await toolApi.callTool(
               suggestion.toolId,
               suggestion.parameters,
@@ -172,7 +181,8 @@ class NLPProcessor {
       }
 
       // Generate response based on tool results
-      const response = this.generateResponseFromToolResults(query, toolResults);
+      const response = this.generateUserFriendlyResponse(query, toolResults);
+      console.log(`[NLPProcessor] Generated response: "${response.substring(0, 100)}..."`);
       
       // Convert tool suggestions to suggested actions
       const suggestedActions = suggestedTools.map(tool => ({
@@ -206,6 +216,7 @@ class NLPProcessor {
    */
   async generateTasksFromBusinessSpec(request: TaskGenerationRequest): Promise<TaskGenerationResponse> {
     try {
+      console.log(`[NLPProcessor] Generating tasks from business spec: ${request.businessSpec.title}`);
       const mcpContext: MCPExecutionContext = {
         userId: 'user-id',
         teamId: 'team-id',
@@ -228,7 +239,9 @@ class NLPProcessor {
         timestamp: new Date(),
       };
 
+      console.log(`[NLPProcessor] Creating smart plan for task generation`);
       const { planId } = await mcpOrchestrator.createSmartPlan(toolCall, mcpContext);
+      console.log(`[NLPProcessor] Executing plan ${planId}`);
       const results = await mcpOrchestrator.executePlan(planId);
       const result = results[results.length - 1];
 
@@ -236,6 +249,7 @@ class NLPProcessor {
         throw new Error(result.error || 'Failed to generate tasks');
       }
 
+      console.log(`[NLPProcessor] Generated ${result.data.tasks?.length || 0} tasks`);
       return {
         tasks: result.data.tasks || [],
         reasoning: result.data.reasoning || 'Generated tasks based on business specification',
@@ -260,6 +274,7 @@ class NLPProcessor {
     changeAnalysis: string;
   }> {
     try {
+      console.log(`[NLPProcessor] Analyzing documentation changes for section: ${sectionTitle}`);
       const mcpContext: MCPExecutionContext = {
         userId: 'user-id',
         teamId: 'team-id',
@@ -283,7 +298,9 @@ class NLPProcessor {
       };
 
       // Use orchestrator for more robust execution
+      console.log(`[NLPProcessor] Creating smart plan for documentation analysis`);
       const { planId } = await mcpOrchestrator.createSmartPlan(toolCall, mcpContext);
+      console.log(`[NLPProcessor] Executing plan ${planId}`);
       const results = await mcpOrchestrator.executePlan(planId);
       const result = results[results.length - 1];
 
@@ -294,6 +311,7 @@ class NLPProcessor {
         };
       }
 
+      console.log(`[NLPProcessor] Documentation analysis completed, significant changes: ${result.data.hasSignificantChanges}`);
       return {
         hasSignificantChanges: result.data.hasSignificantChanges || false,
         suggestedSpec: result.data.suggestedSpec,
@@ -309,12 +327,14 @@ class NLPProcessor {
   }
 
   /**
-   * Generate response from tool results
+   * Generate user-friendly response from tool results
    */
-  private generateResponseFromToolResults(
+  private generateUserFriendlyResponse(
     query: string,
     toolResults: MCPToolResult[]
   ): string {
+    console.log(`[NLPProcessor] Generating user-friendly response from ${toolResults.length} tool results`);
+    
     // If no tool results, generate a generic response
     if (toolResults.length === 0) {
       return "I'm here to help with your development workflow! I can generate tasks, update documentation, assign team members, create PR templates, and provide project insights. What would you like to work on?";
@@ -325,14 +345,128 @@ class NLPProcessor {
     
     if (allSucceeded) {
       // Generate response based on successful tool executions
-      const toolTypes = toolResults.map(result => result.toolCallId.split('_')[0]).join(', ');
-      return `I've successfully processed your request using ${toolTypes}. You can review the results and take further actions based on the suggestions.`;
+      let response = "";
+      
+      // Look for specific tool types to generate appropriate responses
+      const toolTypes = toolResults.map(result => result.toolCallId.split('_')[0]);
+      
+      // Handle repository analysis
+      if (toolResults.some(r => r.toolCallId.includes('analyze-codebase'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('analyze-codebase'));
+        if (result && result.data) {
+          const data = result.data;
+          response = `I've analyzed the codebase and found ${data.modules?.length || 0} modules and ${data.services?.length || 0} services. `;
+          
+          if (data.summary) {
+            response += `${data.summary} `;
+          }
+          
+          if (data.dependencies?.length > 0) {
+            response += `The project uses ${data.dependencies.length} dependencies including ${data.dependencies.slice(0, 3).map((d: any) => d.name).join(', ')}.`;
+          }
+        }
+      }
+      // Handle PR template generation
+      else if (toolResults.some(r => r.toolCallId.includes('generate-pr-template'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('generate-pr-template'));
+        if (result && result.data) {
+          const data = result.data;
+          response = `I've generated a PR template for "${data.task?.title || 'your task'}" in the ${data.repository?.name || 'repository'}. `;
+          
+          if (data.template?.fileScaffolds?.length > 0) {
+            response += `The PR includes ${data.template.fileScaffolds.length} file scaffolds. `;
+          }
+          
+          response += `The branch name is \`${data.template?.branchName || 'feature/branch'}\`. `;
+          
+          if (data.message) {
+            response += data.message;
+          }
+        }
+      }
+      // Handle task creation
+      else if (toolResults.some(r => r.toolCallId.includes('create-task'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('create-task'));
+        if (result && result.data) {
+          const task = result.data;
+          response = `I've created a new ${task.type} task: "${task.title}". `;
+          
+          if (task.assignee) {
+            response += `It's assigned to ${task.assignee.name}. `;
+          } else {
+            response += `It's currently unassigned. `;
+          }
+          
+          response += `The task has ${task.priority} priority and an estimated effort of ${task.estimatedEffort} hours.`;
+          
+          if (task.message) {
+            response += ` ${task.message}`;
+          }
+        }
+      }
+      // Handle repository listing
+      else if (toolResults.some(r => r.toolCallId.includes('list-repositories'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('list-repositories'));
+        if (result && result.data && result.data.repositories) {
+          const repos = result.data.repositories;
+          response = `I found ${repos.length} repositories: `;
+          
+          if (repos.length > 0) {
+            response += repos.map((repo: any) => `"${repo.name}"`).join(', ');
+          } else {
+            response += "No repositories found.";
+          }
+          
+          if (result.data.message) {
+            response += ` ${result.data.message}`;
+          }
+        }
+      }
+      // Generic successful response
+      else {
+        // Try to extract message from result data
+        const messages = toolResults
+          .filter(r => r.data && r.data.message)
+          .map(r => r.data.message);
+        
+        if (messages.length > 0) {
+          response = messages.join(' ');
+        } else {
+          const toolNames = [...new Set(toolResults.map(r => {
+            const parts = r.toolCallId.split('_')[0].split('-');
+            return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+          }))];
+          
+          response = `I've successfully completed the ${toolNames.join(' and ')} operation. `;
+          
+          if (query) {
+            response += `This should address your request about "${query}".`;
+          }
+        }
+      }
+      
+      return response;
     } else {
       // Generate response for failed tool executions
       const failedResults = toolResults.filter(result => !result.success);
-      const errorMessages = failedResults.map(result => result.error).join(', ');
+      const errorMessages = failedResults.map(result => result.error).filter(Boolean);
       
-      return `I encountered some issues while processing your request: ${errorMessages}. Please try again or modify your request.`;
+      let response = "I encountered some issues while processing your request. ";
+      
+      if (errorMessages.length > 0) {
+        response += `Specifically: ${errorMessages.join(', ')}. `;
+      }
+      
+      // Add suggestions for fixing the issues
+      if (failedResults.some(r => r.error?.includes('Repository not found'))) {
+        response += "Please make sure you've connected a repository or specify which repository you want to work with. ";
+      } else if (failedResults.some(r => r.error?.includes('Task not found'))) {
+        response += "Please make sure you've created a task or specify which task you want to work with. ";
+      }
+      
+      response += "Please try again with more specific information.";
+      
+      return response;
     }
   }
 

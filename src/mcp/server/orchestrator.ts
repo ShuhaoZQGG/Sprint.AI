@@ -30,6 +30,7 @@ class MCPOrchestrator {
     context: MCPExecutionContext
   ): { planId: string; plan: OrchestrationPlan } {
     const planId = `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[MCPOrchestrator] Creating plan ${planId} with ${toolCalls.length} tool calls`);
     
     // Convert tool calls to orchestration steps
     const steps = toolCalls.map(call => ({
@@ -57,6 +58,7 @@ class MCPOrchestrator {
     context: MCPExecutionContext
   ): Promise<{ planId: string; plan: OrchestrationPlan }> {
     const planId = `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[MCPOrchestrator] Creating smart plan ${planId} for tool: ${primaryToolCall.toolId}`);
     
     // Get the tool schema to check required parameters
     const tool = mcpRegistry.getTool(primaryToolCall.toolId);
@@ -70,6 +72,7 @@ class MCPOrchestrator {
       primaryToolCall.toolId,
       context
     );
+    console.log(`[MCPOrchestrator] Resolved parameters from context:`, resolvedParams);
 
     const steps: OrchestrationStep[] = [];
     
@@ -77,8 +80,10 @@ class MCPOrchestrator {
     if (primaryToolCall.toolId === 'generate-pr-template') {
       // If taskId is missing, we need to create a task first
       if (!resolvedParams.taskId) {
+        console.log(`[MCPOrchestrator] PR template generation missing taskId, checking for title/description`);
         // Check if we have a title and description for creating a task
         if (resolvedParams.title && resolvedParams.description) {
+          console.log(`[MCPOrchestrator] Adding task creation step for PR template`);
           // Add step to create a task
           steps.push({
             toolId: 'create-task',
@@ -88,6 +93,7 @@ class MCPOrchestrator {
               type: resolvedParams.type || 'feature',
               priority: resolvedParams.priority || 'medium',
               estimatedEffort: resolvedParams.estimatedEffort || 8,
+              repositoryId: resolvedParams.repositoryId,
             },
           });
           
@@ -98,6 +104,7 @@ class MCPOrchestrator {
     }
     
     const missingParams = this.identifyMissingParameters(resolvedParams, tool.parameters);
+    console.log(`[MCPOrchestrator] Identified missing parameters: ${missingParams.join(', ')}`);
     
     // For each missing parameter, add a step to resolve it
     for (const param of missingParams) {
@@ -121,6 +128,7 @@ class MCPOrchestrator {
       status: 'pending',
     };
 
+    console.log(`[MCPOrchestrator] Created smart plan with ${steps.length} steps`);
     this.activePlans.set(planId, plan);
     return { planId, plan };
   }
@@ -134,6 +142,7 @@ class MCPOrchestrator {
       throw new Error(`Plan not found: ${planId}`);
     }
 
+    console.log(`[MCPOrchestrator] Executing plan ${planId} with ${plan.steps.length} steps`);
     plan.status = 'in-progress';
     const results: MCPExecutionResult[] = [];
 
@@ -159,6 +168,7 @@ class MCPOrchestrator {
           });
           
           if (allDependenciesMet) {
+            console.log(`[MCPOrchestrator] Executing step ${i}: ${step.toolId}`);
             // Update parameters with results from previous steps
             const resolvedParameters = await this.resolveParametersFromPreviousSteps(
               step.parameters,
@@ -173,11 +183,14 @@ class MCPOrchestrator {
               for (let j = 0; j < i; j++) {
                 if (plan.steps[j].toolId === 'create-task' && results[j]?.success) {
                   // Use the created task's ID
+                  console.log(`[MCPOrchestrator] Using taskId from previous task creation: ${results[j].data.id}`);
                   resolvedParameters.taskId = results[j].data.id;
                   break;
                 }
               }
             }
+            
+            console.log(`[MCPOrchestrator] Executing ${step.toolId} with parameters:`, resolvedParameters);
             
             // Execute the step
             const result = await mcpServer.executeTool(
@@ -196,6 +209,8 @@ class MCPOrchestrator {
             executedSteps.add(i);
             executedAnyStep = true;
             
+            console.log(`[MCPOrchestrator] Step ${i} execution ${result.success ? 'succeeded' : 'failed'}`);
+            
             // Update context with result data if successful
             if (result.success && result.data) {
               updatedContext = this.updateContextWithResult(updatedContext, step.toolId, result.data);
@@ -211,9 +226,11 @@ class MCPOrchestrator {
       
       plan.status = 'completed';
       plan.completedAt = new Date();
+      console.log(`[MCPOrchestrator] Plan ${planId} execution completed successfully`);
       
       return results;
     } catch (error) {
+      console.error(`[MCPOrchestrator] Plan ${planId} execution failed:`, error);
       plan.status = 'failed';
       plan.error = error instanceof Error ? error.message : 'Unknown error';
       throw error;
@@ -333,9 +350,15 @@ class MCPOrchestrator {
     primaryToolCall: MCPToolCall,
     context: MCPExecutionContext
   ): Promise<OrchestrationStep | null> {
+    console.log(`[MCPOrchestrator] Creating resolution step for parameter: ${paramName}`);
     // Determine which tool to use to resolve this parameter
     const resolutionToolId = this.findParameterResolutionTool(paramName, primaryToolCall.toolId, context);
-    if (!resolutionToolId) return null;
+    if (!resolutionToolId) {
+      console.log(`[MCPOrchestrator] No resolution tool found for parameter: ${paramName}`);
+      return null;
+    }
+    
+    console.log(`[MCPOrchestrator] Using tool ${resolutionToolId} to resolve parameter ${paramName}`);
     
     // Create parameters for the resolution tool
     const resolutionParams = this.createResolutionToolParameters(paramName, primaryToolCall, context);
@@ -426,6 +449,7 @@ class MCPOrchestrator {
       !resolvedParams.repositoryId && 
       context.currentRepository
     ) {
+      console.log(`[MCPOrchestrator] Resolving repositoryId from current repository: ${context.currentRepository.id}`);
       resolvedParams.repositoryId = context.currentRepository.id;
     }
     
@@ -437,10 +461,12 @@ class MCPOrchestrator {
       context.repositories?.length > 0
     ) {
       const matchingRepo = context.repositories.find(repo => 
-        repo.name.toLowerCase() === resolvedParams.repositoryName.toLowerCase()
+        repo.name.toLowerCase() === resolvedParams.repositoryName.toLowerCase() ||
+        repo.name.toLowerCase().includes(resolvedParams.repositoryName.toLowerCase())
       );
       
       if (matchingRepo) {
+        console.log(`[MCPOrchestrator] Resolved repositoryId from name: ${matchingRepo.id}`);
         resolvedParams.repositoryId = matchingRepo.id;
         delete resolvedParams.repositoryName; // Remove the name parameter as we've resolved the ID
       }
@@ -458,6 +484,7 @@ class MCPOrchestrator {
       );
       
       if (matchingTask) {
+        console.log(`[MCPOrchestrator] Resolved taskId from name: ${matchingTask.id}`);
         resolvedParams.taskId = matchingTask.id;
         delete resolvedParams.taskName;
       }
@@ -491,6 +518,7 @@ class MCPOrchestrator {
         // Try to extract the parameter from the result data
         const extractedValue = this.extractParameterFromResult(paramName, result.data, step.toolId);
         if (extractedValue !== undefined) {
+          console.log(`[MCPOrchestrator] Resolved parameter ${paramName} from previous step ${step.toolId}: ${extractedValue}`);
           resolvedParams[paramName] = extractedValue;
           break;
         }
@@ -511,6 +539,11 @@ class MCPOrchestrator {
     // Direct match in result data
     if (paramName in resultData) {
       return resultData[paramName];
+    }
+    
+    // Special handling for create-task tool
+    if (toolId === 'create-task' && paramName === 'taskId' && resultData.id) {
+      return resultData.id;
     }
     
     // For list operations, try to extract the first item
@@ -535,11 +568,6 @@ class MCPOrchestrator {
       }
     }
     
-    // Special handling for create-task tool
-    if (toolId === 'create-task' && paramName === 'taskId' && resultData.id) {
-      return resultData.id;
-    }
-    
     return undefined;
   }
 
@@ -555,31 +583,37 @@ class MCPOrchestrator {
     
     // Update context based on tool type
     if (toolId === 'list-repositories' && resultData.repositories) {
+      console.log(`[MCPOrchestrator] Updating context with ${resultData.repositories.length} repositories`);
       updatedContext.repositories = this.mergeArraysById(
         updatedContext.repositories || [],
         resultData.repositories
       );
     } else if (toolId === 'list-tasks' && resultData.tasks) {
+      console.log(`[MCPOrchestrator] Updating context with ${resultData.tasks.length} tasks`);
       updatedContext.tasks = this.mergeArraysById(
         updatedContext.tasks || [],
         resultData.tasks
       );
     } else if (toolId === 'list-business-specs' && resultData.specs) {
+      console.log(`[MCPOrchestrator] Updating context with ${resultData.specs.length} business specs`);
       updatedContext.businessSpecs = this.mergeArraysById(
         updatedContext.businessSpecs || [],
         resultData.specs
       );
     } else if (toolId === 'create-task' && resultData) {
+      console.log(`[MCPOrchestrator] Adding new task to context: ${resultData.title}`);
       updatedContext.tasks = [
         resultData,
         ...(updatedContext.tasks || []),
       ];
     } else if (toolId === 'create-business-spec' && resultData) {
+      console.log(`[MCPOrchestrator] Adding new business spec to context: ${resultData.title}`);
       updatedContext.businessSpecs = [
         resultData,
         ...(updatedContext.businessSpecs || []),
       ];
     } else if (toolId === 'connect-repository' && resultData.repository) {
+      console.log(`[MCPOrchestrator] Adding new repository to context: ${resultData.repository.name}`);
       updatedContext.repositories = [
         resultData.repository,
         ...(updatedContext.repositories || []),

@@ -75,6 +75,7 @@ export const AIOverlay: React.FC = () => {
   // Initialize MCP context and tools
   useEffect(() => {
     if (overlayOpen) {
+      console.log('[AIOverlay] Initializing MCP context and tools');
       // Update conversation context
       contextMemory.updateConversationContext(conversationId, {
         userId: user?.id,
@@ -136,6 +137,7 @@ export const AIOverlay: React.FC = () => {
 
   const updateSuggestedTools = (userQuery: string) => {
     const context = createMCPExecutionContext();
+    console.log('[AIOverlay] Updating suggested tools for query:', userQuery);
     const suggestions = toolApi.suggestTools(userQuery, context);
     setSuggestedTools(suggestions);
   };
@@ -148,6 +150,7 @@ export const AIOverlay: React.FC = () => {
     setProcessing(true);
     
     try {
+      console.log('[AIOverlay] Processing query:', query);
       await handleMCPQuery(query);
     } catch (error) {
       console.error('Error processing query:', error);
@@ -180,6 +183,7 @@ export const AIOverlay: React.FC = () => {
       const highConfidenceTools = suggestedTools.filter(tool => tool.confidence > 0.8);
       
       if (highConfidenceTools.length > 0) {
+        console.log('[AIOverlay] Executing high confidence tools:', highConfidenceTools.map(t => t.toolId));
         // Execute suggested tools
         const toolCalls: MCPToolCall[] = highConfidenceTools.map(tool => ({
           id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -204,7 +208,9 @@ export const AIOverlay: React.FC = () => {
         }
         
         // Update tool execution history
-        setToolExecutionHistory(prev => [...prev, ...toolCalls]);
+        if (toolMessage.toolCalls) {
+          setToolExecutionHistory(prev => [...prev, ...toolMessage.toolCalls]);
+        }
         
         // Add to recent actions
         toolCalls.forEach(call => {
@@ -225,6 +231,7 @@ export const AIOverlay: React.FC = () => {
     setExecutingAction(toolId);
     
     try {
+      console.log('[AIOverlay] Executing tool:', toolId, parameters);
       const context = createMCPExecutionContext();
       
       // Use smart tool execution with parameter resolution
