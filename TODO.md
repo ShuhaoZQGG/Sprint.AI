@@ -1,81 +1,73 @@
 # Sprint.AI - Development Roadmap
 
-## ✅ **Completed Features**
+## MCP Server/Client & AI Overlay Tool-Calling
 
-## 🧠 AIOverlay Quick Actions Integration
+### 1. Design MCP Architecture
+- [ ] Create: src/mcp/server/index.ts
+- [ ] Create: src/mcp/server/services/*.ts
+- [ ] Create: src/mcp/client/index.ts
+- [ ] Create: src/types/mcp.ts
 
-### 20. Enable Quick Actions to Interact with AI Services
-**Status**: ✅ Completed  
-**Priority**: High  
-**Description**: Enhanced AIOverlay so that quick actions can directly invoke backend AI services for comprehensive workflow automation.
+### 2. Implement MCP Server
+- [ ] Create: src/mcp/server/registry.ts
+- [ ] Create: src/mcp/server/types.ts
+- [ ] Modify: src/mcp/server/index.ts
 
-#### Subtasks:
-- [x] **Design Quick Action Handler Architecture**
-  - *Files created*: `src/services/quickActionHandler.ts`
-  - *Files modified*: `src/components/overlay/AIOverlay.tsx`, `src/types/index.ts`
-  - Implemented comprehensive service mapping with type safety and extensibility
-  - Created modular handler system for easy addition of new actions
+### 3. Implement MCP Client
+- [ ] Create: src/mcp/client/toolApi.ts
+- [ ] Modify: src/mcp/client/index.ts
 
-- [x] **Implement Service Invocation Logic**
-  - *Files modified*: `src/components/overlay/AIOverlay.tsx`
-  - Integrated all major AI services: prGenerator, codebaseAnalyzer, nlpProcessor, etc.
-  - Added async response handling with proper error management
-  - Implemented loading states and result display
+### 4. Integrate MCP Tool-Calling into AIOverlay
+- [ ] Modify: src/components/overlay/AIOverlay.tsx
+- [ ] Modify: src/services/quickActionHandler.ts
+- [ ] Modify: src/services/nlpProcessor.ts
 
-- [x] **Review and Map All Service Actions**
-  - *Services integrated*: 15+ service singletons with 20+ quick actions
-  - Mapped actions across 4 categories: generation, analysis, automation, management
-  - Documented available actions and parameters for each service
+### 5. Implement Conversation Context Memory
+- [ ] Create: src/services/contextMemory.ts
+- [ ] Modify: src/components/overlay/AIOverlay.tsx
+- [ ] Modify: src/services/nlpProcessor.ts
 
-- [x] **UI Feedback and Result Display**
-  - Enhanced AIOverlay with real-time action execution feedback
-  - Added success/error states with visual indicators
-  - Implemented contextual action filtering based on current state
+### 6. Update Types and Documentation
+- [ ] Modify: src/types/index.ts
+- [ ] Modify: TODO.md
 
-- [x] **Add/Update Types for Quick Actions**
-  - *Files modified*: `src/types/index.ts`
-  - Added comprehensive typing for quick actions and parameters
-  - Ensured type safety across all service interactions
+### 7. Update .bolt/ignore
+- [ ] Modify: .bolt/ignore (add all unrelated files)
 
-#### **Quick Actions Implemented**:
+## MCP Server Integration Plan
 
-**Generation Actions**:
-- Generate Tasks from Business Specs
-- Create Business Specification
-- Generate Documentation
-- Update Documentation
-- Generate PR Template
-- Create Feature PR
+### 1. Services to Expose via MCP
+- [ ] Expose docGenerator (doc generation)
+- [ ] Expose codebaseAnalyzer (code analysis)
+- [ ] Expose prGenerator (PR/template generation)
+- [ ] Expose taskService (task CRUD)
+- [ ] Expose businessSpecService (spec CRUD)
+- [ ] Expose repositoryService (repo info/connect)
+- [ ] Expose developerService (developer info/assignment)
+- [ ] Expose sprintService (sprint management)
+- [ ] Expose sprintAutomation (sprint optimization)
+- [ ] Expose teamOptimizer (workload/team analysis)
+- [ ] Expose capacityPlanner (capacity analysis)
+- [ ] Expose commitAnalyzer (commit/PR analysis)
+- [ ] Expose documentationService (doc CRUD)
+- [ ] Optionally: Expose nlpProcessor (AI query)
+- [ ] Optionally: Expose groq (raw LLM)
 
-**Analysis Actions**:
-- Analyze Repository
-- Analyze Team Performance
-- Analyze Sprint Capacity
+### 2. Adjustments for MCP
+- [ ] Refactor each service to export stateless, MCP-compatible functions
+- [ ] Add metadata (name, description, params, returns) for each tool
+- [ ] Wrap stateful/context-dependent logic to accept all context as arguments
+- [ ] Avoid singleton usage in MCP-exposed functions
+- [ ] Add/extend JSDoc or TypeScript types for tool schemas
 
-**Automation Actions**:
-- Auto-assign Tasks
-- Create Optimized Sprint
-- Balance Team Workload
+### 3. MCP Server Registry
+- [ ] Create src/mcp/server/registry.ts to register all tools/services
+- [ ] Register each tool with id, handler, description, parameters, returns
 
-**Management Actions**:
-- Connect Repository
-- Update Developer Skills
-
-### 🚀 **Technical Achievements**
-- **Service Integration**: 15+ AI services fully integrated with quick actions
-- **Type Safety**: Complete TypeScript coverage for all action parameters
-- **Error Handling**: Robust error management with user-friendly feedback
-- **Contextual Actions**: Smart filtering based on current application state
-- **Real-time Feedback**: Live execution status with visual indicators
-
-### 📊 **Success Metrics**
-- ✅ 20+ quick actions across 4 categories
-- ✅ Real-time service invocation with feedback
-- ✅ Type-safe parameter handling
-- ✅ Contextual action filtering
-- ✅ Comprehensive error handling and user feedback
-
----
+### 4. Backward Compatibility
+- [ ] Do not delete or break old service code
+- [ ] Export MCP-compatible functions in addition to legacy exports
+- [ ] Mark legacy exports as deprecated in comments if needed
 
 ## 🔍 Testing & Quality Assurance
 
