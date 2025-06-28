@@ -61,13 +61,6 @@
 - [x] Modify: src/types/index.ts
 - [x] Modify: TODO.md
 
-### 7. Update .bolt/ignore
-**Status**: Not Started  
-**Priority**: Low  
-**Description**: Update .bolt/ignore to exclude unrelated files
-
-#### Subtasks:
-- [ ] Modify: .bolt/ignore (add all unrelated files)
 
 ## MCP Server Integration Plan
 
