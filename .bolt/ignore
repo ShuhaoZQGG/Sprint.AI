@@ -38,6 +38,7 @@ docs/
 *.log
 
 # Ignore UI and layout components (non-core logic)
+src/components/auth
 src/components/business
 src/components/docs
 src/components/dashboard
@@ -56,4 +57,3 @@ src/utils/chartData.ts
 # Optional: ignore duplicate service layers if integrated in other files
 src/services/supabase.ts
 src/services/realtimeService.ts
-src/services/authService.ts
