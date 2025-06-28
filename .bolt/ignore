@@ -57,3 +57,5 @@ src/utils/chartData.ts
 # Optional: ignore duplicate service layers if integrated in other files
 src/services/supabase.ts
 src/services/realtimeService.ts
+
+Archived_Tasks.md
