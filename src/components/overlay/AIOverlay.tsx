@@ -12,17 +12,23 @@ import {
   Loader,
   MessageSquare,
   ArrowRight,
-  Lightbulb
+  Lightbulb,
+  Play,
+  Settings,
+  BarChart3,
+  Cog
 } from 'lucide-react';
 import { useAppStore } from '../../stores/useAppStore';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card, CardContent } from '../ui/Card';
+import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { useRepositories } from '../../hooks/useRepositories';
 import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
 import { useDevelopers } from '../../hooks/useDevelopers';
 import { useTasks } from '../../hooks/useTasks';
-import { nlpProcessor, ProcessedQuery, QueryContext, TaskGenerationRequest } from '../../services/nlpProcessor';
+import { nlpProcessor, ProcessedQuery, QueryContext } from '../../services/nlpProcessor';
+import { quickActionService, QuickActionHandler, QuickActionResult } from '../../services/quickActionHandler';
 import { TaskReviewModal } from './TaskReviewModal';
 import { Task } from '../../types';
 import toast from 'react-hot-toast';
@@ -30,7 +36,7 @@ import toast from 'react-hot-toast';
 export const AIOverlay: React.FC = () => {
   const { overlayOpen, setOverlayOpen } = useAppStore();
   const { repositories, currentRepository } = useRepositories();
-  const { businessSpecs, generateTasksFromSpec } = useBusinessSpecs();
+  const { businessSpecs } = useBusinessSpecs();
   const { developers } = useDevelopers();
   const { tasks } = useTasks();
   
@@ -40,6 +46,8 @@ export const AIOverlay: React.FC = () => {
   const [showTaskReview, setShowTaskReview] = useState(false);
   const [generatedTasks, setGeneratedTasks] = useState<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[]>([]);
   const [selectedSpecTitle, setSelectedSpecTitle] = useState('');
+  const [executingAction, setExecutingAction] = useState<string | null>(null);
+  const [actionResults, setActionResults] = useState<Map<string, QuickActionResult>>(new Map());
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -90,19 +98,6 @@ export const AIOverlay: React.FC = () => {
       const result = await nlpProcessor.processQuery(query, context);
       setProcessedQuery(result);
       
-      // If the intent is task generation and we have business specs, offer to generate tasks
-      if (result.intent.type === 'task_generation' && businessSpecs.length > 0) {
-        const specEntity = result.intent.entities.find(e => e.type === 'repository');
-        if (specEntity) {
-          const matchingSpec = businessSpecs.find(spec => 
-            spec.title.toLowerCase().includes(specEntity.value.toLowerCase())
-          );
-          
-          if (matchingSpec) {
-            handleGenerateTasks(matchingSpec.id, matchingSpec.title);
-          }
-        }
-      }
     } catch (error) {
       console.error('Error processing query:', error);
       toast.error('Failed to process your request');
@@ -111,47 +106,55 @@ export const AIOverlay: React.FC = () => {
     }
   };
 
-  const handleGenerateTasks = async (specId: string, specTitle: string) => {
+  const handleQuickActionClick = async (actionId: string, parameters: any = {}) => {
+    setExecutingAction(actionId);
+    
     try {
-      setProcessing(true);
-      const response = await generateTasksFromSpec(specId);
-      setGeneratedTasks(response.tasks);
-      setSelectedSpecTitle(specTitle);
-      setShowTaskReview(true);
-    } catch (error) {
-      console.error('Error generating tasks:', error);
-      toast.error('Failed to generate tasks');
-    } finally {
-      setProcessing(false);
-    }
-  };
+      const context = {
+        repositories,
+        currentRepository,
+        developers,
+        tasks,
+        businessSpecs,
+      };
 
-  const handleActionClick = async (action: string, parameters?: Record<string, any>) => {
-    switch (action) {
-      case 'generate-tasks-from-specs':
-        if (businessSpecs.length > 0) {
-          const spec = businessSpecs[0]; // For demo, use first spec
-          handleGenerateTasks(spec.id, spec.title);
+      const result = await quickActionService.executeAction(actionId, parameters, context);
+      
+      // Store result for display
+      setActionResults(prev => new Map(prev.set(actionId, result)));
+      
+      // Handle specific action results
+      if (result.success) {
+        switch (actionId) {
+          case 'generate-tasks-from-specs':
+            if (result.data?.tasksCreated > 0) {
+              // Refresh tasks list or show success message
+              setTimeout(() => {
+                setOverlayOpen(false);
+              }, 2000);
+            }
+            break;
+          
+          case 'generate-documentation':
+            if (result.data) {
+              // Could open documentation view
+              console.log('Documentation generated:', result.data);
+            }
+            break;
+          
+          case 'generate-pr-template':
+            if (result.data) {
+              // Could open PR preview
+              console.log('PR template generated:', result.data);
+            }
+            break;
         }
-        break;
-      
-      case 'generate-documentation':
-        toast.success('Documentation generation initiated');
-        setOverlayOpen(false);
-        break;
-      
-      case 'auto-assign-tasks':
-        toast.success('Auto-assigning tasks to team members');
-        setOverlayOpen(false);
-        break;
-      
-      case 'generate-pr-template':
-        toast.success('PR template generation initiated');
-        setOverlayOpen(false);
-        break;
-      
-      default:
-        toast.info(`Action "${action}" not implemented yet`);
+      }
+    } catch (error) {
+      console.error('Error executing quick action:', error);
+      toast.error('Failed to execute action');
+    } finally {
+      setExecutingAction(null);
     }
   };
 
@@ -163,6 +166,40 @@ export const AIOverlay: React.FC = () => {
     toast.success(`${createdTasks.length} tasks created successfully!`);
   };
 
+  const getActionIcon = (category: QuickActionHandler['category']) => {
+    switch (category) {
+      case 'generation': return <Zap size={16} className="text-primary-400" />;
+      case 'analysis': return <BarChart3 size={16} className="text-secondary-400" />;
+      case 'automation': return <Cog size={16} className="text-accent-400" />;
+      case 'management': return <Settings size={16} className="text-warning-400" />;
+      default: return <Lightbulb size={16} className="text-primary-400" />;
+    }
+  };
+
+  const getQuickActions = () => {
+    const allHandlers = quickActionService.getAllHandlers();
+    
+    // Filter and prioritize based on current context
+    const contextualActions = allHandlers.filter(handler => {
+      switch (handler.id) {
+        case 'generate-tasks-from-specs':
+          return businessSpecs.some(spec => spec.status === 'approved');
+        case 'generate-documentation':
+        case 'analyze-repository':
+          return repositories.length > 0;
+        case 'auto-assign-tasks':
+        case 'balance-workload':
+          return tasks.some(task => !task.assignee);
+        case 'analyze-team-performance':
+          return developers.length > 0;
+        default:
+          return true;
+      }
+    });
+
+    return contextualActions.slice(0, 8); // Show top 8 contextual actions
+  };
+
   if (!overlayOpen) return null;
 
   return (
@@ -172,7 +209,7 @@ export const AIOverlay: React.FC = () => {
         onClick={() => setOverlayOpen(false)}
       >
         <div 
-          className="w-full max-w-2xl bg-dark-800 border border-dark-700 rounded-lg shadow-xl overflow-hidden"
+          className="w-full max-w-4xl bg-dark-800 border border-dark-700 rounded-lg shadow-xl overflow-hidden"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
@@ -183,7 +220,7 @@ export const AIOverlay: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-white">AI Assistant</h2>
-                <p className="text-xs text-dark-400">Ask anything about your project</p>
+                <p className="text-xs text-dark-400">Ask anything or use quick actions</p>
               </div>
             </div>
             <Button
@@ -244,35 +281,54 @@ export const AIOverlay: React.FC = () => {
                   <div className="space-y-2">
                     <h3 className="text-sm font-medium text-dark-300">Suggested Actions</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {processedQuery.suggestedActions.map((action) => (
-                        <Card
-                          key={action.id}
-                          hover
-                          className="cursor-pointer"
-                          onClick={() => handleActionClick(action.action, action.parameters)}
-                        >
-                          <CardContent className="p-3 flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                              {action.action.includes('task') ? (
-                                <CheckSquare size={16} className="text-primary-400" />
-                              ) : action.action.includes('doc') ? (
-                                <FileText size={16} className="text-secondary-400" />
-                              ) : action.action.includes('pr') ? (
-                                <GitBranch size={16} className="text-accent-400" />
-                              ) : action.action.includes('assign') ? (
-                                <Users size={16} className="text-warning-400" />
-                              ) : (
-                                <Lightbulb size={16} className="text-primary-400" />
+                      {processedQuery.suggestedActions.map((action) => {
+                        const isExecuting = executingAction === action.action;
+                        const result = actionResults.get(action.action);
+                        
+                        return (
+                          <Card
+                            key={action.id}
+                            hover
+                            className={`cursor-pointer transition-all duration-200 ${
+                              result?.success ? 'border-success-500 bg-success-900/10' :
+                              result?.success === false ? 'border-error-500 bg-error-900/10' :
+                              'hover:border-primary-500'
+                            }`}
+                            onClick={() => !isExecuting && handleQuickActionClick(action.action, action.parameters)}
+                          >
+                            <CardContent className="p-3 flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                                {isExecuting ? (
+                                  <LoadingSpinner size="sm" />
+                                ) : result?.success ? (
+                                  <CheckSquare size={16} className="text-success-400" />
+                                ) : result?.success === false ? (
+                                  <X size={16} className="text-error-400" />
+                                ) : action.action.includes('task') ? (
+                                  <CheckSquare size={16} className="text-primary-400" />
+                                ) : action.action.includes('doc') ? (
+                                  <FileText size={16} className="text-secondary-400" />
+                                ) : action.action.includes('pr') ? (
+                                  <GitBranch size={16} className="text-accent-400" />
+                                ) : action.action.includes('assign') ? (
+                                  <Users size={16} className="text-warning-400" />
+                                ) : (
+                                  <Lightbulb size={16} className="text-primary-400" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-sm font-medium text-white">{action.title}</h4>
+                                <p className="text-xs text-dark-400">
+                                  {result?.message || action.description}
+                                </p>
+                              </div>
+                              {!isExecuting && !result && (
+                                <ArrowRight size={14} className="text-dark-400" />
                               )}
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="text-sm font-medium text-white">{action.title}</h4>
-                              <p className="text-xs text-dark-400">{action.description}</p>
-                            </div>
-                            <ArrowRight size={14} className="text-dark-400" />
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -305,37 +361,88 @@ export const AIOverlay: React.FC = () => {
                 <div className="text-center py-6">
                   <Command className="w-12 h-12 text-dark-400 mx-auto mb-3" />
                   <h3 className="text-lg font-medium text-white mb-1">How can I help you?</h3>
-                  <p className="text-dark-400 mb-6">Ask me anything about your project</p>
+                  <p className="text-dark-400 mb-6">Ask me anything or use quick actions below</p>
                 </div>
                 
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-dark-300">Quick Actions</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <Card hover className="cursor-pointer" onClick={() => setQuery('Generate tasks from business spec')}>
-                      <CardContent className="p-3 flex items-center space-x-3">
-                        <CheckSquare size={16} className="text-primary-400" />
-                        <span className="text-sm text-dark-300">Generate tasks from spec</span>
-                      </CardContent>
-                    </Card>
-                    <Card hover className="cursor-pointer" onClick={() => setQuery('Generate documentation for repository')}>
-                      <CardContent className="p-3 flex items-center space-x-3">
-                        <FileText size={16} className="text-secondary-400" />
-                        <span className="text-sm text-dark-300">Generate documentation</span>
-                      </CardContent>
-                    </Card>
-                    <Card hover className="cursor-pointer" onClick={() => setQuery('Create PR template for task')}>
-                      <CardContent className="p-3 flex items-center space-x-3">
-                        <GitBranch size={16} className="text-accent-400" />
-                        <span className="text-sm text-dark-300">Create PR template</span>
-                      </CardContent>
-                    </Card>
-                    <Card hover className="cursor-pointer" onClick={() => setQuery('Assign tasks to team members')}>
-                      <CardContent className="p-3 flex items-center space-x-3">
-                        <Users size={16} className="text-warning-400" />
-                        <span className="text-sm text-dark-300">Assign tasks to team</span>
-                      </CardContent>
-                    </Card>
+                    {getQuickActions().map((handler) => {
+                      const isExecuting = executingAction === handler.id;
+                      const result = actionResults.get(handler.id);
+                      
+                      return (
+                        <Card 
+                          key={handler.id}
+                          hover 
+                          className={`cursor-pointer transition-all duration-200 ${
+                            result?.success ? 'border-success-500 bg-success-900/10' :
+                            result?.success === false ? 'border-error-500 bg-error-900/10' :
+                            'hover:border-primary-500'
+                          }`}
+                          onClick={() => !isExecuting && handleQuickActionClick(handler.id)}
+                        >
+                          <CardContent className="p-3 flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                              {isExecuting ? (
+                                <LoadingSpinner size="sm" />
+                              ) : result?.success ? (
+                                <CheckSquare size={16} className="text-success-400" />
+                              ) : result?.success === false ? (
+                                <X size={16} className="text-error-400" />
+                              ) : (
+                                getActionIcon(handler.category)
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="text-sm font-medium text-white">{handler.title}</h4>
+                              <p className="text-xs text-dark-400">
+                                {result?.message || handler.description}
+                              </p>
+                            </div>
+                            {!isExecuting && !result && (
+                              <Play size={14} className="text-dark-400" />
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
+                </div>
+
+                {/* Category Sections */}
+                <div className="space-y-4">
+                  {['generation', 'analysis', 'automation', 'management'].map(category => {
+                    const categoryHandlers = quickActionService.getHandlersByCategory(category as any);
+                    if (categoryHandlers.length === 0) return null;
+
+                    return (
+                      <div key={category} className="space-y-2">
+                        <h4 className="text-xs font-medium text-dark-400 uppercase tracking-wider">
+                          {category} Actions
+                        </h4>
+                        <div className="grid grid-cols-1 gap-1">
+                          {categoryHandlers.slice(0, 3).map((handler) => (
+                            <Button
+                              key={handler.id}
+                              variant="ghost"
+                              size="sm"
+                              className="justify-start text-dark-300 hover:text-white"
+                              onClick={() => handleQuickActionClick(handler.id)}
+                              disabled={executingAction === handler.id}
+                            >
+                              {executingAction === handler.id ? (
+                                <LoadingSpinner size="sm" className="mr-2" />
+                              ) : (
+                                getActionIcon(handler.category)
+                              )}
+                              <span className="ml-2 truncate">{handler.title}</span>
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -343,8 +450,10 @@ export const AIOverlay: React.FC = () => {
           
           {/* Footer */}
           <div className="p-3 border-t border-dark-700 text-xs text-dark-400 flex items-center justify-between">
-            <div>
-              Press <kbd className="px-1.5 py-0.5 bg-dark-700 rounded text-xs">Esc</kbd> to close
+            <div className="flex items-center space-x-4">
+              <span>Press <kbd className="px-1.5 py-0.5 bg-dark-700 rounded text-xs">Esc</kbd> to close</span>
+              <span>•</span>
+              <span>{quickActionService.getAllHandlers().length} actions available</span>
             </div>
             <div className="flex items-center space-x-1">
               <Zap size={12} />

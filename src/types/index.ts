@@ -126,3 +126,32 @@ export interface BusinessSpec {
   };
   createdAt?: Date;
 }
+
+// Quick Action Types
+export interface QuickActionParameters {
+  [key: string]: any;
+}
+
+export interface QuickActionContext {
+  repositories: Repository[];
+  currentRepository?: Repository;
+  developers: Developer[];
+  tasks: Task[];
+  businessSpecs: BusinessSpec[];
+}
+
+export interface QuickActionResult {
+  success: boolean;
+  message: string;
+  data?: any;
+  error?: string;
+}
+
+export interface SuggestedAction {
+  id: string;
+  title: string;
+  description: string;
+  action: string;
+  parameters?: QuickActionParameters;
+  category?: 'generation' | 'analysis' | 'automation' | 'management';
+}
