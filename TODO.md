@@ -3,19 +3,19 @@
 ## 🧹 MCP-Only AI Processing Migration
 
 ### 1. Remove Legacy AI Processing Logic
-- [ ] Remove all Groq/legacy NLP logic from `src/services/nlpProcessor.ts`
-- [ ] Remove fallback/dual-mode logic from `src/components/overlay/AIOverlay.tsx`
-- [ ] Remove legacy quick action logic from `src/services/quickActionHandler.ts` and related files
+- [x] Remove all Groq/legacy NLP logic from `src/services/nlpProcessor.ts`
+- [x] Remove fallback/dual-mode logic from `src/components/overlay/AIOverlay.tsx`
+- [x] Remove legacy quick action logic from `src/services/quickActionHandler.ts` and related files
 
 ### 2. Refactor nlpProcessor to MCP-Only
-- [ ] Refactor `src/services/nlpProcessor.ts` to only support MCP-based processing
-- [ ] Remove all intent/entity extraction and legacy response generation
-- [ ] Ensure all AI queries are routed through MCP
+- [x] Refactor `src/services/nlpProcessor.ts` to only support MCP-based processing
+- [x] Remove all intent/entity extraction and legacy response generation
+- [x] Ensure all AI queries are routed through MCP
 
 ### 3. Refactor AIOverlay to Use Only MCP
-- [ ] Remove "standard" mode and related UI from `src/components/overlay/AIOverlay.tsx`
-- [ ] Remove all non-MCP quick action logic and UI
-- [ ] Simplify state/UI to only show MCP-based flows, tools, and results
+- [x] Remove "standard" mode and related UI from `src/components/overlay/AIOverlay.tsx`
+- [x] Remove all non-MCP quick action logic and UI
+- [x] Simplify state/UI to only show MCP-based flows, tools, and results
 
 ### 4. Fully Integrate MCP into AI Overlay
 - [ ] Ensure all tool suggestions in the overlay are sourced from MCP tool registry (`src/mcp/server/registry.ts`)

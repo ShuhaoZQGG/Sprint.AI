@@ -30,8 +30,7 @@ import { useRepositories } from '../../hooks/useRepositories';
 import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
 import { useDevelopers } from '../../hooks/useDevelopers';
 import { useTasks } from '../../hooks/useTasks';
-import { nlpProcessor, ProcessedQuery, QueryContext } from '../../services/nlpProcessor';
-import { quickActionService, QuickActionHandler, QuickActionResult } from '../../services/quickActionHandler';
+import { ProcessedQuery } from '../../services/nlpProcessor';
 import { TaskReviewModal } from './TaskReviewModal';
 import { Task } from '../../types';
 import toast from 'react-hot-toast';
@@ -57,12 +56,10 @@ export const AIOverlay: React.FC = () => {
   
   const [query, setQuery] = useState('');
   const [processing, setProcessing] = useState(false);
-  const [processedQuery, setProcessedQuery] = useState<ProcessedQuery | null>(null);
   const [showTaskReview, setShowTaskReview] = useState(false);
   const [generatedTasks, setGeneratedTasks] = useState<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>[]>([]);
   const [selectedSpecTitle, setSelectedSpecTitle] = useState('');
   const [executingAction, setExecutingAction] = useState<string | null>(null);
-  const [actionResults, setActionResults] = useState<Map<string, QuickActionResult>>(new Map());
   const [showSpecModal, setShowSpecModal] = useState(false);
   const [specForm, setSpecForm] = useState({ title: '', description: '' });
   const [pendingAction, setPendingAction] = useState<{ id: string, parameters: any } | null>(null);
@@ -70,7 +67,6 @@ export const AIOverlay: React.FC = () => {
   // MCP Integration State
   const [conversationId] = useState(() => `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [mcpMessages, setMcpMessages] = useState<MCPMessage[]>([]);
-  const [mcpMode, setMcpMode] = useState(false);
   const [availableTools, setAvailableTools] = useState<any[]>([]);
   const [toolExecutionHistory, setToolExecutionHistory] = useState<any[]>([]);
   
@@ -141,24 +137,7 @@ export const AIOverlay: React.FC = () => {
     setProcessing(true);
     
     try {
-      if (mcpMode) {
-        // MCP Mode: Process with tool calling
-        await handleMCPQuery(query);
-      } else {
-        // Standard Mode: Use existing NLP processor
-        const context: QueryContext = {
-          repositories,
-          developers,
-          tasks,
-          documentation,
-          currentRepository: currentRepository || undefined,
-          businessSpecs,
-        };
-        
-        const result = await nlpProcessor.processQuery(query, context);
-        setProcessedQuery(result);
-      }
-      
+      await handleMCPQuery(query);
     } catch (error) {
       console.error('Error processing query:', error);
       toast.error('Failed to process your request');
@@ -183,7 +162,7 @@ export const AIOverlay: React.FC = () => {
       // Generate AI context for better tool selection
       const aiContext = contextMemory.generateAIContext(conversationId);
       
-      // For demo purposes, we'll simulate AI tool selection based on query content
+      // Suggest tools based on query content
       const suggestedTools = await suggestToolsForQuery(userQuery, context);
       
       if (suggestedTools.length > 0) {
@@ -316,63 +295,6 @@ export const AIOverlay: React.FC = () => {
     return suggestions;
   };
 
-  const handleQuickActionClick = async (actionId: string, parameters: any = {}) => {
-    if (actionId === 'create-business-spec' && (!parameters.title || !parameters.description)) {
-      setPendingAction({ id: actionId, parameters });
-      setShowSpecModal(true);
-      return;
-    }
-    setExecutingAction(actionId);
-    
-    try {
-      const context = {
-        repositories,
-        currentRepository: currentRepository || undefined,
-        developers,
-        tasks,
-        businessSpecs,
-      };
-
-      const result = await quickActionService.executeAction(actionId, parameters, context);
-      
-      // Store result for display
-      setActionResults(prev => new Map(prev.set(actionId, result)));
-      
-      // Handle specific action results
-      if (result.success) {
-        switch (actionId) {
-          case 'generate-tasks-from-specs':
-            if (result.data?.tasksCreated > 0) {
-              // Refresh tasks list or show success message
-              setTimeout(() => {
-                setOverlayOpen(false);
-              }, 2000);
-            }
-            break;
-          
-          case 'generate-documentation':
-            if (result.data) {
-              // Could open documentation view
-              console.log('Documentation generated:', result.data);
-            }
-            break;
-          
-          case 'generate-pr-template':
-            if (result.data) {
-              // Could open PR preview
-              console.log('PR template generated:', result.data);
-            }
-            break;
-        }
-      }
-    } catch (error) {
-      console.error('Error executing quick action:', error);
-      toast.error('Failed to execute action');
-    } finally {
-      setExecutingAction(null);
-    }
-  };
-
   const handleMCPToolExecution = async (toolId: string, parameters: any = {}) => {
     setExecutingAction(toolId);
     
@@ -418,18 +340,7 @@ export const AIOverlay: React.FC = () => {
     setShowTaskReview(false);
     setOverlayOpen(false);
     setQuery('');
-    setProcessedQuery(null);
     toast.success(`${createdTasks.length} tasks created successfully!`);
-  };
-
-  const getActionIcon = (category: QuickActionHandler['category']) => {
-    switch (category) {
-      case 'generation': return <Zap size={16} className="text-primary-400" />;
-      case 'analysis': return <BarChart3 size={16} className="text-secondary-400" />;
-      case 'automation': return <Cog size={16} className="text-accent-400" />;
-      case 'management': return <Settings size={16} className="text-warning-400" />;
-      default: return <Lightbulb size={16} className="text-primary-400" />;
-    }
   };
 
   const getMCPToolIcon = (toolId: string) => {
@@ -438,30 +349,6 @@ export const AIOverlay: React.FC = () => {
     if (toolId.includes('create')) return <Plus size={16} className="text-accent-400" />;
     if (toolId.includes('connect')) return <Settings size={16} className="text-warning-400" />;
     return <Wrench size={16} className="text-primary-400" />;
-  };
-
-  const getQuickActions = () => {
-    const allHandlers = quickActionService.getAllHandlers();
-    
-    // Filter and prioritize based on current context
-    const contextualActions = allHandlers.filter(handler => {
-      switch (handler.id) {
-        case 'generate-tasks-from-specs':
-          return businessSpecs.some(spec => spec.status === 'approved');
-        case 'generate-documentation':
-        case 'analyze-repository':
-          return repositories.length > 0;
-        case 'auto-assign-tasks':
-        case 'balance-workload':
-          return tasks.some(task => !task.assignee);
-        case 'analyze-team-performance':
-          return developers.length > 0;
-        default:
-          return true;
-      }
-    });
-
-    return contextualActions.slice(0, 8); // Show top 8 contextual actions
   };
 
   const getMCPTools = () => {
@@ -484,27 +371,18 @@ export const AIOverlay: React.FC = () => {
           <div className="flex items-center justify-between p-4 border-b border-dark-700">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                {mcpMode ? <Brain className="w-5 h-5 text-white" /> : <Zap className="w-5 h-5 text-white" />}
+                <Brain className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-white">
-                  {mcpMode ? 'AI Assistant (MCP Mode)' : 'AI Assistant'}
+                  AI Assistant
                 </h2>
                 <p className="text-xs text-dark-400">
-                  {mcpMode ? 'Advanced tool calling with memory' : 'Ask anything or use quick actions'}
+                  Advanced tool calling with memory
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setMcpMode(!mcpMode)}
-                className={`text-xs ${mcpMode ? 'text-primary-400' : 'text-dark-400'}`}
-              >
-                <Cpu size={14} className="mr-1" />
-                {mcpMode ? 'MCP' : 'Standard'}
-              </Button>
               <Button
                 variant="ghost"
                 size="sm"
@@ -522,7 +400,7 @@ export const AIOverlay: React.FC = () => {
               <div className="relative">
                 <Input
                   ref={inputRef}
-                  placeholder={mcpMode ? "Ask me anything - I can use advanced tools..." : "Ask me anything about your project..."}
+                  placeholder="Ask me anything - I can use advanced tools..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   icon={<Command size={16} />}
@@ -547,7 +425,7 @@ export const AIOverlay: React.FC = () => {
           
           {/* Content */}
           <div className="max-h-96 overflow-y-auto p-4">
-            {mcpMode && mcpMessages.length > 0 ? (
+            {mcpMessages.length > 0 ? (
               <div className="space-y-4">
                 {/* MCP Conversation */}
                 {mcpMessages.map((message, index) => (
@@ -670,264 +548,63 @@ export const AIOverlay: React.FC = () => {
                   </div>
                 )}
               </div>
-            ) : processedQuery ? (
-              <div className="space-y-4">
-                {/* AI Response */}
-                <div className="flex space-x-3">
-                  <div className="w-8 h-8 bg-primary-600 rounded-full flex-shrink-0 flex items-center justify-center">
-                    <Zap className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1 bg-dark-700 rounded-lg p-3">
-                    <p className="text-white">{processedQuery.response}</p>
-                  </div>
-                </div>
-                
-                {/* Suggested Actions */}
-                {processedQuery.suggestedActions.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-dark-300">Suggested Actions</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {processedQuery.suggestedActions.map((action) => {
-                        const isExecuting = executingAction === action.action;
-                        const result = actionResults.get(action.action);
-                        
-                        return (
-                          <div
-                            key={action.id}
-                            onClick={() => {
-                              if (!isExecuting) {
-                                handleQuickActionClick(action.action, action.parameters);
-                                setOverlayOpen(false);
-                              }
-                            }}
-                          >
-                            <Card
-                              hover
-                              className={`cursor-pointer transition-all duration-200 ${
-                                result?.success ? 'border-success-500 bg-success-900/10' :
-                                result?.success === false ? 'border-error-500 bg-error-900/10' :
-                                'hover:border-primary-500'
-                              }`}
-                            >
-                              <CardContent className="p-3 flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                                  {isExecuting ? (
-                                    <LoadingSpinner size="sm" />
-                                  ) : result?.success ? (
-                                    <CheckSquare size={16} className="text-success-400" />
-                                  ) : result?.success === false ? (
-                                    <X size={16} className="text-error-400" />
-                                  ) : action.action.includes('task') ? (
-                                    <CheckSquare size={16} className="text-primary-400" />
-                                  ) : action.action.includes('doc') ? (
-                                    <FileText size={16} className="text-secondary-400" />
-                                  ) : action.action.includes('pr') ? (
-                                    <GitBranch size={16} className="text-accent-400" />
-                                  ) : action.action.includes('assign') ? (
-                                    <Users size={16} className="text-warning-400" />
-                                  ) : (
-                                    <Lightbulb size={16} className="text-primary-400" />
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="text-sm font-medium text-white">{action.title}</h4>
-                                  <p className="text-xs text-dark-400">
-                                    {result?.message || action.description}
-                                  </p>
-                                </div>
-                                {!isExecuting && !result && (
-                                  <ArrowRight size={14} className="text-dark-400" />
-                                )}
-                              </CardContent>
-                            </Card>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Follow-up Questions */}
-                {processedQuery.followUpQuestions.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-dark-300">Follow-up Questions</h3>
-                    <div className="space-y-2">
-                      {processedQuery.followUpQuestions.map((question, index) => (
-                        <Button
-                          key={index}
-                          variant="ghost"
-                          className="w-full justify-start text-left text-dark-300 hover:text-white"
-                          onClick={() => {
-                            setQuery(question);
-                            handleSubmit();
-                          }}
-                        >
-                          <MessageSquare size={14} className="mr-2 flex-shrink-0" />
-                          <span className="truncate">{question}</span>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             ) : (
               <div className="space-y-4">
                 <div className="text-center py-6">
-                  {mcpMode ? (
-                    <Brain className="w-12 h-12 text-primary-400 mx-auto mb-3" />
-                  ) : (
-                    <Command className="w-12 h-12 text-dark-400 mx-auto mb-3" />
-                  )}
+                  <Brain className="w-12 h-12 text-primary-400 mx-auto mb-3" />
                   <h3 className="text-lg font-medium text-white mb-1">
-                    {mcpMode ? 'Advanced AI Assistant' : 'How can I help you?'}
+                    Advanced AI Assistant
                   </h3>
                   <p className="text-dark-400 mb-6">
-                    {mcpMode 
-                      ? 'Ask me anything or use advanced tools below'
-                      : 'Ask me anything or use quick actions below'}
+                    Ask me anything or use advanced tools below
                   </p>
                 </div>
                 
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-dark-300">
-                    {mcpMode ? 'Available Tools' : 'Quick Actions'}
+                    Available Tools
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {mcpMode ? (
-                      // MCP Tools
-                      getMCPTools().map((tool) => {
-                        const isExecuting = executingAction === tool.function.name;
-                        
-                        return (
-                          <div
-                            key={tool.function.name}
-                            onClick={() => {
-                              if (!isExecuting) {
-                                handleMCPToolExecution(tool.function.name, {});
-                              }
-                            }}
+                    {/* MCP Tools */}
+                    {getMCPTools().map((tool) => {
+                      const isExecuting = executingAction === tool.function.name;
+                      
+                      return (
+                        <div
+                          key={tool.function.name}
+                          onClick={() => {
+                            if (!isExecuting) {
+                              handleMCPToolExecution(tool.function.name, {});
+                            }
+                          }}
+                        >
+                          <Card 
+                            hover 
+                            className="cursor-pointer transition-all duration-200 hover:border-primary-500"
                           >
-                            <Card 
-                              hover 
-                              className="cursor-pointer transition-all duration-200 hover:border-primary-500"
-                            >
-                              <CardContent className="p-3 flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                                  {isExecuting ? (
-                                    <LoadingSpinner size="sm" />
-                                  ) : (
-                                    getMCPToolIcon(tool.function.name)
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="text-sm font-medium text-white">{tool.function.name}</h4>
-                                  <p className="text-xs text-dark-400">
-                                    {tool.function.description}
-                                  </p>
-                                </div>
-                                {!isExecuting && (
-                                  <Play size={14} className="text-dark-400" />
-                                )}
-                              </CardContent>
-                            </Card>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      // Standard Quick Actions
-                      getQuickActions().map((handler) => {
-                        const isExecuting = executingAction === handler.id;
-                        const result = actionResults.get(handler.id);
-                        
-                        return (
-                          <div
-                            key={handler.id}
-                            onClick={() => {
-                              if (!isExecuting) {
-                                handleQuickActionClick(handler.id);
-                                setOverlayOpen(false);
-                              }
-                            }}
-                          >
-                            <Card 
-                              hover 
-                              className={`cursor-pointer transition-all duration-200 ${
-                                result?.success ? 'border-success-500 bg-success-900/10' :
-                                result?.success === false ? 'border-error-500 bg-error-900/10' :
-                                'hover:border-primary-500'
-                              }`}
-                            >
-                              <CardContent className="p-3 flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                                  {isExecuting ? (
-                                    <LoadingSpinner size="sm" />
-                                  ) : result?.success ? (
-                                    <CheckSquare size={16} className="text-success-400" />
-                                  ) : result?.success === false ? (
-                                    <X size={16} className="text-error-400" />
-                                  ) : (
-                                    getActionIcon(handler.category)
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="text-sm font-medium text-white">{handler.title}</h4>
-                                  <p className="text-xs text-dark-400">
-                                    {result?.message || handler.description}
-                                  </p>
-                                </div>
-                                {!isExecuting && !result && (
-                                  <Play size={14} className="text-dark-400" />
-                                )}
-                              </CardContent>
-                            </Card>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* Category Sections */}
-                <div className="space-y-4">
-                  {['generation', 'analysis', 'automation', 'management'].map(category => {
-                    const categoryHandlers = quickActionService.getHandlersByCategory(category as any);
-                    if (categoryHandlers.length === 0) return null;
-
-                    return (
-                      <div key={category} className="space-y-2">
-                        <h4 className="text-xs font-medium text-dark-400 uppercase tracking-wider">
-                          {category} Actions
-                        </h4>
-                        <div className="grid grid-cols-1 gap-1">
-                          {categoryHandlers.slice(0, 3).map((handler) => (
-                            <div
-                              key={handler.id}
-                              onClick={() => {
-                                if (!executingAction) {
-                                  handleQuickActionClick(handler.id);
-                                  setOverlayOpen(false);
-                                }
-                              }}
-                            >
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="justify-start text-dark-300 hover:text-white"
-                                disabled={executingAction === handler.id}
-                              >
-                                {executingAction === handler.id ? (
-                                  <LoadingSpinner size="sm" className="mr-2" />
+                            <CardContent className="p-3 flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                                {isExecuting ? (
+                                  <LoadingSpinner size="sm" />
                                 ) : (
-                                  getActionIcon(handler.category)
+                                  getMCPToolIcon(tool.function.name)
                                 )}
-                                <span className="ml-2 truncate">{handler.title}</span>
-                              </Button>
-                            </div>
-                          ))}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="text-sm font-medium text-white">{tool.function.name}</h4>
+                                <p className="text-xs text-dark-400">
+                                  {tool.function.description}
+                                </p>
+                              </div>
+                              {!isExecuting && (
+                                <Play size={14} className="text-dark-400" />
+                              )}
+                            </CardContent>
+                          </Card>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -939,15 +616,12 @@ export const AIOverlay: React.FC = () => {
               <span>Press <kbd className="px-1.5 py-0.5 bg-dark-700 rounded text-xs">Esc</kbd> to close</span>
               <span>•</span>
               <span>
-                {mcpMode 
-                  ? `${availableTools.length} tools available`
-                  : `${quickActionService.getAllHandlers().length} actions available`
-                }
+                {`${availableTools.length} tools available`}
               </span>
             </div>
             <div className="flex items-center space-x-1">
-              {mcpMode ? <Brain size={12} /> : <Zap size={12} />}
-              <span>Powered by {mcpMode ? 'MCP' : 'Groq AI'}</span>
+              <Brain size={12} />
+              <span>Powered by MCP</span>
             </div>
           </div>
         </div>
@@ -969,7 +643,7 @@ export const AIOverlay: React.FC = () => {
               e.preventDefault();
               setShowSpecModal(false);
               if (pendingAction) {
-                handleQuickActionClick(pendingAction.id, {
+                handleMCPToolExecution(pendingAction.id, {
                   ...pendingAction.parameters,
                   ...specForm,
                 });

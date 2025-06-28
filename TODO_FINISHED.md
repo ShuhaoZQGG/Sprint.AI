@@ -598,62 +598,6 @@ This document tracks all completed features and their implementation details.
 - [x] Modify: src/types/index.ts
 - [x] Modify: TODO.md
 
-
-## MCP Server Integration Plan
-
-### 1. Services to Expose via MCP
-**Status**: ✅ Completed  
-**Priority**: High  
-**Description**: Expose core services through MCP for AI tool calling
-
-#### Subtasks:
-- [x] Expose docGenerator (doc generation)
-- [x] Expose codebaseAnalyzer (code analysis)
-- [x] Expose prGenerator (PR/template generation)
-- [x] Expose taskService (task CRUD)
-- [x] Expose businessSpecService (spec CRUD)
-- [x] Expose repositoryService (repo info/connect)
-- [x] Expose developerService (developer info/assignment)
-- [x] Expose sprintService (sprint management)
-- [x] Expose sprintAutomation (sprint optimization)
-- [x] Expose teamOptimizer (workload/team analysis)
-- [x] Expose capacityPlanner (capacity analysis)
-- [x] Expose commitAnalyzer (commit/PR analysis)
-- [x] Expose documentationService (doc CRUD)
-- [x] Expose nlpProcessor (AI query)
-- [x] Expose groq (raw LLM)
-
-### 2. Adjustments for MCP
-**Status**: ✅ Completed  
-**Priority**: Medium  
-**Description**: Refactor services for MCP compatibility
-
-#### Subtasks:
-- [x] Refactor each service to export stateless, MCP-compatible functions
-- [x] Add metadata (name, description, params, returns) for each tool
-- [x] Wrap stateful/context-dependent logic to accept all context as arguments
-- [x] Avoid singleton usage in MCP-exposed functions
-- [x] Add/extend JSDoc or TypeScript types for tool schemas
-
-### 3. MCP Server Registry
-**Status**: ✅ Completed  
-**Priority**: High  
-**Description**: Create registry for all MCP tools and services
-
-#### Subtasks:
-- [x] Create src/mcp/server/registry.ts to register all tools/services
-- [x] Register each tool with id, handler, description, parameters, returns
-
-### 4. Backward Compatibility
-**Status**: ✅ Completed  
-**Priority**: Medium  
-**Description**: Maintain backward compatibility with existing code
-
-#### Subtasks:
-- [x] Do not delete or break old service code
-- [x] Export MCP-compatible functions in addition to legacy exports
-- [x] Mark legacy exports as deprecated in comments if needed
-
 ## ✅ Integrate mcpClient into nlpProcessor and Workflow
 **Status**: ✅ Completed  
 **Priority**: High  
@@ -700,4 +644,79 @@ This document tracks all completed features and their implementation details.
 - ✅ Improved context awareness for AI interactions
 - ✅ Comprehensive documentation and typing
 
-**Sprint.AI now features a fully functional AI Assistant with comprehensive quick actions integration, advanced MCP tool-calling capabilities, and seamless integration between nlpProcessor and the MCP workflow! 🎉**
+## 🧹 MCP-Only AI Processing Migration
+
+### 1. Remove Legacy AI Processing Logic
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Remove all legacy AI processing logic and refactor to use only MCP
+
+#### Subtasks:
+- [x] **Remove Groq/legacy NLP logic from nlpProcessor**
+  - *Files modified*: `src/services/nlpProcessor.ts`
+  - Removed all intent/entity extraction methods
+  - Removed all Groq-based processing
+  - Removed legacy response generation
+  - Simplified to MCP-only processing
+
+- [x] **Remove dual-mode logic from AIOverlay**
+  - *Files modified*: `src/components/overlay/AIOverlay.tsx`
+  - Removed standard/MCP mode toggle
+  - Removed all legacy processing UI
+  - Simplified to MCP-only UI and interactions
+  - Enhanced MCP tool display and execution
+
+- [x] **Remove legacy quick action logic**
+  - *Files modified*: `src/services/quickActionHandler.ts`
+  - Removed all legacy handler implementations
+  - Refactored to use only MCP-based execution
+  - Maintained handler registration for tool discovery
+  - Simplified action execution flow
+
+### 2. Refactor nlpProcessor to MCP-Only
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Refactor nlpProcessor to only support MCP-based processing
+
+#### Subtasks:
+- [x] **Refactor to MCP-only processing**
+  - *Files modified*: `src/services/nlpProcessor.ts`
+  - Removed all non-MCP processing methods
+  - Simplified API to use MCP for all queries
+  - Enhanced tool suggestion logic
+  - Improved response generation from tool results
+
+- [x] **Remove intent/entity extraction**
+  - Removed all intent classification logic
+  - Removed entity extraction methods
+  - Simplified to direct query processing
+
+- [x] **Ensure all AI queries route through MCP**
+  - Updated all query processing to use MCP
+  - Enhanced context passing to MCP
+  - Improved error handling and fallbacks
+
+### 3. Refactor AIOverlay to Use Only MCP
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Refactor AIOverlay to use only MCP for all AI interactions
+
+#### Subtasks:
+- [x] **Remove standard mode and UI**
+  - *Files modified*: `src/components/overlay/AIOverlay.tsx`
+  - Removed mode toggle and related state
+  - Simplified UI to MCP-only flow
+  - Enhanced MCP conversation display
+
+- [x] **Remove non-MCP quick action logic**
+  - Removed all legacy quick action handling
+  - Simplified to MCP tool execution
+  - Enhanced tool suggestion and display
+
+- [x] **Simplify state/UI for MCP-only**
+  - Streamlined state management
+  - Enhanced tool result display
+  - Improved conversation history visualization
+  - Added better error handling and feedback
+
+**Sprint.AI now features a fully MCP-powered AI Assistant with robust tool-calling, conversation memory, and a modern, maintainable overlay UI! 🎉**
