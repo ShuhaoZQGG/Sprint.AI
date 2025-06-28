@@ -30,7 +30,6 @@ import { useRepositories } from '../../hooks/useRepositories';
 import { useBusinessSpecs } from '../../hooks/useBusinessSpecs';
 import { useDevelopers } from '../../hooks/useDevelopers';
 import { useTasks } from '../../hooks/useTasks';
-import { ProcessedQuery } from '../../services/nlpProcessor';
 import { TaskReviewModal } from './TaskReviewModal';
 import { Task } from '../../types';
 import toast from 'react-hot-toast';
@@ -163,7 +162,7 @@ export const AIOverlay: React.FC = () => {
       const aiContext = contextMemory.generateAIContext(conversationId);
       
       // Suggest tools based on query content
-      const suggestedTools = await suggestToolsForQuery(userQuery, context);
+      const suggestedTools = suggestToolsForQuery(userQuery, context);
       
       if (suggestedTools.length > 0) {
         // Execute suggested tools
@@ -198,13 +197,16 @@ export const AIOverlay: React.FC = () => {
         });
       }
       
+      // Clear query after processing
+      setQuery('');
+      
     } catch (error) {
       console.error('Error in MCP query processing:', error);
       toast.error('Failed to process MCP query');
     }
   };
 
-  const suggestToolsForQuery = async (query: string, context: MCPExecutionContext) => {
+  const suggestToolsForQuery = (query: string, context: MCPExecutionContext) => {
     const lowerQuery = query.toLowerCase();
     const suggestions = [];
 

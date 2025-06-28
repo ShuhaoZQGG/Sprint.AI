@@ -251,6 +251,30 @@ class NLPProcessor {
       }
     }
 
+    // Repository listing
+    if (lowerQuery.includes('list') && lowerQuery.includes('repo')) {
+      tools.push({
+        id: 'list-repositories',
+        parameters: { limit: 5 },
+      });
+    }
+
+    // Task listing
+    if (lowerQuery.includes('list') && lowerQuery.includes('task')) {
+      tools.push({
+        id: 'list-tasks',
+        parameters: { limit: 5 },
+      });
+    }
+
+    // Business spec listing
+    if (lowerQuery.includes('list') && lowerQuery.includes('spec')) {
+      tools.push({
+        id: 'list-business-specs',
+        parameters: { limit: 5 },
+      });
+    }
+
     return tools;
   }
 

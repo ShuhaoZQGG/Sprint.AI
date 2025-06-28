@@ -521,6 +521,190 @@ class MCPRegistry {
       },
       category: 'analysis',
     });
+
+    // List repositories tool
+    this.registerTool({
+      id: 'list-repositories',
+      name: 'List Repositories',
+      description: 'List all repositories for the current team',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: {
+            type: 'number',
+            description: 'Maximum number of repositories to return',
+          },
+        },
+      },
+      returns: {
+        type: 'array',
+        description: 'List of repositories',
+      },
+      handler: async (params, context) => {
+        const { limit = 10 } = params;
+        
+        if (!context.repositories || context.repositories.length === 0) {
+          return { repositories: [], message: 'No repositories found' };
+        }
+        
+        return { 
+          repositories: context.repositories.slice(0, limit),
+          count: context.repositories.length
+        };
+      },
+      category: 'management',
+    });
+
+    // List tasks tool
+    this.registerTool({
+      id: 'list-tasks',
+      name: 'List Tasks',
+      description: 'List tasks with optional filtering',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: {
+            type: 'string',
+            description: 'Filter by task status',
+            enum: ['backlog', 'todo', 'in-progress', 'review', 'done'],
+          },
+          assigneeId: {
+            type: 'string',
+            description: 'Filter by assignee ID',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of tasks to return',
+          },
+        },
+      },
+      returns: {
+        type: 'array',
+        description: 'List of tasks',
+      },
+      handler: async (params, context) => {
+        const { status, assigneeId, limit = 10 } = params;
+        
+        if (!context.tasks || context.tasks.length === 0) {
+          return { tasks: [], message: 'No tasks found' };
+        }
+        
+        let filteredTasks = [...context.tasks];
+        
+        if (status) {
+          filteredTasks = filteredTasks.filter(task => task.status === status);
+        }
+        
+        if (assigneeId) {
+          filteredTasks = filteredTasks.filter(task => task.assignee?.id === assigneeId);
+        }
+        
+        return { 
+          tasks: filteredTasks.slice(0, limit),
+          count: filteredTasks.length
+        };
+      },
+      category: 'management',
+    });
+
+    // List business specs tool
+    this.registerTool({
+      id: 'list-business-specs',
+      name: 'List Business Specifications',
+      description: 'List business specifications with optional filtering',
+      parameters: {
+        type: 'object',
+        properties: {
+          status: {
+            type: 'string',
+            description: 'Filter by specification status',
+            enum: ['draft', 'review', 'approved', 'implemented'],
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of specifications to return',
+          },
+        },
+      },
+      returns: {
+        type: 'array',
+        description: 'List of business specifications',
+      },
+      handler: async (params, context) => {
+        const { status, limit = 10 } = params;
+        
+        if (!context.businessSpecs || context.businessSpecs.length === 0) {
+          return { specs: [], message: 'No business specifications found' };
+        }
+        
+        let filteredSpecs = [...context.businessSpecs];
+        
+        if (status) {
+          filteredSpecs = filteredSpecs.filter(spec => spec.status === status);
+        }
+        
+        return { 
+          specs: filteredSpecs.slice(0, limit),
+          count: filteredSpecs.length
+        };
+      },
+      category: 'management',
+    });
+
+    // Generate tasks from business spec
+    this.registerTool({
+      id: 'generate-tasks-from-specs',
+      name: 'Generate Tasks from Business Specification',
+      description: 'Generate technical tasks from a business specification',
+      parameters: {
+        type: 'object',
+        properties: {
+          specId: {
+            type: 'string',
+            description: 'ID of the business specification',
+          },
+        },
+        required: ['specId'],
+      },
+      returns: {
+        type: 'object',
+        description: 'Generated tasks with reasoning',
+      },
+      handler: async (params, context) => {
+        const { specId } = params;
+        
+        const spec = context.businessSpecs?.find((s: any) => s.id === specId);
+        if (!spec) {
+          throw new Error('Business specification not found');
+        }
+        
+        // This would normally call the AI service to generate tasks
+        // For now, return mock tasks
+        return {
+          tasks: [
+            {
+              title: `Implement ${spec.title}`,
+              description: `Technical implementation for: ${spec.description}`,
+              type: 'feature',
+              priority: spec.priority || 'medium',
+              status: 'backlog',
+              estimatedEffort: 8,
+            },
+            {
+              title: `Test ${spec.title}`,
+              description: `Create comprehensive tests for ${spec.title}`,
+              type: 'test',
+              priority: spec.priority || 'medium',
+              status: 'backlog',
+              estimatedEffort: 4,
+            },
+          ],
+          reasoning: 'Generated tasks based on business specification',
+          confidence: 0.8,
+        };
+      },
+      category: 'generation',
+    });
   }
 
   private registerTool(tool: MCPServerTool) {

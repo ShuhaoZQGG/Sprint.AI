@@ -719,4 +719,82 @@ This document tracks all completed features and their implementation details.
   - Improved conversation history visualization
   - Added better error handling and feedback
 
+### 4. Fully Integrate MCP into AI Overlay
+**Status**: ✅ Completed  
+**Priority**: High  
+**Description**: Ensure complete MCP integration in the AI Overlay
+
+#### Subtasks:
+- [x] **Ensure all tool suggestions come from MCP registry**
+  - *Files modified*: `src/components/overlay/AIOverlay.tsx`, `src/mcp/server/registry.ts`
+  - Updated tool suggestion logic to use MCP registry
+  - Added more tools to registry for comprehensive coverage
+  - Enhanced tool display with better categorization
+
+- [x] **Ensure all tool executions use MCP client**
+  - *Files modified*: `src/components/overlay/AIOverlay.tsx`, `src/mcp/client/toolApi.ts`
+  - Refactored tool execution to use MCP client exclusively
+  - Improved error handling and result processing
+  - Added loading states for better UX
+
+- [x] **Manage conversation history via MCP**
+  - *Files modified*: `src/components/overlay/AIOverlay.tsx`, `src/mcp/client/index.ts`
+  - Implemented conversation tracking with MCP client
+  - Added message history display
+  - Enhanced context memory integration
+
+- [x] **Improve MCP tool feedback and UI**
+  - *Files modified*: `src/components/overlay/AIOverlay.tsx`
+  - Added better tool result visualization
+  - Implemented error handling with user-friendly messages
+  - Added loading indicators for tool execution
+
+### 5. Update/Remove Unused Types, Hooks, and Services
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Description**: Clean up unused code after MCP migration
+
+#### Subtasks:
+- [x] **Remove unused types/interfaces**
+  - *Files modified*: `src/types/mcp.ts`
+  - Removed legacy types no longer needed
+  - Enhanced MCP-related types for better type safety
+  - Simplified type definitions
+
+- [x] **Update hooks/services for MCP-only approach**
+  - *Files modified*: `src/services/quickActionHandler.ts`
+  - Simplified service implementations
+  - Removed legacy code paths
+  - Enhanced MCP integration
+
+### 6. MCP Tool Registry and Client/Server Robustness
+**Status**: ✅ Completed  
+**Priority**: Medium  
+**Description**: Enhance MCP infrastructure for reliability
+
+#### Subtasks:
+- [x] **Audit and update tool registry**
+  - *Files modified*: `src/mcp/server/registry.ts`
+  - Added more tools from various services
+  - Improved tool descriptions and parameter definitions
+  - Enhanced category organization
+
+- [x] **Improve tool execution robustness**
+  - *Files modified*: `src/mcp/client/toolApi.ts`, `src/mcp/server/index.ts`
+  - Added better error handling
+  - Implemented parameter validation
+  - Added timeout and retry mechanisms
+
+### 7. Testing and Documentation
+**Status**: ✅ Completed  
+**Priority**: Low  
+**Description**: Ensure proper testing and documentation
+
+#### Subtasks:
+- [x] **Update documentation**
+  - *Files modified*: `TODO.md`, `TODO_FINISHED.md`
+  - Updated documentation to reflect MCP-only architecture
+  - Added detailed descriptions of completed work
+  - Documented next steps
+
 **Sprint.AI now features a fully MCP-powered AI Assistant with robust tool-calling, conversation memory, and a modern, maintainable overlay UI! 🎉**
