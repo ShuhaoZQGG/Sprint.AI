@@ -525,7 +525,7 @@ export const AIOverlay: React.FC = () => {
                           
                           return (
                             <div
-                              key={tool.toolId}
+                              key={`${tool.toolId}-${JSON.stringify(tool.parameters)}`}
                               onClick={() => {
                                 if (!isExecuting && !toolExecutionInProgress) {
                                   handleMCPToolExecution(tool.toolId, tool.parameters);

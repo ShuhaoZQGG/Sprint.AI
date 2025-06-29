@@ -139,8 +139,7 @@ class NLPProcessor {
         try {
           // Filter to high confidence suggestions
           const highConfidenceSuggestions = suggestedTools
-            .filter(tool => tool.confidence > 0.7)
-            .slice(0, 2); // Limit to top 2 high confidence suggestions to avoid duplicates
+            .filter(tool => tool.confidence > 0.7) // Limit to top 2 high confidence suggestions to avoid duplicates
           
           if (highConfidenceSuggestions.length > 0) {
             console.log(`[NLPProcessor] Executing ${highConfidenceSuggestions.length} high confidence tools using callMultipleTools`);
