@@ -70,6 +70,7 @@ export const AIOverlay: React.FC = () => {
   const [toolExecutionHistory, setToolExecutionHistory] = useState<any[]>([]);
   const [suggestedTools, setSuggestedTools] = useState<Array<{ toolId: string; parameters: Record<string, any>; confidence: number }>>([]);
   const [toolExecutionInProgress, setToolExecutionInProgress] = useState(false);
+  const [aiSuggestionsLoading, setAiSuggestionsLoading] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -145,29 +146,40 @@ export const AIOverlay: React.FC = () => {
   };
 
   // This function is used when the user submits a query
-  const getSuggestedToolsWithContext = (userQuery: string): Array<{ toolId: string; parameters: Record<string, any>; confidence: number }> => {
-    console.log(`[AIOverlay] Getting suggested tools with full context for query: "${userQuery}"`);
-    const context = createMCPExecutionContext();
+  const getSuggestedToolsWithAI = async (userQuery: string): Promise<Array<{ toolId: string; parameters: Record<string, any>; confidence: number }>> => {
+    console.log(`[AIOverlay] Getting suggested tools with AI for query: "${userQuery}"`);
+    setAiSuggestionsLoading(true);
     
-    // Generate AI context for better tool selection
-    const aiContext = contextMemory.generateAIContext(conversationId);
-    console.log(`[AIOverlay] Using AI context for tool suggestions: ${aiContext.substring(0, 200)}...`);
-    
-    // Use the context to enhance tool suggestions
-    const enhancedContext = {
-      ...context,
-      aiContext,
-      recentActions: contextMemory.getConversationContext(conversationId).recentActions,
-      conversationHistory: mcpMessages.map(msg => ({
-        role: msg.role,
-        content: msg.content.substring(0, 100) // Truncate for context
-      }))
-    };
-    
-    // Get suggestions with enhanced context
-    const suggestions = toolApi.suggestTools(userQuery, enhancedContext);
-    console.log(`[AIOverlay] Got ${suggestions.length} tool suggestions with context`, suggestions);
-    return suggestions;
+    try {
+      const context = createMCPExecutionContext();
+      
+      // Generate AI context for better tool selection
+      const aiContext = contextMemory.generateAIContext(conversationId);
+      console.log(`[AIOverlay] Using AI context for tool suggestions: ${aiContext.substring(0, 200)}...`);
+      
+      // Use the context to enhance tool suggestions
+      const enhancedContext = {
+        ...context,
+        aiContext,
+        recentActions: contextMemory.getConversationContext(conversationId).recentActions,
+        conversationHistory: mcpMessages.map(msg => ({
+          role: msg.role,
+          content: msg.content.substring(0, 100) // Truncate for context
+        }))
+      };
+      
+      // Get suggestions with AI
+      const suggestions = await toolApi.suggestToolsWithAI(userQuery, enhancedContext);
+      console.log(`[AIOverlay] Got ${suggestions.length} tool suggestions with AI`, suggestions);
+      return suggestions;
+    } catch (error) {
+      console.error('[AIOverlay] Error getting AI tool suggestions:', error);
+      // Fall back to rule-based suggestions
+      const context = createMCPExecutionContext();
+      return toolApi.suggestTools(userQuery, context);
+    } finally {
+      setAiSuggestionsLoading(false);
+    }
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -195,8 +207,8 @@ export const AIOverlay: React.FC = () => {
       // Generate AI context for better tool selection
       const aiContext = contextMemory.generateAIContext(conversationId);
       
-      // Get enhanced tool suggestions using context
-      const enhancedSuggestions = getSuggestedToolsWithContext(userQuery);
+      // Get enhanced tool suggestions using AI
+      const enhancedSuggestions = await getSuggestedToolsWithAI(userQuery);
       
       // Execute high confidence tools
       const highConfidenceSuggestions = enhancedSuggestions
@@ -488,49 +500,58 @@ export const AIOverlay: React.FC = () => {
                 {/* Suggested Tools */}
                 {suggestedTools.length > 0 && !toolExecutionInProgress && (
                   <div className="space-y-2 mt-4">
-                    <h3 className="text-sm font-medium text-dark-300">Suggested Actions</h3>
+                    <h3 className="text-sm font-medium text-dark-300">
+                      {aiSuggestionsLoading ? 'Analyzing your request...' : 'Suggested Actions'}
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {suggestedTools.slice(0, 4).map((tool) => {
-                        const isExecuting = executingAction === tool.toolId;
-                        const toolInfo = availableTools.find(t => t.function.name === tool.toolId);
-                        
-                        return (
-                          <div
-                            key={tool.toolId}
-                            onClick={() => {
-                              if (!isExecuting && !toolExecutionInProgress) {
-                                handleMCPToolExecution(tool.toolId, tool.parameters);
-                              }
-                            }}
-                          >
-                            <Card
-                              hover
-                              className={`cursor-pointer transition-all duration-200 hover:border-primary-500 ${
-                                tool.confidence > 0.7 ? 'border-primary-700' : ''
-                              }`}
+                      {aiSuggestionsLoading ? (
+                        <div className="col-span-2 flex items-center justify-center p-4">
+                          <LoadingSpinner size="md" className="mr-3" />
+                          <span className="text-dark-300">Analyzing your request with AI...</span>
+                        </div>
+                      ) : (
+                        suggestedTools.slice(0, 4).map((tool) => {
+                          const isExecuting = executingAction === tool.toolId;
+                          const toolInfo = availableTools.find(t => t.function.name === tool.toolId);
+                          
+                          return (
+                            <div
+                              key={tool.toolId}
+                              onClick={() => {
+                                if (!isExecuting && !toolExecutionInProgress) {
+                                  handleMCPToolExecution(tool.toolId, tool.parameters);
+                                }
+                              }}
                             >
-                              <CardContent className="p-3 flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
-                                  {isExecuting ? (
-                                    <LoadingSpinner size="sm" />
-                                  ) : (
-                                    getMCPToolIcon(tool.toolId)
+                              <Card
+                                hover
+                                className={`cursor-pointer transition-all duration-200 hover:border-primary-500 ${
+                                  tool.confidence > 0.7 ? 'border-primary-700' : ''
+                                }`}
+                              >
+                                <CardContent className="p-3 flex items-center space-x-3">
+                                  <div className="w-8 h-8 bg-dark-700 rounded-lg flex items-center justify-center">
+                                    {isExecuting ? (
+                                      <LoadingSpinner size="sm" />
+                                    ) : (
+                                      getMCPToolIcon(tool.toolId)
+                                    )}
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="text-sm font-medium text-white">{toolInfo?.function.name || tool.toolId}</h4>
+                                    <p className="text-xs text-dark-400">
+                                      {toolInfo?.function.description || 'Execute this tool'}
+                                    </p>
+                                  </div>
+                                  {!isExecuting && (
+                                    <ArrowRight size={14} className="text-dark-400" />
                                   )}
-                                </div>
-                                <div className="flex-1">
-                                  <h4 className="text-sm font-medium text-white">{toolInfo?.function.name || tool.toolId}</h4>
-                                  <p className="text-xs text-dark-400">
-                                    {toolInfo?.function.description || 'Execute this tool'}
-                                  </p>
-                                </div>
-                                {!isExecuting && (
-                                  <ArrowRight size={14} className="text-dark-400" />
-                                )}
-                              </CardContent>
-                            </Card>
-                          </div>
-                        );
-                      })}
+                                </CardContent>
+                              </Card>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 )}

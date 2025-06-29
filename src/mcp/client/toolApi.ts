@@ -2,6 +2,7 @@ import { MCPToolCall, MCPToolResult, MCPMessage } from '../../types/mcp';
 import { MCPExecutionContext } from '../server/types';
 import { mcpServer } from '../server';
 import { mcpOrchestrator } from '../server/orchestrator';
+import { groqService } from '../../services/groq';
 
 export interface ToolApiConfig {
   timeout: number;
@@ -212,7 +213,109 @@ class ToolApi {
   }
 
   /**
-   * Suggest tools based on user query and context
+   * Suggest tools based on user query and context using AI
+   */
+  async suggestToolsWithAI(
+    query: string,
+    context: MCPExecutionContext
+  ): Promise<Array<{ toolId: string; parameters: Record<string, any>; confidence: number }>> {
+    try {
+      console.log(`[MCP] Suggesting tools with AI for query: "${query}"`);
+      
+      // Get available tools
+      const availableTools = this.getAvailableTools();
+      const toolSchemas = availableTools.map(tool => ({
+        id: tool.function.name,
+        description: tool.function.description,
+        parameters: tool.function.parameters
+      }));
+      
+      // Prepare context for AI
+      const contextData = {
+        repositories: context.repositories?.map(repo => ({ 
+          id: repo.id, 
+          name: repo.name,
+          language: repo.language
+        })),
+        currentRepository: context.currentRepository ? {
+          id: context.currentRepository.id,
+          name: context.currentRepository.name
+        } : null,
+        tasks: context.tasks?.length || 0,
+        developers: context.developers?.length || 0,
+        businessSpecs: context.businessSpecs?.length || 0,
+        recentActions: context.recentActions || [],
+        aiContext: context.aiContext || ''
+      };
+      
+      // Create prompt for AI
+      const prompt = `
+        You are an AI assistant that helps select the most appropriate tools to execute based on a user query.
+        
+        Available tools:
+        ${JSON.stringify(toolSchemas, null, 2)}
+        
+        Context:
+        ${JSON.stringify(contextData, null, 2)}
+        
+        User query: "${query}"
+        
+        Select the most appropriate tools to execute based on the user query and context.
+        For each tool, provide the tool ID, parameters (with values extracted from the query where possible),
+        and a confidence score (0-1) indicating how confident you are that this tool should be executed.
+        
+        Return a JSON array of objects with the following structure:
+        [
+          {
+            "toolId": "tool-id",
+            "parameters": {
+              "param1": "value1",
+              "param2": "value2"
+            },
+            "confidence": 0.9,
+            "reasoning": "Brief explanation of why this tool was selected"
+          }
+        ]
+        
+        Only include tools that are relevant to the query. Limit to at most 3 tools.
+        For parameters, extract values from the query where possible, otherwise use reasonable defaults.
+        Confidence should be high (>0.7) only if you're very confident the tool should be executed.
+      `;
+      
+      // Call AI service
+      const response = await groqService.makeCompletion(prompt, 1024, {
+        type: 'json_object'
+      });
+      
+      // Parse response
+      let suggestions;
+      try {
+        suggestions = JSON.parse(response);
+      } catch (error) {
+        console.error('[MCP] Error parsing AI response:', error);
+        console.log('[MCP] Raw AI response:', response);
+        suggestions = [];
+      }
+      
+      // Validate and format suggestions
+      const validSuggestions = Array.isArray(suggestions) ? suggestions.map(suggestion => ({
+        toolId: suggestion.toolId,
+        parameters: suggestion.parameters || {},
+        confidence: suggestion.confidence || 0.5
+      })) : [];
+      
+      console.log(`[MCP] AI suggested ${validSuggestions.length} tools:`, validSuggestions);
+      
+      return validSuggestions;
+    } catch (error) {
+      console.error('[MCP] Error suggesting tools with AI:', error);
+      // Fall back to rule-based suggestions
+      return this.suggestTools(query, context);
+    }
+  }
+
+  /**
+   * Suggest tools based on user query and context using rule-based approach
    */
   suggestTools(
     query: string,
