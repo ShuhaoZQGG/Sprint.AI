@@ -528,6 +528,56 @@ class ToolApi {
       });
     }
 
+    // Business spec creation
+    if ((lowerQuery.includes('create') || lowerQuery.includes('new')) && lowerQuery.includes('spec')) {
+      const title = this.extractSpecTitle(query);
+      suggestions.push({
+        toolId: 'create-business-spec',
+        parameters: {
+          title: title || 'New Business Specification',
+          description: 'Business specification created from AI query',
+          priority: this.inferPriority(query) || 'medium',
+        },
+        confidence: 0.85,
+      });
+    }
+
+    // Natural language processing
+    if (lowerQuery.includes('understand') || lowerQuery.includes('analyze') || lowerQuery.includes('what')) {
+      suggestions.push({
+        toolId: 'process-natural-language',
+        parameters: {
+          query: query,
+          includeActions: true,
+        },
+        confidence: 0.7,
+      });
+    }
+
+    // Connect repository
+    if (lowerQuery.includes('connect') && (lowerQuery.includes('repo') || lowerQuery.includes('github'))) {
+      const repoUrl = this.extractRepoUrl(query);
+      if (repoUrl) {
+        suggestions.push({
+          toolId: 'connect-repository',
+          parameters: {
+            url: repoUrl,
+            analyze: true,
+          },
+          confidence: 0.9,
+        });
+      } else {
+        suggestions.push({
+          toolId: 'connect-repository',
+          parameters: {
+            url: '',
+            analyze: true,
+          },
+          confidence: 0.7,
+        });
+      }
+    }
+
     // If we have enhanced context, boost confidence for relevant tools
     if (hasEnhancedContext) {
       const aiContext = context.aiContext as string;
@@ -628,6 +678,30 @@ class ToolApi {
         context.tasks || [],
         resultData.tasks
       );
+    } else if (toolId === 'create-business-spec' && resultData) {
+      console.log(`[MCP] Adding new business spec to context: ${resultData.title}`);
+      context.businessSpecs = [
+        resultData,
+        ...(context.businessSpecs || []),
+      ];
+    } else if (toolId === 'connect-repository' && resultData.repository) {
+      console.log(`[MCP] Adding new repository to context: ${resultData.repository.name}`);
+      context.repositories = [
+        resultData.repository,
+        ...(context.repositories || []),
+      ];
+    } else if (toolId === 'list-business-specs' && resultData.specs) {
+      console.log(`[MCP] Updating context with ${resultData.specs.length} business specs`);
+      context.businessSpecs = this.mergeArraysById(
+        context.businessSpecs || [],
+        resultData.specs
+      );
+    } else if (toolId === 'generate-tasks-from-specs' && resultData.tasks) {
+      console.log(`[MCP] Adding generated tasks to context: ${resultData.tasks.length} tasks`);
+      context.tasks = [
+        ...resultData.tasks,
+        ...(context.tasks || []),
+      ];
     }
   }
 
@@ -719,6 +793,41 @@ class ToolApi {
     if (lowerQuery.includes('in progress') || lowerQuery.includes('in-progress')) return 'in-progress';
     if (lowerQuery.includes('review')) return 'review';
     if (lowerQuery.includes('done') || lowerQuery.includes('completed')) return 'done';
+    
+    return null;
+  }
+
+  private extractSpecTitle(query: string): string | null {
+    // Extract spec title from queries like "create a spec for user authentication"
+    const patterns = [
+      /create\s+(?:a\s+)?(?:business\s+)?spec(?:ification)?\s+(?:for\s+)?(.*)/i,
+      /add\s+(?:a\s+)?(?:business\s+)?spec(?:ification)?\s+(?:for\s+)?(.*)/i,
+      /new\s+(?:business\s+)?spec(?:ification)?\s+(?:for\s+)?(.*)/i,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = query.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+    
+    return null;
+  }
+
+  private extractRepoUrl(query: string): string | null {
+    // Extract GitHub repository URL
+    const patterns = [
+      /https:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+/i,
+      /github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+/i,
+    ];
+    
+    for (const pattern of patterns) {
+      const match = query.match(pattern);
+      if (match) {
+        return match[0];
+      }
+    }
     
     return null;
   }
