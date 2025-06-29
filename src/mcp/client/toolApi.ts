@@ -264,6 +264,8 @@ class ToolApi {
         For each tool, provide the tool ID, parameters (with values extracted from the query where possible),
         and a confidence score (0-1) indicating how confident you are that this tool should be executed.
         
+        The same tool can be selected multiple times, but only if each instance has distinct and meaningful parameters. Do not create multiple entries for the same tool unless each has unique, relevant parameter values that are required for the query.
+        
         Return a JSON array of objects with the following structure:
         [
           {
@@ -277,7 +279,7 @@ class ToolApi {
           }
         ]
         
-        Only include tools that are relevant to the query. Limit to at most 3 tools.
+        Only include tools that are relevant to the query.
         For parameters, extract values from the query where possible, otherwise use reasonable defaults.
         Confidence should be high (>0.7) only if you're very confident the tool should be executed.
       `;
@@ -298,10 +300,10 @@ class ToolApi {
       }
       
       // Validate and format suggestions
-      const validSuggestions = Array.isArray(suggestions) ? suggestions.map(suggestion => ({
-        toolId: suggestion.toolId,
-        parameters: suggestion.parameters || {},
-        confidence: suggestion.confidence || 0.5
+      const validSuggestions = Array.isArray(suggestions.tools) ? suggestions.tools.map((tool: any) => ({
+        toolId: tool.toolId,
+        parameters: tool.parameters || {},
+        confidence: tool.confidence || 0.5
       })) : [];
       
       console.log(`[MCP] AI suggested ${validSuggestions.length} tools:`, validSuggestions);

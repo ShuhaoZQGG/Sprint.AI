@@ -157,11 +157,11 @@ export const AIOverlay: React.FC = () => {
       const aiContext = contextMemory.generateAIContext(conversationId);
       console.log(`[AIOverlay] Using AI context for tool suggestions: ${aiContext.substring(0, 200)}...`);
       
-      // Use the context to enhance tool suggestions
-      const enhancedContext = {
+      // Compose a separate context for the AI prompt only
+      const aiPromptContext = {
         ...context,
         aiContext,
-        recentActions: contextMemory.getConversationContext(conversationId).recentActions,
+        recentActions: contextMemory.getConversationContext(conversationId)?.recentActions,
         conversationHistory: mcpMessages.map(msg => ({
           role: msg.role,
           content: msg.content.substring(0, 100) // Truncate for context
@@ -169,7 +169,7 @@ export const AIOverlay: React.FC = () => {
       };
       
       // Get suggestions with AI
-      const suggestions = await toolApi.suggestToolsWithAI(userQuery, enhancedContext);
+      const suggestions = await toolApi.suggestToolsWithAI(userQuery, aiPromptContext as any);
       console.log(`[AIOverlay] Got ${suggestions.length} tool suggestions with AI`, suggestions);
       return suggestions;
     } catch (error) {
@@ -213,7 +213,6 @@ export const AIOverlay: React.FC = () => {
       // Execute high confidence tools
       const highConfidenceSuggestions = enhancedSuggestions
         .filter(tool => tool.confidence > 0.7)
-        .slice(0, 2); // Limit to top 2 high confidence tools to avoid duplicates
       
       if (highConfidenceSuggestions.length > 0) {
         console.log('[AIOverlay] Executing high confidence tools using callMultipleTools:', 
@@ -342,21 +341,31 @@ export const AIOverlay: React.FC = () => {
 
   const getMCPTools = () => {
     // Show suggested tools first, then other available tools
-    const suggestedToolIds = suggestedTools.map(tool => tool.toolId);
-    const otherTools = availableTools.filter(tool => 
-      !suggestedToolIds.includes(tool.function.name)
-    );
-    
-    return [
-      ...suggestedTools.map(suggestion => {
+    const suggestedToolIds = new Set(suggestedTools.map(tool => tool.toolId));
+    const dedupedTools: any[] = [];
+    const addedToolIds = new Set<string>();
+
+    // Add suggested tools first
+    suggestedTools.forEach(suggestion => {
+      if (!addedToolIds.has(suggestion.toolId)) {
         const tool = availableTools.find(t => t.function.name === suggestion.toolId);
-        return {
-          ...tool,
-          suggestion,
-        };
-      }),
-      ...otherTools.slice(0, 8 - Math.min(suggestedTools.length, 4)),
-    ].slice(0, 8); // Show max 8 tools
+        if (tool) {
+          dedupedTools.push({ ...tool, suggestion });
+          addedToolIds.add(suggestion.toolId);
+        }
+      }
+    });
+
+    // Add other available tools, skipping any already added
+    for (const tool of availableTools) {
+      if (!addedToolIds.has(tool.function.name)) {
+        dedupedTools.push(tool);
+        addedToolIds.add(tool.function.name);
+      }
+      if (dedupedTools.length >= 8) break; // Show max 8 tools
+    }
+
+    return dedupedTools.slice(0, 8);
   };
 
   if (!overlayOpen) return null;
