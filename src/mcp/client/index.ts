@@ -414,6 +414,142 @@ class MCPClient {
           }
         }
       }
+      // Handle business spec listing
+      else if (toolResults.some(r => r.toolCallId.includes('list-business-specs'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('list-business-specs'));
+        if (result && result.data && result.data.specs) {
+          const specs = result.data.specs;
+          response = `I found ${specs.length} business specifications: `;
+          
+          if (specs.length > 0) {
+            response += specs.map((spec: any) => `"${spec.title}"`).join(', ');
+          } else {
+            response += "No specifications found.";
+          }
+          
+          if (result.data.message) {
+            response += ` ${result.data.message}`;
+          }
+        }
+      }
+      // Handle business spec creation
+      else if (toolResults.some(r => r.toolCallId.includes('create-business-spec'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('create-business-spec'));
+        if (result && result.data) {
+          const spec = result.data;
+          response = `I've created a new business specification: "${spec.title}". `;
+          
+          if (spec.description) {
+            response += `The specification describes: ${spec.description.substring(0, 100)}... `;
+          }
+          
+          response += `It has ${spec.priority || 'medium'} priority and is in ${spec.status || 'draft'} status.`;
+          
+          if (spec.message) {
+            response += ` ${spec.message}`;
+          }
+        }
+      }
+      // Handle team performance analysis
+      else if (toolResults.some(r => r.toolCallId.includes('analyze-team-performance'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('analyze-team-performance'));
+        if (result && result.data) {
+          const analysis = result.data;
+          response = `I've analyzed the team's performance over the ${analysis.timeframe || 'recent'} period. `;
+          
+          if (analysis.teamComposition) {
+            response += `The team has ${analysis.teamComposition.totalMembers} members with diverse skills. `;
+          }
+          
+          if (analysis.recommendations && analysis.recommendations.length > 0) {
+            response += `Key recommendations: ${analysis.recommendations.slice(0, 2).join(', ')}. `;
+          }
+          
+          if (analysis.message) {
+            response += analysis.message;
+          }
+        }
+      }
+      // Handle sprint capacity analysis
+      else if (toolResults.some(r => r.toolCallId.includes('analyze-sprint-capacity'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('analyze-sprint-capacity'));
+        if (result && result.data) {
+          const capacity = result.data;
+          response = `I've analyzed the sprint capacity. `;
+          
+          if (capacity.totalCapacity) {
+            response += `Total capacity: ${capacity.totalCapacity} hours. `;
+          }
+          
+          if (capacity.availableCapacity) {
+            response += `Available capacity: ${capacity.availableCapacity} hours. `;
+          }
+          
+          if (capacity.sprintHealth) {
+            response += `Sprint health is ${capacity.sprintHealth}. `;
+          }
+          
+          if (capacity.message) {
+            response += capacity.message;
+          }
+        }
+      }
+      // Handle optimized sprint creation
+      else if (toolResults.some(r => r.toolCallId.includes('create-optimized-sprint'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('create-optimized-sprint'));
+        if (result && result.data) {
+          const sprint = result.data;
+          response = `I've created an optimized sprint "${sprint.sprint?.name || 'New Sprint'}". `;
+          
+          if (sprint.assigned) {
+            response += `${sprint.assigned} tasks have been automatically assigned. `;
+          }
+          
+          if (sprint.analytics?.successProbability) {
+            response += `The sprint has a ${sprint.analytics.successProbability}% success probability. `;
+          }
+          
+          if (sprint.message) {
+            response += sprint.message;
+          }
+        }
+      }
+      // Handle repository connection
+      else if (toolResults.some(r => r.toolCallId.includes('connect-repository'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('connect-repository'));
+        if (result && result.data) {
+          const repo = result.data;
+          response = `I've connected the repository ${repo.repository?.name || repo.url || 'successfully'}. `;
+          
+          if (repo.analyze) {
+            response += `The repository will be analyzed automatically. `;
+          }
+          
+          if (repo.message) {
+            response += repo.message;
+          }
+        }
+      }
+      // Handle documentation generation
+      else if (toolResults.some(r => r.toolCallId.includes('generate-documentation'))) {
+        const result = toolResults.find(r => r.toolCallId.includes('generate-documentation'));
+        if (result && result.data) {
+          const doc = result.data;
+          response = `I've generated documentation for the repository. `;
+          
+          if (doc.sections?.length) {
+            response += `The documentation includes ${doc.sections.length} sections: ${doc.sections.map((s: any) => s.title).join(', ')}. `;
+          }
+          
+          if (doc.wordCount) {
+            response += `Total word count: ${doc.wordCount}. `;
+          }
+          
+          if (doc.message) {
+            response += doc.message;
+          }
+        }
+      }
       // Generic successful response
       else {
         // Try to extract message from result data
