@@ -200,7 +200,7 @@ export const AIOverlay: React.FC = () => {
       
       // Execute high confidence tools
       const highConfidenceSuggestions = enhancedSuggestions
-        .filter(tool => tool.confidence > 0.8)
+        .filter(tool => tool.confidence > 0.7)
         .slice(0, 2); // Limit to top 2 high confidence tools to avoid duplicates
       
       if (highConfidenceSuggestions.length > 0) {
@@ -208,17 +208,9 @@ export const AIOverlay: React.FC = () => {
           highConfidenceSuggestions.map(t => t.toolId));
         
         try {
-          // Use callMultipleTools to execute all high confidence tools in one go
-          const toolResults = await toolApi.callMultipleTools(
-            highConfidenceSuggestions,
-            context
-          );
-          
-          console.log('[AIOverlay] Multiple tool execution completed with results:', toolResults);
-          
           // Create tool message
           const toolCalls = highConfidenceSuggestions.map((suggestion, index) => ({
-            id: toolResults[index]?.toolCallId || `call_${Date.now()}_${index}`,
+            id: `tool_call_${Date.now()}_${index}`,
             toolId: suggestion.toolId,
             parameters: suggestion.parameters,
             timestamp: new Date(),
@@ -514,7 +506,7 @@ export const AIOverlay: React.FC = () => {
                             <Card
                               hover
                               className={`cursor-pointer transition-all duration-200 hover:border-primary-500 ${
-                                tool.confidence > 0.8 ? 'border-primary-700' : ''
+                                tool.confidence > 0.7 ? 'border-primary-700' : ''
                               }`}
                             >
                               <CardContent className="p-3 flex items-center space-x-3">

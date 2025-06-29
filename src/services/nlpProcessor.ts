@@ -235,7 +235,7 @@ class NLPProcessor {
           } catch (error) {
             console.error('Error in orchestrated tool execution:', error);
             // Fall back to individual tool execution
-            for (const suggestion of suggestedTools.filter(s => s.confidence > 0.8).slice(0, 1)) {
+            for (const suggestion of suggestedTools.filter(s => s.confidence > 0.7).slice(0, 1)) {
               console.log(`[NLPProcessor] Falling back to individual tool execution: ${suggestion.toolId}`);
               const result = await toolApi.callTool(
                 suggestion.toolId,
