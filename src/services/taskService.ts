@@ -33,7 +33,7 @@ export class TaskService {
       return data.map(this.mapRowToTask);
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -61,7 +61,7 @@ export class TaskService {
       return this.mapRowToTask(data);
     } catch (error) {
       console.error('Error fetching task:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -116,7 +116,7 @@ export class TaskService {
       return this.mapRowToTask(data);
     } catch (error) {
       console.error('Error creating task:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -156,7 +156,7 @@ export class TaskService {
       return this.mapRowToTask(data);
     } catch (error) {
       console.error('Error updating task:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -173,7 +173,7 @@ export class TaskService {
       if (error) throw error;
     } catch (error) {
       console.error('Error deleting task:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -212,7 +212,7 @@ export class TaskService {
       return task;
     } catch (error) {
       console.error('Error assigning task:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -243,7 +243,7 @@ export class TaskService {
       return data.map(this.mapRowToTask);
     } catch (error) {
       console.error('Error fetching tasks by status:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -274,7 +274,7 @@ export class TaskService {
       return data.map(this.mapRowToTask);
     } catch (error) {
       console.error('Error searching tasks:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 

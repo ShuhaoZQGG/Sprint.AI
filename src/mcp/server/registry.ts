@@ -1,5 +1,4 @@
-import { MCPServerTool, MCPServerRegistry, MCPExecutionContext } from './types';
-import { MCPServiceExport } from '../../types/mcp';
+import { MCPServerTool, MCPServerRegistry } from './types';
 
 // Import all services for MCP exposure
 import { docGenerator } from '../../services/docGenerator';
@@ -7,16 +6,10 @@ import { codebaseAnalyzer } from '../../services/codebaseAnalyzer';
 import { prGenerator } from '../../services/prGenerator';
 import { taskService } from '../../services/taskService';
 import { businessSpecService } from '../../services/businessSpecService';
-import { repositoryService } from '../../services/repositoryService';
-import { developerService } from '../../services/developerService';
-import { sprintService } from '../../services/sprintService';
 import { sprintAutomation } from '../../services/sprintAutomation';
 import { teamOptimizer } from '../../services/teamOptimizer';
 import { capacityPlanner } from '../../services/capacityPlanner';
-import { commitAnalyzer } from '../../services/commitAnalyzer';
-import { documentationService } from '../../services/documentationService';
 import { nlpProcessor } from '../../services/nlpProcessor';
-import { groqService } from '../../services/groq';
 import { githubService } from '../../services/github';
 
 class MCPRegistry {
@@ -56,7 +49,7 @@ class MCPRegistry {
       },
       handler: async (params, context) => {
         console.log(`[MCPRegistry] Executing generate-documentation with params:`, params);
-        const { repositoryId, sections } = params;
+        const { repositoryId } = params;
         const repository = context.repositories?.find((r: any) => r.id === repositoryId);
         
         if (!repository) {
@@ -133,7 +126,7 @@ class MCPRegistry {
       },
       handler: async (params, context) => {
         console.log(`[MCPRegistry] Executing analyze-codebase with params:`, params);
-        const { repositoryId, analysisType = 'all' } = params;
+        const { repositoryId } = params;
         const repository = context.repositories?.find((r: any) => r.id === repositoryId);
         
         if (!repository) {
@@ -279,7 +272,7 @@ class MCPRegistry {
         const { assigneeId, repositoryId, ...taskData } = params;
         
         const task = {
-          ...taskData,
+          ...taskData as any,
           status: 'backlog' as const,
           assignee: assigneeId ? context.developers?.find((d: any) => d.id === assigneeId) : undefined,
           repositoryId: repositoryId,
@@ -336,7 +329,7 @@ class MCPRegistry {
       handler: async (params, context) => {
         console.log(`[MCPRegistry] Executing create-business-spec with params:`, params);
         const spec = {
-          ...params,
+          ...params as any,
           acceptanceCriteria: params.acceptanceCriteria || [],
           technicalRequirements: params.technicalRequirements || [],
           status: 'draft' as const,
@@ -382,7 +375,7 @@ class MCPRegistry {
       },
       handler: async (params, context) => {
         console.log(`[MCPRegistry] Executing analyze-team-performance with params:`, params);
-        const { timeframe = 'month', includeRecommendations = true } = params;
+        const { timeframe = 'month' } = params;
         
         if (!context.developers || context.developers.length === 0) {
           throw new Error('No team members found');

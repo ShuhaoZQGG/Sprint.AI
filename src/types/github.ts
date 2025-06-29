@@ -14,6 +14,7 @@ export interface GitHubRepository {
   updated_at: string;
   pushed_at: string;
   size: number;
+  private?: boolean;
   owner: {
     login: string;
     avatar_url: string;

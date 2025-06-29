@@ -36,7 +36,7 @@ export class SprintService {
       return data.map(this.mapRowToSprint);
     } catch (error) {
       console.error('Error fetching sprints:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -67,7 +67,7 @@ export class SprintService {
       return this.mapRowToSprint(data);
     } catch (error) {
       console.error('Error fetching sprint:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -118,7 +118,7 @@ export class SprintService {
       return this.mapRowToSprint(data);
     } catch (error) {
       console.error('Error creating sprint:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -157,7 +157,7 @@ export class SprintService {
       return this.mapRowToSprint(data);
     } catch (error) {
       console.error('Error updating sprint:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -174,7 +174,7 @@ export class SprintService {
       if (error) throw error;
     } catch (error) {
       console.error('Error deleting sprint:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -193,7 +193,7 @@ export class SprintService {
       if (error) throw error;
     } catch (error) {
       console.error('Error adding task to sprint:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -212,7 +212,7 @@ export class SprintService {
       if (error) throw error;
     } catch (error) {
       console.error('Error removing task from sprint:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -249,7 +249,7 @@ export class SprintService {
       return this.mapRowToSprint(data);
     } catch (error) {
       console.error('Error fetching active sprint:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 

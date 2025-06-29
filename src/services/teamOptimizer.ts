@@ -207,7 +207,7 @@ class TeamOptimizer {
         ]
       `;
 
-      const response = await groqService.generateResponse(prompt);
+      const response = await groqService.makeCompletion(prompt);
       const skillGaps = this.parseAIResponse(response);
 
       return Array.isArray(skillGaps) ? skillGaps : [];
@@ -284,7 +284,7 @@ class TeamOptimizer {
         }
       `;
 
-      const response = await groqService.generateResponse(prompt);
+      const response = await groqService.makeCompletion(prompt);
       const recommendations = this.parseAIResponse(response);
 
       return {
@@ -394,7 +394,7 @@ class TeamOptimizer {
         }
       `;
 
-      const response = await groqService.generateResponse(prompt);
+      const response = await groqService.makeCompletion(prompt);
       const skillGaps = this.parseAIResponse(response);
 
       return {

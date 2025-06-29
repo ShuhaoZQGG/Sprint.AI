@@ -29,7 +29,7 @@ export class RepositoryService {
       return data.map(this.mapRowToRepository);
     } catch (error) {
       console.error('Error fetching repositories:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -52,7 +52,7 @@ export class RepositoryService {
       return this.mapRowToRepository(data);
     } catch (error) {
       console.error('Error fetching repository:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -89,7 +89,7 @@ export class RepositoryService {
       return this.mapRowToRepository(data);
     } catch (error) {
       console.error('Error adding repository:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -121,7 +121,7 @@ export class RepositoryService {
       return this.mapRowToRepository(data);
     } catch (error) {
       console.error('Error updating repository:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -138,7 +138,7 @@ export class RepositoryService {
       if (error) throw error;
     } catch (error) {
       console.error('Error deleting repository:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -172,7 +172,7 @@ export class RepositoryService {
       if (error) throw error;
     } catch (error) {
       console.error('Error storing analysis:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
@@ -201,7 +201,7 @@ export class RepositoryService {
       return data.map(this.mapRowToRepository);
     } catch (error) {
       console.error('Error fetching repositories needing analysis:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 
