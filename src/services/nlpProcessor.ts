@@ -180,7 +180,7 @@ class NLPProcessor {
             // Create tool calls from suggestions
             const toolCalls: MCPToolCall[] = suggestedTools
               .filter(tool => tool.confidence > 0.7) // Only use high confidence suggestions
-              .slice(0, 2) // Limit to top 2 to avoid duplicates
+              .slice(0, 5) // Limit to top 2 to avoid duplicates
               .map(tool => ({
                 id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 toolId: tool.toolId,

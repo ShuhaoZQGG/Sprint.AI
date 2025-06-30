@@ -713,7 +713,7 @@ class TeamOptimizer {
       developer.profile.preferredTasks.includes(task.type)
     );
     
-    return betterTasks.slice(0, 2).map(task => task.title);
+    return betterTasks.slice(0, 5).map(task => task.title);
   }
 
   private parseAIResponse(response: string): any {

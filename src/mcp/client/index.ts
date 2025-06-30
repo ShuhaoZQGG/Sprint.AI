@@ -462,7 +462,7 @@ class MCPClient {
           }
           
           if (analysis.recommendations && analysis.recommendations.length > 0) {
-            response += `Key recommendations: ${analysis.recommendations.slice(0, 2).join(', ')}. `;
+            response += `Key recommendations: ${analysis.recommendations.slice(0, 5).join(', ')}. `;
           }
           
           if (analysis.message) {

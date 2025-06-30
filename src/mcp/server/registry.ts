@@ -755,10 +755,11 @@ class MCPRegistry {
         description: 'Generated tasks with reasoning',
       },
       handler: async (params, context) => {
-        console.log(`[MCPRegistry] Executing generate-tasks-from-specs with params:`, params);
+        console.log(`[MCPRegistry] Executing generate-tasks-from-specs with params:`, params, context);
         const { specId } = params;
         
-        const spec = context.businessSpecs?.find((s: any) => s.id === specId);
+        const spec = context.businessSpecs?.find((s: any) => s.id === specId) || context.businessSpecs?.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
         if (!spec) {
           throw new Error('Business specification not found');
         }
