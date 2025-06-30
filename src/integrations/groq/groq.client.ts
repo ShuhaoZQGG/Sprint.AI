@@ -1,22 +1,30 @@
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@nestjs/common';
 
-@Injectable({
-  providedIn: 'root'
-})
+import axios from 'axios';
+
+
+@Injectable()
+
 export class GroqClient {
-  // TODO: Inject HttpClient instance
-  private httpClient: HttpClient;
 
-  constructor(httpClient: HttpClient) {
-    this.httpClient = httpClient;
+  private readonly groqApiUrl = 'https://api.groq.io';
+
+
+  async query(query: string): Promise<any> {
+
+    // TODO: Implement Groq API query logic
+
+    throw new Error('Not implemented');
+
   }
 
-  // TODO: Implement Groq API calls
-  async search(query: string) {
-    // TODO: Make API call to Groq
-    return;
+
+  async search(query: string): Promise<any> {
+
+    // TODO: Implement Groq API search logic
+
+    throw new Error('Not implemented');
+
   }
 
-  // TODO: Implement other Groq API calls
 }
