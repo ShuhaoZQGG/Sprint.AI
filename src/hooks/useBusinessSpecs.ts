@@ -150,6 +150,7 @@ export const useBusinessSpecs = () => {
       
       // Get the business spec
       const spec = businessSpecs.find(s => s.id === specId);
+      console.log('spec', spec);
       if (!spec) {
         throw new Error('Business specification not found');
       }

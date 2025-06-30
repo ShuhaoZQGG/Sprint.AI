@@ -365,6 +365,7 @@ export class BusinessSpecService {
       description: row.description,
       acceptanceCriteria: row.acceptance_criteria || [],
       technicalRequirements: row.technical_requirements || [],
+      repositoryId: row.repository_id || null,
       lastUpdated: new Date(row.updated_at),
       status: row.status,
       priority: row.priority,

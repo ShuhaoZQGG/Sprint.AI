@@ -766,6 +766,7 @@ class MCPRegistry {
         console.log(`[MCPRegistry] Generating tasks from business spec: ${spec.title}`);
         // This would normally call the AI service to generate tasks
         // For now, return mock tasks
+        console.log('spec', spec);
         return {
           tasks: [
             {
@@ -775,7 +776,8 @@ class MCPRegistry {
               priority: spec.priority || 'medium',
               status: 'backlog',
               estimatedEffort: 8,
-              repository_id: spec.repositoryId,
+              repositoryId: spec.repositoryId,
+              businessSpecId: spec.id,
             },
             {
               title: `Test ${spec.title}`,
@@ -784,7 +786,8 @@ class MCPRegistry {
               priority: spec.priority || 'medium',
               status: 'backlog',
               estimatedEffort: 4,
-              repository_id: spec.repositoryId,
+              repositoryId: spec.repositoryId,
+              businessSpecId: spec.id,
             },
           ],
           reasoning: 'Generated tasks based on business specification',

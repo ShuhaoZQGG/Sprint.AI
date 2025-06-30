@@ -311,6 +311,7 @@ class NLPProcessor {
       console.log(`[NLPProcessor] Executing plan ${planId}`);
       const results = await mcpOrchestrator.executePlan(planId);
       const result = results[results.length - 1];
+      console.log('result', result);
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to generate tasks');
