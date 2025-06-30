@@ -181,7 +181,7 @@ class MCPOrchestrator {
             );
             
             // Special handling for PR template after task creation
-            if (step.toolId === 'generate-pr-template' && !resolvedParameters.taskId) {
+            if (step.toolId === 'generate-pr-template' && !resolvedParameters.taskId && resolvedParameters.taskId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)) {
               // Look for a create-task result in previous steps
               for (let j = 0; j < i; j++) {
                 if (plan.steps[j].toolId === 'create-task' && results[j]?.success) {

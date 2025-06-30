@@ -190,7 +190,7 @@ class MCPRegistry {
         description: 'Generated PR template with branch name, description, and scaffolds',
       },
       handler: async (params, context) => {
-        console.log(`[MCPRegistry] Executing generate-pr-template with params:`, params);
+        console.log(`[MCPRegistry] Executing generate-pr-template with params:`, params, context);
         const { taskId, repositoryId, includeScaffolds = true } = params;
         const task = context.tasks?.find((t: any) => t.id === taskId);
         const repository = context.repositories?.find((r: any) => r.id === repositoryId);

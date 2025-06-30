@@ -454,6 +454,8 @@ class ToolApi {
       
       if (taskTitle && repositoryId) {
         // First check if we have an existing task with this title
+        console.log('taskTitle', taskTitle);
+        console.log('context.tasks', context.tasks);
         const matchingTask = context.tasks?.find((task: any) => 
           task.title.toLowerCase().includes(taskTitle.toLowerCase())
         );
