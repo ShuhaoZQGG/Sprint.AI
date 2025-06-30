@@ -63,7 +63,7 @@ export const DashboardView: React.FC = () => {
           <div>
             <h1 className="text-2xl font-bold mb-2">Welcome to Sprint.AI</h1>
             <p className="text-primary-100">
-              Your AI-native development platform is ready. Let's build something amazing.
+              Your AI-native project management platform is ready. Let's build something amazing.
             </p>
           </div>
           <div className="w-16 h-16 bg-white/20 rounded-lg flex items-center justify-center">

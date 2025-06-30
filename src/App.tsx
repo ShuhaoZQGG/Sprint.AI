@@ -62,7 +62,7 @@ function App() {
                 </SlideIn>
                 <SlideIn direction="up" delay={600}>
                   <h1 className="text-3xl font-bold mb-2">Welcome to Sprint.AI</h1>
-                  <p className="text-dark-400">Your AI-native development platform</p>
+                  <p className="text-dark-400">Your AI-native project management platform</p>
                 </SlideIn>
               </div>
             </FadeIn>
