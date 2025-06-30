@@ -111,6 +111,7 @@ export interface BusinessSpec {
   id: string;
   title: string;
   description: string;
+  repositoryId?: string;
   acceptanceCriteria: string[];
   technicalRequirements?: string[];
   generatedTasks?: Task[];

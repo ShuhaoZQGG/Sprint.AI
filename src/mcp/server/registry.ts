@@ -775,6 +775,7 @@ class MCPRegistry {
               priority: spec.priority || 'medium',
               status: 'backlog',
               estimatedEffort: 8,
+              repository_id: spec.repositoryId,
             },
             {
               title: `Test ${spec.title}`,
@@ -783,6 +784,7 @@ class MCPRegistry {
               priority: spec.priority || 'medium',
               status: 'backlog',
               estimatedEffort: 4,
+              repository_id: spec.repositoryId,
             },
           ],
           reasoning: 'Generated tasks based on business specification',

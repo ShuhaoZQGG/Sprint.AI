@@ -182,6 +182,7 @@ export const DocsView: React.FC = () => {
       const businessSpec: Omit<BusinessSpec, 'id' | 'lastUpdated'> = {
         title: specData.title || 'Generated from Documentation Changes',
         description: specData.description || 'Auto-generated from documentation updates',
+        repositoryId: doc.repositoryId,
         acceptanceCriteria: specData.acceptanceCriteria || [],
         technicalRequirements: specData.technicalRequirements || [],
         status: 'draft',

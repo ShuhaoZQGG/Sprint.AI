@@ -81,6 +81,7 @@ export class BusinessSpecService {
         created_by: user.id,
         title: spec.title,
         description: spec.description,
+        repository_id: spec.repositoryId || null,
         acceptance_criteria: spec.acceptanceCriteria.filter(c => c.trim()),
         technical_requirements: spec.technicalRequirements?.filter(r => r.trim()) || [],
         priority: spec.priority || 'medium',
@@ -103,7 +104,7 @@ export class BusinessSpecService {
       return this.mapRowToBusinessSpec(data);
     } catch (error) {
       console.error('Error creating business spec:', error);
-      throw new Error(handleSupabaseError(error));
+      throw new Error(handleSupabaseError(error).message);
     }
   }
 

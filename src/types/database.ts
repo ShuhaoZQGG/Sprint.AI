@@ -213,6 +213,7 @@ export interface Database {
         Insert: {
           id?: string;
           team_id: string;
+          repository_id?: string | null;
           created_by?: string | null;
           title: string;
           description: string;

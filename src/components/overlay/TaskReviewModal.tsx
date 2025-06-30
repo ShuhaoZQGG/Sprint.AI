@@ -22,6 +22,8 @@ import { useDevelopers } from '../../hooks/useDevelopers';
 import { prGenerator } from '../../services/prGenerator';
 import toast from 'react-hot-toast';
 import { useRepositories } from '../../hooks/useRepositories';
+import { repositoryService } from '../../services/repositoryService';
+import { documentationService } from '../../services/documentationService';
 
 interface TaskReviewModalProps {
   isOpen: boolean;
@@ -134,9 +136,14 @@ export const TaskReviewModal: React.FC<TaskReviewModalProps> = ({
       toast.error('No repository selected');
       return;
     }
+    const repository = await repositoryService.getRepository(task.repositoryId || '');
+    if (!repository && !currentRepository) {
+      toast.error('No repository selected');
+      return;
+    }
     setGeneratingPRs(prev => new Set(prev).add(taskIndex));
     try {
-      await prGenerator.generatePRTemplate({
+      const { template } = await prGenerator.generatePRTemplate({
         task: {
           ...task,
           id: (task as any).id || `temp-${taskIndex}`,
@@ -146,7 +153,13 @@ export const TaskReviewModal: React.FC<TaskReviewModalProps> = ({
         repository: currentRepository,
         includeScaffolds: true,
       });
-      toast.success(`PR template generated for "${task.title}"`);
+      template.branchName = template.branchName + '-' + Math.random().toString(36).substring(2, 12);
+      const { prUrl } = await prGenerator.submitPRToGitHub(template, repository ? repository : currentRepository!);
+      toast.success((
+        <span>
+          PR created for "{task.title}" <a href={prUrl} target="_blank" rel="noopener noreferrer" className="underline text-primary-400">View PR</a>
+        </span>
+      ));    
     } catch (error) {
       console.error('Error generating PR:', error);
       toast.error('Failed to generate PR template');
