@@ -458,7 +458,7 @@ class ToolApi {
         console.log('context.tasks', context.tasks);
         const matchingTask = context.tasks?.find((task: any) => 
           task.title.toLowerCase().includes(taskTitle.toLowerCase())
-        );
+        ) || context.tasks?.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.created_at).getTime())[0];
         
         if (matchingTask) {
           console.log(`[MCP] Found matching task for PR: ${matchingTask.title} (${matchingTask.id})`);
